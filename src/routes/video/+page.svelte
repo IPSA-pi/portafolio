@@ -17,6 +17,11 @@
     ];
 </script>
 
+<svelte:head>
+    <title>Video | Artist Name</title>
+    <meta name="description" content="Video art and installations." />
+</svelte:head>
+
 <div class="max-w-7xl mx-auto py-8">
     <header class="mb-12">
         <h1 class="text-4xl font-light text-gray-900 tracking-tight">

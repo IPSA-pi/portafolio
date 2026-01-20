@@ -1,3 +1,8 @@
+<svelte:head>
+    <title>CV | Artist Name</title>
+    <meta name="description" content="Artist CV, Education, and Exhibitions." />
+</svelte:head>
+
 <div class="max-w-4xl mx-auto py-12 px-4 sm:px-6">
     <div class="mb-16">
         <h1 class="text-5xl font-light tracking-tight text-gray-900 mb-6">

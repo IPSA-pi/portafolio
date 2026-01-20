@@ -1,7 +1,12 @@
 <script lang="ts">
     import { fade, scale } from "svelte/transition";
 
-    let { image, onClose } = $props();
+    interface Props {
+        image: string;
+        onClose: () => void;
+    }
+
+    let { image, onClose }: Props = $props();
     let rotation = $state(0);
 
     function handleRotate(e: Event) {
@@ -20,10 +25,12 @@
 
 <!-- Backdrop -->
 <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm transition-all"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm transition-all outline-none"
     onclick={onClose}
-    role="dialog"
-    aria-modal="true"
+    onkeydown={(e) => e.key === "Escape" && onClose()}
+    role="button"
+    tabindex="0"
+    aria-label="Close lightbox"
     transition:fade={{ duration: 200 }}
 >
     <!-- Close Button -->
@@ -73,10 +80,14 @@
     </button>
 
     <!-- Image Container -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
-        class="relative max-h-[90vh] max-w-[90vw] overflow-hidden"
+        class="relative max-h-[90vh] max-w-[90vw] overflow-hidden outline-none"
         transition:scale={{ duration: 300, start: 0.95 }}
         onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="group"
+        tabindex="-1"
     >
         <div
             class="transition-transform duration-300 ease-out"

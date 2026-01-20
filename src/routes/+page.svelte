@@ -1,3 +1,11 @@
+<svelte:head>
+    <title>Artist Name - Portfolio</title>
+    <meta
+        name="description"
+        content="Personal portfolio of Artist Name, featuring photography, video, and drawing works."
+    />
+</svelte:head>
+
 <div
     class="min-h-[80vh] flex flex-col justify-center items-center text-center px-4 fade-in"
 >

@@ -1,3 +1,8 @@
+<svelte:head>
+    <title>About | Artist Name</title>
+    <meta name="description" content="Biography and artist statement." />
+</svelte:head>
+
 <div
     class="max-w-6xl mx-auto py-12 px-4 sm:px-6 flex flex-col md:flex-row gap-16 items-start"
 >

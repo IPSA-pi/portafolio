@@ -10,6 +10,11 @@
     ];
 </script>
 
+<svelte:head>
+    <title>Photography | Artist Name</title>
+    <meta name="description" content="Selected photography works." />
+</svelte:head>
+
 <div class="max-w-7xl mx-auto py-8">
     <header class="mb-12">
         <h1 class="text-4xl font-light text-gray-900 tracking-tight">

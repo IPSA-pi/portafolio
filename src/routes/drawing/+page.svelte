@@ -12,8 +12,8 @@
 </script>
 
 <svelte:head>
-    <title>Drawings | Portfolio</title>
-    <meta name="description" content="A collection of my drawings." />
+    <title>Drawings | Artist Name</title>
+    <meta name="description" content="Selected drawings and sketches." />
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">
