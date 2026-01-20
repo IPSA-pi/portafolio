@@ -5,7 +5,7 @@
     // w=2400;1200;800;400 generates 4 variants of each image
     const images = import.meta.glob("$lib/assets/drawings/*", {
         eager: true,
-        query: { enhanced: true, w: "2400;1200;800;400" },
+        query: { enhanced: true, w: "1280;800;400" },
     });
     // Extract the default export (the image object) from the modules
     const imageList = Object.values(images).map((mod: any) => mod.default);

@@ -175,7 +175,7 @@
                     src={currentImage}
                     alt="Fullscreen view"
                     class="max-h-[85vh] w-auto max-w-[85vw] object-contain shadow-2xl"
-                    sizes="100vw"
+                    sizes="(min-width: 1280px) 1280px, 100vw"
                 />
             </div>
         {/key}
