@@ -3,16 +3,10 @@
 
     const videos = [
         {
-            title: "Abstract Motions in Nature",
-            description:
-                "A study of wind and water dynamics filmed in high contrast monochrome. 2024.",
-            videoUrl: "https://www.youtube.com/embed/lxI1FOmT-u0",
-        },
-        {
-            title: "Urban Decay: Industrial Echoes",
-            description:
-                "Documenting the forgotten architecture of the post-industrial era. A visual journey through abandoned spaces and silence. 2023.",
-            videoUrl: "https://www.youtube.com/embed/ScMzIvxBSi4",
+            title: "Segunda bienal de la pipa 2021",
+            description: "Segunda bienal de la pipa 2021",
+            videoUrl:
+                "https://www.youtube.com/embed/z8arUBNam5A?si=-EtlJd7bNmvo9ZhW",
         },
     ];
 </script>
