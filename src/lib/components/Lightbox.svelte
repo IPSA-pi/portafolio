@@ -1,5 +1,6 @@
 <script lang="ts">
     import { fade, scale } from "svelte/transition";
+    import { untrack } from "svelte";
 
     interface Props {
         images: string[];
@@ -8,7 +9,7 @@
     }
 
     let { images, startIndex, onClose }: Props = $props();
-    let currentIndex = $state(startIndex);
+    let currentIndex = $state(untrack(() => startIndex));
     let rotation = $state(0);
     let loading = $state(true);
 
