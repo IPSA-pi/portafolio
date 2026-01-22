@@ -21,11 +21,15 @@
 			onclick={() => (selectedIndex = index)}
 			aria-label="View artwork in fullscreen"
 		>
-			<enhanced:img
-				src={image}
+			<img
+				src={image.replace(/\.\w+$/, "-md.webp")}
+				srcset="{image.replace(/\.\w+$/, '-sm.webp')} 640w,
+						{image.replace(/\.\w+$/, '-md.webp')} 1024w,
+						{image.replace(/\.\w+$/, '-lg.webp')} 1920w"
+				sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
 				alt="Drawing portfolio piece"
 				class="h-full w-full object-cover"
-				sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+				loading="lazy"
 			/>
 		</button>
 	{/each}

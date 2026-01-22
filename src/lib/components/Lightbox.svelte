@@ -207,13 +207,12 @@
                 style="transform: rotate({rotation}deg)"
                 transition:scale={{ duration: 300, start: 0.9 }}
             >
-                <enhanced:img
-                    src={currentImage}
+                <img
+                    src={currentImage.replace(/\.\w+$/, "-lg.webp")}
                     alt="Fullscreen view"
                     class="max-h-[85vh] w-auto max-w-[85vw] object-contain shadow-2xl transition-opacity duration-300 {loading
                         ? 'opacity-0'
                         : 'opacity-100'}"
-                    sizes="(min-width: 1280px) 1280px, 100vw"
                     onload={() => (loading = false)}
                 />
             </div>
@@ -222,15 +221,7 @@
 
     <!-- Preloader -->
     <div class="hidden">
-        <enhanced:img
-            src={images[nextIndex]}
-            alt=""
-            sizes="(min-width: 1280px) 1280px, 100vw"
-        />
-        <enhanced:img
-            src={images[prevIndex]}
-            alt=""
-            sizes="(min-width: 1280px) 1280px, 100vw"
-        />
+        <img src={images[nextIndex].replace(/\.\w+$/, "-lg.webp")} alt="" />
+        <img src={images[prevIndex].replace(/\.\w+$/, "-lg.webp")} alt="" />
     </div>
 </div>

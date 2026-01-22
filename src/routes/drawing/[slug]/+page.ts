@@ -11,14 +11,13 @@ export async function load({ params }) {
 
     // Glob all drawing images 3 levels deep (assets/drawings/FOLDER/IMAGE)
     const modules = import.meta.glob('$lib/assets/drawings/*/*', {
-        eager: true,
-        query: { enhanced: true, w: "1280;800;400" }
+        eager: true
     });
 
     const images = [];
 
     for (const path in modules) {
-        if (path.includes(`/${slug}/`)) {
+        if (path.includes(`/${slug}/`) && !path.match(/-(sm|md|lg)\.webp$/)) {
             images.push((modules[path] as any).default);
         }
     }

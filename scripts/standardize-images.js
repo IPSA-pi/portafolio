@@ -8,29 +8,64 @@ const __dirname = path.dirname(__filename);
 
 const ASSETS_DIR = path.resolve(__dirname, '../src/lib/assets/drawings');
 
+async function getFiles(dir) {
+    const dirents = await fs.readdir(dir, { withFileTypes: true });
+    const files = await Promise.all(dirents.map((dirent) => {
+        const res = path.resolve(dir, dirent.name);
+        return dirent.isDirectory() ? getFiles(res) : res;
+    }));
+    return Array.prototype.concat(...files);
+}
+
 async function processImages() {
-    console.log(`Converting images to standard RGB in ${ASSETS_DIR}...`);
+    console.log(`Generating multi-scale WebP images in ${ASSETS_DIR}...`);
     try {
-        const files = await fs.readdir(ASSETS_DIR);
+        const allFiles = await getFiles(ASSETS_DIR);
 
-        for (const file of files) {
-            if (!file.match(/\.(png|jpg|jpeg)$/i)) continue;
+        // Filter for source images
+        const sourceFiles = allFiles.filter(f =>
+            f.match(/\.(png|jpg|jpeg|webp)$/i) &&
+            !f.includes('-sm.webp') &&
+            !f.includes('-md.webp') &&
+            !f.includes('-lg.webp')
+        );
 
-            const filePath = path.join(ASSETS_DIR, file);
-            const tempPath = filePath + '.rgb.png';
+        console.log(`Found ${sourceFiles.length} source images.`);
 
-            try {
-                console.log(`Processing ${file}...`);
-                // Force conversion to standard sRGB png, no palette
-                await sharp(filePath)
-                    .png({ palette: false, compressionLevel: 9 })
-                    .toFile(tempPath);
+        for (const filePath of sourceFiles) {
+            const dir = path.dirname(filePath);
+            const ext = path.extname(filePath);
+            const baseName = path.basename(filePath, ext); // filename without extension
 
-                await fs.rename(tempPath, filePath);
-                console.log(`✅ Converted ${file}`);
-            } catch (err) {
-                console.error(`❌ Error processing ${file}:`, err);
-                try { await fs.unlink(tempPath); } catch (e) { }
+            // Define targets
+            const targets = [
+                { suffix: '-sm', width: 640 },
+                { suffix: '-md', width: 1024 },
+                { suffix: '-lg', width: 1920 }
+            ];
+
+            for (const target of targets) {
+                const targetFilename = `${baseName}${target.suffix}.webp`;
+                const targetPath = path.join(dir, targetFilename);
+
+                // Check if exists
+                try {
+                    await fs.access(targetPath);
+                    continue;
+                } catch {
+                    // File doesn't exist, proceed
+                }
+
+                console.log(`  Generating ${targetFilename}...`);
+
+                try {
+                    await sharp(filePath)
+                        .resize({ width: target.width, withoutEnlargement: true })
+                        .webp({ quality: 80 })
+                        .toFile(targetPath);
+                } catch (err) {
+                    console.error(`❌ Error processing ${filePath} -> ${target.suffix}:`, err);
+                }
             }
         }
         console.log('Done!');
