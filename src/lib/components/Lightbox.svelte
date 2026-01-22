@@ -3,7 +3,7 @@
     import { untrack } from "svelte";
 
     interface Props {
-        images: string[];
+        images: { original: string; sm: string; md: string; lg: string }[];
         startIndex: number;
         onClose: () => void;
     }
@@ -208,7 +208,7 @@
                 transition:scale={{ duration: 300, start: 0.9 }}
             >
                 <img
-                    src={currentImage.replace(/\.\w+$/, "-lg.webp")}
+                    src={currentImage.lg}
                     alt="Fullscreen view"
                     class="max-h-[85vh] w-auto max-w-[85vw] object-contain shadow-2xl transition-opacity duration-300 {loading
                         ? 'opacity-0'
@@ -221,7 +221,7 @@
 
     <!-- Preloader -->
     <div class="hidden">
-        <img src={images[nextIndex].replace(/\.\w+$/, "-lg.webp")} alt="" />
-        <img src={images[prevIndex].replace(/\.\w+$/, "-lg.webp")} alt="" />
+        <img src={images[nextIndex].lg} alt="" />
+        <img src={images[prevIndex].lg} alt="" />
     </div>
 </div>
