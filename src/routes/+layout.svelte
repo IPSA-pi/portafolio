@@ -24,29 +24,9 @@
         </div>
         <div class="hidden sm:ml-8 sm:flex sm:space-x-8">
           <a
-            href="/photography"
-            class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-            >Photography</a
-          >
-          <a
-            href="/video"
-            class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-            >Video</a
-          >
-          <a
             href="/drawing"
             class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
             >Drawing</a
-          >
-          <a
-            href="/about"
-            class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-            >About</a
-          >
-          <a
-            href="/cv"
-            class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-            >CV</a
           >
         </div>
       </div>

@@ -23,12 +23,11 @@
         <p
             class="text-xl md:text-2xl text-gray-600 dark:text-gray-400 font-light tracking-widest uppercase mb-16"
         >
-            Photography <span class="mx-2">·</span> Video
-            <span class="mx-2">·</span> Drawing
+            Drawing
         </p>
 
         <a
-            href="/photography"
+            href="/drawing"
             class="inline-block border border-gray-900 dark:border-white px-8 py-3 text-sm uppercase tracking-widest text-gray-900 dark:text-white hover:bg-gray-900 hover:text-white dark:hover:bg-white dark:hover:text-black transition-all duration-300"
         >
             View Selected Works
