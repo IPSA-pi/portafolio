@@ -23,7 +23,8 @@
 		"svelte-check": "^4.3.4",
 		"tailwindcss": "^3.4.9",
 		"typescript": "^5.9.3",
-		"vite": "^7.2.6"
+		"vite": "^7.2.6",
+		"wrangler": "^4.86.0"
 	},
 	"dependencies": {
 		"resend": "^6.12.3",
