@@ -1,5 +1,5 @@
 import { getStripe } from '$lib/server/stripe';
-import { resend } from '$lib/server/resend';
+import { getResend } from '$lib/server/resend';
 import { env } from '$env/dynamic/private';
 import { error, json } from '@sveltejs/kit';
 
@@ -44,8 +44,8 @@ export const POST = async ({ request }) => {
                 const customerEmail = session.customer_details?.email;
                 
                 if (customerEmail) {
-                    await resend.emails.send({
-                        from: 'Artist <onboarding@resend.dev>', // Update with your verified domain
+                    await getResend().emails.send({
+                        from: 'Artist <onboarding@getResend().dev>', // Update with your verified domain
                         to: customerEmail,
                         subject: 'Thank you for your purchase!',
                         html: `<p>Hi! Thank you for purchasing <strong>${slug}</strong>. I will be shipping it to you shortly.</p>`
@@ -53,8 +53,8 @@ export const POST = async ({ request }) => {
                 }
 
                 // Notify the artist
-                await resend.emails.send({
-                    from: 'Store <onboarding@resend.dev>',
+                await getResend().emails.send({
+                    from: 'Store <onboarding@getResend().dev>',
                     to: 'your-email@example.com', // Replace with user's actual email
                     subject: 'New Original Sold!',
                     html: `<p>Drawing <strong>${slug}</strong> has been sold to ${customerEmail}.</p>`
