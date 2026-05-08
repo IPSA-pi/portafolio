@@ -1,4 +1,4 @@
 import { Resend } from 'resend';
-import { RESEND_API_KEY } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
-export const resend = new Resend(RESEND_API_KEY);
+export const resend = new Resend(env.RESEND_API_KEY);

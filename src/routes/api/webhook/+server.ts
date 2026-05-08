@@ -1,6 +1,6 @@
 import { stripe } from '$lib/server/stripe';
 import { resend } from '$lib/server/resend';
-import { STRIPE_WEBHOOK_SECRET } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { error, json } from '@sveltejs/kit';
 
 export const POST = async ({ request }) => {
@@ -14,7 +14,7 @@ export const POST = async ({ request }) => {
     let event;
 
     try {
-        event = stripe.webhooks.constructEvent(body, signature, STRIPE_WEBHOOK_SECRET);
+        event = stripe.webhooks.constructEvent(body, signature, env.STRIPE_WEBHOOK_SECRET as string);
     } catch (err: any) {
         console.error('Webhook signature verification failed:', err.message);
         throw error(400, `Webhook Error: ${err.message}`);

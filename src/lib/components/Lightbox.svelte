@@ -145,7 +145,12 @@
     </button>
 
     <!-- Action Bar (Rotate + Purchase) -->
-    <div class="absolute bottom-8 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-6" onclick={(e) => e.stopPropagation()}>
+    <div 
+        class="absolute bottom-8 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-6" 
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="presentation"
+    >
         <PurchaseButton 
             priceId={currentProduct.priceId} 
             price={currentProduct.price} 
