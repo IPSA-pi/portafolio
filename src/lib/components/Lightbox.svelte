@@ -1,15 +1,19 @@
 <script lang="ts">
     import { fade, scale } from "svelte/transition";
     import { untrack } from "svelte";
+    import { page } from "$app/stores";
+    import PurchaseButton from "./PurchaseButton.svelte";
 
     interface Props {
-        images: { original: string; sm: string; md: string; lg: string }[];
+        images: { original: string; sm: string; md: string; lg: string; slug: string }[];
+        products: Record<string, { priceId: string; price: number; sold: boolean }>;
         startIndex: number;
         onClose: () => void;
     }
 
-    let { images, startIndex, onClose }: Props = $props();
+    let { images, products, startIndex, onClose }: Props = $props();
     let currentIndex = $state(untrack(() => startIndex));
+    let notebookSlug = $derived($page.params.slug ?? "");
     let rotation = $state(0);
     let loading = $state(true);
 
@@ -24,6 +28,7 @@
     });
 
     let currentImage = $derived(images[currentIndex]);
+    let currentProduct = $derived(products[currentImage.slug] || {});
     let nextIndex = $derived((currentIndex + 1) % images.length);
     let prevIndex = $derived(
         (currentIndex - 1 + images.length) % images.length,
@@ -139,29 +144,39 @@
         </svg>
     </button>
 
-    <!-- Rotate Button -->
-    <button
-        class="absolute bottom-8 left-1/2 z-50 -translate-x-1/2 transform rounded-full bg-white/10 px-6 py-2 text-white backdrop-blur-md transition hover:bg-white/20 active:scale-95"
-        onclick={handleRotate}
-    >
-        <div class="flex items-center gap-2">
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-                class="h-5 w-5"
-            >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
-                />
-            </svg>
-            <span>Rotate</span>
-        </div>
-    </button>
+    <!-- Action Bar (Rotate + Purchase) -->
+    <div class="absolute bottom-8 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-6" onclick={(e) => e.stopPropagation()}>
+        <PurchaseButton 
+            priceId={currentProduct.priceId} 
+            price={currentProduct.price} 
+            slug={currentImage.slug} 
+            {notebookSlug}
+            sold={currentProduct.sold} 
+        />
+
+        <button
+            class="rounded-full bg-white/10 px-6 py-2 text-white backdrop-blur-md transition hover:bg-white/20 active:scale-95"
+            onclick={handleRotate}
+        >
+            <div class="flex items-center gap-2">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                    class="h-5 w-5"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+                    />
+                </svg>
+                <span>Rotate</span>
+            </div>
+        </button>
+    </div>
 
     <!-- Loading Spinner -->
     {#if loading}
