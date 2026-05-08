@@ -1,7 +1,8 @@
 import { error } from '@sveltejs/kit';
 import { getStripe } from '$lib/server/stripe';
+import type { RequestEvent } from '@sveltejs/kit';
 
-export async function load({ params }) {
+export async function load({ params, url }: RequestEvent) {
     const slug = params.slug;
 
     // Glob ALL images (original + webp variants)
@@ -55,11 +56,24 @@ export async function load({ params }) {
                 acc[p.metadata.slug] = {
                     priceId: (p.default_price as any)?.id,
                     price: (p.default_price as any)?.unit_amount,
-                    sold: p.metadata.sold === 'true'
+                    sold: p.metadata.sold === 'true' || p.metadata.reserved === 'true'
                 };
             }
             return acc;
         }, {} as Record<string, { priceId: string, price: number, sold: boolean }>);
+
+        // If returning from a completed checkout, verify the session and mark as sold
+        // immediately so the UI reflects it before the webhook fires.
+        const sessionId = url.searchParams.get('session_id');
+        if (sessionId) {
+            const session = await getStripe().checkout.sessions.retrieve(sessionId);
+            if (session.payment_status === 'paid') {
+                const soldSlug = session.metadata?.slug;
+                if (soldSlug && productsMap[soldSlug]) {
+                    productsMap[soldSlug] = { ...productsMap[soldSlug], sold: true };
+                }
+            }
+        }
     } catch (e) {
         console.error('Error fetching Stripe products:', e);
         // Fallback or handle gracefully if Stripe is not configured

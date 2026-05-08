@@ -23,9 +23,14 @@
                 body: JSON.stringify({ priceId, slug, notebookSlug })
             });
 
-            const { url } = await response.json();
-            if (url) {
-                window.location.href = url;
+            const data = await response.json();
+            if (response.status === 409) {
+                alert('Sorry, this drawing was just purchased by someone else.');
+                window.location.reload();
+                return;
+            }
+            if (data.url) {
+                window.location.href = data.url;
             }
         } catch (e) {
             console.error('Checkout error:', e);

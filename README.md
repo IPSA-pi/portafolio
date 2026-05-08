@@ -1,38 +1,133 @@
-# sv
+# iansebelius.com
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Personal portfolio and drawing gallery with e-commerce, built with SvelteKit and deployed on Cloudflare Workers.
 
-## Creating a project
+Live at [iansebelius.com](https://iansebelius.com)
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Stack
+
+- **SvelteKit** — framework
+- **Tailwind CSS** — styling
+- **Cloudflare Workers** — hosting and edge runtime
+- **Stripe** — payments
+- **Resend** — transactional email
+
+## Requirements
+
+- Node.js
+- [Stripe CLI](https://docs.stripe.com/stripe-cli) — for forwarding webhook events locally
+
+Install the Stripe CLI on Ubuntu/WSL:
 
 ```sh
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
+curl -L https://github.com/stripe/stripe-cli/releases/latest/download/stripe_1.40.9_linux_amd64.deb -o stripe.deb
+sudo dpkg -i stripe.deb
+rm stripe.deb
 ```
+
+## Environment variables
+
+Create a `.env` file in the project root (also create `.dev.vars` with the same values for `wrangler dev`):
+
+```sh
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+RESEND_API_KEY=re_...
+```
+
+`STRIPE_WEBHOOK_SECRET` comes from the Stripe CLI when you run `stripe listen` (see below).
 
 ## Developing
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Install dependencies:
 
 ```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+npm install
 ```
+
+Then start the dev server and Stripe webhook forwarder in two separate terminals:
+
+**Terminal 1 — dev server:**
+```sh
+npm run dev
+```
+
+**Terminal 2 — Stripe webhooks:**
+```sh
+stripe login
+stripe listen --forward-to localhost:5173/api/webhook
+```
+
+`stripe listen` will print a `whsec_...` key on startup — set that as `STRIPE_WEBHOOK_SECRET` in `.env` and `.dev.vars`, then restart the dev server.
+
+Use Stripe's test card `4242 4242 4242 4242` (any future expiry, any CVC) to make test purchases.
 
 ## Building
 
-To create a production version of your app:
+The build step pre-processes images before running Vite:
 
 ```sh
 npm run build
 ```
 
-You can preview the production build with `npm run preview`.
+Preview the production build locally:
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+```sh
+npm run preview
+```
+
+## Deploying
+
+### 1. Cloudflare
+
+Log in and deploy:
+
+```sh
+npx wrangler login
+npx wrangler deploy
+```
+
+The site deploys to `iansebelius.com` via the custom domain configured in `wrangler.jsonc`. The domain must be on Cloudflare DNS for this to work.
+
+### 2. Production secrets
+
+Set each secret via Wrangler — do not commit these to the repo:
+
+```sh
+npx wrangler secret put STRIPE_SECRET_KEY
+npx wrangler secret put STRIPE_WEBHOOK_SECRET
+npx wrangler secret put RESEND_API_KEY
+```
+
+Use live keys (`sk_live_...`) for `STRIPE_SECRET_KEY` in production. `STRIPE_WEBHOOK_SECRET` comes from the Stripe dashboard after registering the webhook endpoint (step 3).
+
+### 3. Stripe webhook
+
+In the [Stripe Dashboard](https://dashboard.stripe.com/webhooks), add a webhook endpoint:
+
+- **URL:** `https://iansebelius.com/api/webhook`
+- **Events to listen for:**
+  - `checkout.session.completed`
+  - `checkout.session.expired`
+
+Copy the signing secret and set it as `STRIPE_WEBHOOK_SECRET` via Wrangler.
+
+### 4. Resend domain
+
+The emails are sent from `no-reply@iansebelius.com`. Verify the domain in the [Resend dashboard](https://resend.com/domains) and add the required DNS records to Cloudflare.
+
+## Project structure
+
+```
+src/
+  routes/
+    +page.svelte        # Home
+    drawing/            # Drawing gallery
+    api/
+      checkout/         # Stripe checkout session creation
+      webhook/          # Stripe webhook handler (marks sold, sends emails)
+  lib/
+    assets/drawings/    # Drawing images (webp, multiple sizes)
+scripts/
+  standardize-images.js # Image pre-processing run before build
+```

@@ -1,5 +1,5 @@
 <svelte:head>
-    <title>Artist Name - Portfolio</title>
+    <title>iansebelius</title>
     <meta
         name="description"
         content="Personal portfolio of Artist Name, featuring photography, video, and drawing works."
