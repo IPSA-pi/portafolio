@@ -12,6 +12,9 @@ node_modules
 .DS_Store
 Thumbs.db
 
+# Raw media sources (processed output in static/home/ is committed)
+/media
+
 # Env
 .env
 .env.*

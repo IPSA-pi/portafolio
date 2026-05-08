@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
+		"process-media": "node scripts/process-home-media.js",
 		"build": "node scripts/standardize-images.js && vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
