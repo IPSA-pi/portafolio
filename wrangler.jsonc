@@ -12,5 +12,11 @@
   },
   "compatibility_flags": [
     "nodejs_compat"
+  ],
+  "routes": [
+    {
+      "pattern": "iansebelius.com",
+      "custom_domain": true
+    }
   ]
 }
