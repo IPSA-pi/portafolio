@@ -1,4 +1,4 @@
-import { stripe } from '$lib/server/stripe';
+import { getStripe } from '$lib/server/stripe';
 import { json } from '@sveltejs/kit';
 
 export const POST = async ({ request, url }) => {
@@ -9,7 +9,7 @@ export const POST = async ({ request, url }) => {
             return json({ error: 'Missing priceId or slug' }, { status: 400 });
         }
 
-        const session = await stripe.checkout.sessions.create({
+        const session = await getStripe().checkout.sessions.create({
             line_items: [{ price: priceId, quantity: 1 }],
             mode: 'payment',
             success_url: `${url.origin}/drawing/${notebookSlug}?success=true&drawing=${slug}`,

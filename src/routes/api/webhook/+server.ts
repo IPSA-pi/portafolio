@@ -1,4 +1,4 @@
-import { stripe } from '$lib/server/stripe';
+import { getStripe } from '$lib/server/stripe';
 import { resend } from '$lib/server/resend';
 import { env } from '$env/dynamic/private';
 import { error, json } from '@sveltejs/kit';
@@ -14,7 +14,7 @@ export const POST = async ({ request }) => {
     let event;
 
     try {
-        event = stripe.webhooks.constructEvent(body, signature, env.STRIPE_WEBHOOK_SECRET as string);
+        event = getStripe().webhooks.constructEvent(body, signature, env.STRIPE_WEBHOOK_SECRET as string);
     } catch (err: any) {
         console.error('Webhook signature verification failed:', err.message);
         throw error(400, `Webhook Error: ${err.message}`);
@@ -28,13 +28,13 @@ export const POST = async ({ request }) => {
             try {
                 // 1. Mark product as sold in Stripe metadata
                 // We need to find the product ID by the slug metadata first
-                const products = await stripe.products.list({
+                const products = await getStripe().products.list({
                     active: true
                 });
                 const product = products.data.find(p => p.metadata.slug === slug);
 
                 if (product) {
-                    await stripe.products.update(product.id, {
+                    await getStripe().products.update(product.id, {
                         metadata: { ...product.metadata, sold: 'true' }
                     });
                     console.log(`Product ${slug} marked as sold.`);

@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { stripe } from '$lib/server/stripe';
+import { getStripe } from '$lib/server/stripe';
 
 export async function load({ params }) {
     const slug = params.slug;
@@ -45,7 +45,7 @@ export async function load({ params }) {
     let productsMap: Record<string, { priceId: string, price: number, sold: boolean }> = {};
 
     try {
-        const products = await stripe.products.list({
+        const products = await getStripe().products.list({
             active: true,
             expand: ['data.default_price']
         });
