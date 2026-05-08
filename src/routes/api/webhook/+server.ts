@@ -45,7 +45,7 @@ export const POST = async ({ request }) => {
                 
                 if (customerEmail) {
                     await getResend().emails.send({
-                        from: 'Artist <onboarding@getResend().dev>', // Update with your verified domain
+                        from: 'Artist <no-reply@iansebelius.com>',
                         to: customerEmail,
                         subject: 'Thank you for your purchase!',
                         html: `<p>Hi! Thank you for purchasing <strong>${slug}</strong>. I will be shipping it to you shortly.</p>`
@@ -54,8 +54,8 @@ export const POST = async ({ request }) => {
 
                 // Notify the artist
                 await getResend().emails.send({
-                    from: 'Store <onboarding@getResend().dev>',
-                    to: 'your-email@example.com', // Replace with user's actual email
+                    from: 'Store <no-reply@iansebelius.com>',
+                    to: 'sebeliusancira@gmail.com',
                     subject: 'New Original Sold!',
                     html: `<p>Drawing <strong>${slug}</strong> has been sold to ${customerEmail}.</p>`
                 });
