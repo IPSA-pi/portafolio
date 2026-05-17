@@ -101,7 +101,7 @@
 
 <section
     bind:this={container}
-    class="flex items-center justify-center bg-black landscape:h-[calc(100dvh-4rem)] landscape:snap-start"
+    class="flex items-center justify-center bg-black landscape:h-[calc(100dvh-6.5rem)] landscape:snap-start"
 >
     <!-- landscape: height-driven (fills screen); portrait: width-driven (flush stacking) -->
     <div
