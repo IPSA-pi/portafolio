@@ -52,7 +52,7 @@
 
   const navLinks = [
     { href: '/drawing', label: 'Drawing' },
-    { href: '', label: 'Video' },
+    { href: '/video', label: 'Video' },
     { href: '', label: 'Photography' },
     { href: '', label: 'Web Art' },
   ];
