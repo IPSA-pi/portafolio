@@ -10,7 +10,12 @@
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"rename": "node scripts/rename.js",
+		"rename:apply": "node scripts/rename.js --apply",
+		"upload": "node --env-file=.env.local scripts/upload.js",
+		"seed": "node --env-file=.env.local scripts/seed.js",
+		"seed:dry": "node --env-file=.env.local scripts/seed.js --dry-run"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.0",
@@ -28,6 +33,7 @@
 		"wrangler": "^4.86.0"
 	},
 	"dependencies": {
+		"@supabase/supabase-js": "^2.106.2",
 		"resend": "^6.12.3",
 		"stripe": "^22.1.1"
 	}

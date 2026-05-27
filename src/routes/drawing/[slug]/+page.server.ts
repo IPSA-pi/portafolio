@@ -1,86 +1,66 @@
 import { error } from '@sveltejs/kit';
 import { getStripe } from '$lib/server/stripe';
+import { getSupabase } from '$lib/server/supabase';
 import type { RequestEvent } from '@sveltejs/kit';
 
+function variantUrl(storageUrl: string, variant: 'sm' | 'md' | 'lg'): string {
+    return storageUrl.replace(/\.webp$/, `-${variant}.webp`);
+}
+
 export async function load({ params, url }: RequestEvent) {
-    const slug = params.slug;
+    const notebook = params.slug;
+    if (!notebook) throw error(400, 'Missing notebook slug');
 
-    // Glob ALL images (original + webp variants)
-    const modules = import.meta.glob('$lib/assets/drawings/*/*', {
-        eager: true
-    });
+    const { data: drawings, error: dbError } = await getSupabase()
+        .from('drawings')
+        .select('*')
+        .eq('notebook', notebook)
+        .order('display_order', { ascending: true });
 
-    const groupedImages: Record<string, { original: string, sm: string, md: string, lg: string, slug: string }> = {};
-
-    for (const path in modules) {
-        if (!path.includes(`/${slug}/`)) continue;
-
-        const url = (modules[path] as any).default;
-
-        const filename = path.split('/').pop() || "";
-        let basename = filename;
-        let type: 'original' | 'sm' | 'md' | 'lg' = 'original';
-
-        const match = filename.match(/^(.*)-(sm|md|lg)\.webp$/);
-        if (match) {
-            basename = match[1];
-            type = match[2] as any;
-        } else {
-            basename = filename.replace(/\.(png|jpg|jpeg|webp)$/i, "");
-        }
-
-        if (!groupedImages[basename]) {
-            groupedImages[basename] = { original: "", sm: "", md: "", lg: "", slug: basename };
-        }
-
-        groupedImages[basename][type] = url;
+    if (dbError) {
+        console.error('Supabase query error:', dbError.message);
+        throw error(500, 'Failed to load drawings');
     }
 
-    const sortedKeys = Object.keys(groupedImages).sort();
-    const sortedImages = sortedKeys.map(k => groupedImages[k]);
-
-    if (sortedImages.length === 0) {
+    if (!drawings || drawings.length === 0) {
         throw error(404, 'Notebook not found');
     }
 
-    let productsMap: Record<string, { priceId: string, price: number, sold: boolean }> = {};
+    const images = drawings.map(d => ({
+        slug:     d.slug,
+        original: d.storage_url,
+        sm:       variantUrl(d.storage_url, 'sm'),
+        md:       variantUrl(d.storage_url, 'md'),
+        lg:       variantUrl(d.storage_url, 'lg'),
+    }));
 
-    try {
-        const products = await getStripe().products.list({
-            active: true,
-            expand: ['data.default_price']
-        });
+    const products: Record<string, { priceId: string; price: number; sold: boolean }> = {};
+    for (const d of drawings) {
+        if (d.stripe_price_id && d.price_cents) {
+            products[d.slug] = {
+                priceId: d.stripe_price_id,
+                price:   d.price_cents,
+                sold:    d.sold || d.reserved,
+            };
+        }
+    }
 
-        productsMap = products.data.reduce((acc, p) => {
-            if (p.metadata.slug) {
-                acc[p.metadata.slug] = {
-                    priceId: (p.default_price as any)?.id,
-                    price: (p.default_price as any)?.unit_amount,
-                    sold: p.metadata.sold === 'true' || p.metadata.reserved === 'true'
-                };
-            }
-            return acc;
-        }, {} as Record<string, { priceId: string, price: number, sold: boolean }>);
-
-        // If returning from a completed checkout, verify the session and mark as sold
-        // immediately so the UI reflects it before the webhook fires.
-        const sessionId = url.searchParams.get('session_id');
-        if (sessionId) {
+    // If returning from a completed checkout, optimistically mark as sold
+    // so the UI reflects it before the webhook fires.
+    const sessionId = url.searchParams.get('session_id');
+    if (sessionId) {
+        try {
             const session = await getStripe().checkout.sessions.retrieve(sessionId);
             if (session.payment_status === 'paid') {
                 const soldSlug = session.metadata?.slug;
-                if (soldSlug && productsMap[soldSlug]) {
-                    productsMap[soldSlug] = { ...productsMap[soldSlug], sold: true };
+                if (soldSlug && products[soldSlug]) {
+                    products[soldSlug] = { ...products[soldSlug], sold: true };
                 }
             }
+        } catch (e) {
+            console.error('Error verifying session:', e);
         }
-    } catch (e) {
-        console.error('Error fetching Stripe products:', e);
-        // Fallback or handle gracefully if Stripe is not configured
     }
 
-    return {
-        images: sortedImages,
-        products: productsMap
-    };
+    return { images, products };
 }

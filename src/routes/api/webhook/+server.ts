@@ -1,4 +1,5 @@
 import { getStripe } from '$lib/server/stripe';
+import { getSupabase } from '$lib/server/supabase';
 import { getResend } from '$lib/server/resend';
 import { env } from '$env/dynamic/private';
 import { error, json } from '@sveltejs/kit';
@@ -89,7 +90,6 @@ export const POST = async ({ request }) => {
     }
 
     let event;
-
     try {
         event = getStripe().webhooks.constructEvent(body, signature, env.STRIPE_WEBHOOK_SECRET as string);
     } catch (err: any) {
@@ -100,42 +100,47 @@ export const POST = async ({ request }) => {
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object as any;
         const slug = session.metadata?.slug;
-        const productId = session.metadata?.productId;
 
-        if (slug && productId) {
+        if (slug) {
             try {
-                const product = await getStripe().products.retrieve(productId);
+                // Idempotency guard: skip if already sold
+                const { data: drawing } = await getSupabase()
+                    .from('drawings')
+                    .select('sold')
+                    .eq('slug', slug)
+                    .single();
 
-                // Idempotency guard: skip if already marked sold
-                if (product.metadata.sold === 'true') {
-                    console.log(`Product ${slug} already marked sold, skipping.`);
+                if (drawing?.sold) {
+                    console.log(`Drawing ${slug} already sold, skipping.`);
                     return json({ received: true });
                 }
 
-                await getStripe().products.update(productId, {
-                    metadata: { ...product.metadata, sold: 'true', reserved: 'false' }
-                });
-                console.log(`Product ${slug} marked as sold.`);
+                await getSupabase()
+                    .from('drawings')
+                    .update({ sold: true, reserved: false, reserved_at: null })
+                    .eq('slug', slug);
+
+                console.log(`Drawing ${slug} marked as sold.`);
 
                 const customerEmail = session.customer_details?.email;
-                const customerName = session.customer_details?.name || 'there';
+                const customerName  = session.customer_details?.name || 'there';
                 const shippingAddress = session.shipping_details?.address;
-                const amountTotal = session.amount_total;
+                const amountTotal   = session.amount_total;
 
                 if (customerEmail) {
                     await getResend().emails.send({
-                        from: 'Ian Sebelius <no-reply@iansebelius.com>',
-                        to: customerEmail,
+                        from:    'Ian Sebelius <no-reply@iansebelius.com>',
+                        to:      customerEmail,
                         subject: `Your original drawing — ${slug}`,
-                        html: buildCustomerEmail(customerName, slug)
+                        html:    buildCustomerEmail(customerName, slug),
                     });
                 }
 
                 await getResend().emails.send({
-                    from: 'Store <no-reply@iansebelius.com>',
-                    to: 'sebeliusancira@gmail.com',
+                    from:    'Store <no-reply@iansebelius.com>',
+                    to:      'sebeliusancira@gmail.com',
                     subject: `Sold: ${slug}`,
-                    html: artistNotificationEmail(slug, customerName, customerEmail, shippingAddress, amountTotal)
+                    html:    artistNotificationEmail(slug, customerName, customerEmail, shippingAddress, amountTotal),
                 });
 
             } catch (err) {
@@ -144,20 +149,19 @@ export const POST = async ({ request }) => {
         }
     }
 
-    // Release reservation if checkout session expires without payment
     if (event.type === 'checkout.session.expired') {
         const session = event.data.object as any;
-        const productId = session.metadata?.productId;
+        const slug = session.metadata?.slug;
 
-        if (productId) {
+        if (slug) {
             try {
-                const product = await getStripe().products.retrieve(productId);
-                if (product.metadata.sold !== 'true') {
-                    await getStripe().products.update(productId, {
-                        metadata: { ...product.metadata, reserved: 'false' }
-                    });
-                    console.log(`Reservation released for product ${session.metadata?.slug}.`);
-                }
+                await getSupabase()
+                    .from('drawings')
+                    .update({ reserved: false, reserved_at: null })
+                    .eq('slug', slug)
+                    .eq('sold', false);
+
+                console.log(`Reservation released for ${slug}.`);
             } catch (err) {
                 console.error('Error releasing reservation:', err);
             }
