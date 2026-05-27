@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { fly } from 'svelte/transition';
   import BinaryClock from '$lib/components/BinaryClock.svelte';
 
@@ -20,14 +20,39 @@
   let range        = $state<Range>('full');
   let settingsOpen = $state(false);
   let isPortrait   = $state(true);
+  let clockEl: HTMLElement;
 
   onMount(() => {
+    document.body.style.overflow = 'hidden';
     const mq = window.matchMedia('(orientation: portrait)');
     isPortrait = mq.matches;
+    fitToScreen();
     const handler = (e: MediaQueryListEvent) => { isPortrait = e.matches; };
     mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
+    return () => {
+      document.body.style.overflow = '';
+      mq.removeEventListener('change', handler);
+    };
   });
+
+  $effect(() => {
+    range;
+    isPortrait;
+    const raf = requestAnimationFrame(() => untrack(fitToScreen));
+    return () => cancelAnimationFrame(raf);
+  });
+
+  function fitToScreen() {
+    if (!clockEl) return;
+    const rect = clockEl.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const PADDING = 32;
+    const availW = window.innerWidth  - (isPortrait ? 0 : 288) - PADDING * 2;
+    const availH = window.innerHeight - (isPortrait ? 0 : 64)  - PADDING * 2;
+    const ratio = Math.min(availW / rect.width, availH / rect.height);
+    const newSize = Math.round((squareSize * ratio) / SIZE_STEP) * SIZE_STEP;
+    squareSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, newSize));
+  }
 
   function resetColors() {
     colorOn  = '#ffffff';
@@ -63,10 +88,10 @@
   <meta name="description" content="Personal portfolio of Ian Sebelius, featuring drawings." />
 </svelte:head>
 
-<div class="min-h-[80vh] flex flex-col justify-center items-center">
+<div class="h-[calc(100vh-4rem)] flex flex-col justify-center items-center overflow-hidden">
 
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div onclick={() => settingsOpen = !settingsOpen} class="cursor-pointer portrait:scale-[2] portrait:my-16">
+  <div bind:this={clockEl} onclick={() => settingsOpen = !settingsOpen} class="cursor-pointer portrait:scale-[2] portrait:my-16">
     <BinaryClock {msPrecision} {mode} blendMode="normal" showBg={false}
       colorOn={colorOnRgba} colorOff={colorOffRgba} {squareSize} {glowSize} {orientation} {range} />
   </div>
@@ -124,8 +149,8 @@
         <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">orientation</span>
         <select bind:value={orientation} class="bg-black text-white text-xs font-mono px-2 py-1 border border-white/20 focus:border-white/50 focus:outline-none cursor-pointer">
           <option value="auto">auto</option>
-          <option value="horizontal">horizontal</option>
-          <option value="vertical">vertical</option>
+          <option value="horizontal">vertical</option>
+          <option value="vertical">horizontal</option>
         </select>
 
         <!-- Glow -->
@@ -138,20 +163,6 @@
           <span class="text-xs font-mono text-white/40 w-8 text-center">{glowSize}px</span>
           <button
             onclick={() => glowSize = Math.min(40, glowSize + 2)}
-            class="w-6 h-6 flex items-center justify-center text-white/50 hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
-          >+</button>
-        </div>
-
-        <!-- Size -->
-        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">size</span>
-        <div class="flex items-center gap-2">
-          <button
-            onclick={() => squareSize = Math.max(MIN_SIZE, squareSize - SIZE_STEP)}
-            class="w-6 h-6 flex items-center justify-center text-white/50 hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
-          >−</button>
-          <span class="text-xs font-mono text-white/40 w-8 text-center">{squareSize}px</span>
-          <button
-            onclick={() => squareSize = Math.min(MAX_SIZE, squareSize + SIZE_STEP)}
             class="w-6 h-6 flex items-center justify-center text-white/50 hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
           >+</button>
         </div>
