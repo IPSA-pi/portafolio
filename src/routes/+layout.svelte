@@ -9,46 +9,6 @@
 
   let { children }: Props = $props();
   let menuOpen = $state(false);
-  let videoEl = $state<HTMLVideoElement | null>(null);
-
-  $effect(() => {
-    if (!videoEl) return;
-
-    const RATE = .5 ;
-    videoEl.playbackRate = RATE;
-
-    let rafId: number;
-    let lastTs: number | undefined;
-    let forward = true;
-
-    function reverseStep(ts: number) {
-      if (!videoEl) return;
-      if (lastTs !== undefined) {
-        const dt = (ts - lastTs) / 1000;
-        videoEl.currentTime = Math.max(0, videoEl.currentTime - RATE * dt);
-        if (videoEl.currentTime <= 0) {
-          forward = true;
-          lastTs = undefined;
-          videoEl.play();
-          return;
-        }
-      }
-      lastTs = ts;
-      rafId = requestAnimationFrame(reverseStep);
-    }
-
-    function onEnded() {
-      forward = false;
-      lastTs = undefined;
-      rafId = requestAnimationFrame(reverseStep);
-    }
-
-    videoEl.addEventListener('ended', onEnded);
-    return () => {
-      videoEl?.removeEventListener('ended', onEnded);
-      cancelAnimationFrame(rafId);
-    };
-  });
 
   const navLinks = [
     { href: '/drawing', label: 'Drawing' },
@@ -60,8 +20,8 @@
 
 <!-- Persistent background video -->
 <video
-  bind:this={videoEl}
   autoplay
+  loop
   muted
   playsinline
   poster="/home/A001_04102104_C004-poster.webp"
@@ -72,13 +32,13 @@
 </video>
 <div class="fixed inset-0 bg-black/40 -z-10"></div>
 
-<nav class="sticky top-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm transition-colors duration-200">
+<nav class="sticky top-0 z-50 bg-white dark:bg-black border-b border-black/10 dark:border-white/10 backdrop-blur-sm transition-colors duration-200">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex justify-between h-16">
 
       <!-- Logo -->
       <div class="flex items-center">
-        <a href="/" class="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">is</a>
+        <a href="/" class="text-xl font-bold tracking-tight text-black dark:text-white hover:text-accent transition-colors">is</a>
 
         <!-- Desktop links -->
         <div class="hidden sm:ml-8 sm:flex sm:space-x-8">
@@ -86,10 +46,10 @@
             {#if link.href}
               <a
                 href={link.href}
-                class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
+                class="inline-flex items-center px-1 pt-1 text-sm font-medium text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent transition-colors"
               >{link.label}</a>
             {:else}
-              <span class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-300 dark:text-gray-600 cursor-not-allowed">{link.label}</span>
+              <span class="inline-flex items-center px-1 pt-1 text-sm font-medium text-black/20 dark:text-white/20 cursor-not-allowed">{link.label}</span>
             {/if}
           {/each}
         </div>
@@ -101,7 +61,7 @@
 
         <!-- Hamburger (portrait / mobile only) -->
         <button
-          class="sm:hidden p-2 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+          class="sm:hidden p-2 rounded-md text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent transition-colors"
           onclick={() => menuOpen = !menuOpen}
           aria-label="Toggle menu"
         >
@@ -121,16 +81,16 @@
 
   <!-- Mobile menu -->
   {#if menuOpen}
-    <div class="sm:hidden absolute top-16 left-0 right-0 border-t border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-lg">
+    <div class="sm:hidden absolute top-16 left-0 right-0 border-t border-black/10 dark:border-white/10 bg-white dark:bg-black shadow-lg">
       {#each navLinks as link}
         {#if link.href}
           <a
             href={link.href}
             onclick={() => menuOpen = false}
-            class="block px-6 py-4 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            class="block px-6 py-4 text-sm font-medium text-black/60 dark:text-white/60 hover:text-accent dark:hover:text-accent transition-colors"
           >{link.label}</a>
         {:else}
-          <span class="block px-6 py-4 text-sm font-medium text-gray-300 dark:text-gray-600">{link.label}</span>
+          <span class="block px-6 py-4 text-sm font-medium text-black/20 dark:text-white/20">{link.label}</span>
         {/if}
       {/each}
     </div>

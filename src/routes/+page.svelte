@@ -1,13 +1,196 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { fly } from 'svelte/transition';
+  import BinaryClock from '$lib/components/BinaryClock.svelte';
+
+  type MsPrecision = 'ms' | 'cs' | 'ds' | 'none';
+  type DisplayMode = 'binary' | 'digits' | 'dots' | 'circle' | 'bars' | 'lissajous' | 'analog' | 'noise';
+  type Orientation = 'auto' | 'horizontal' | 'vertical';
+  type Range       = 'full' | 'time' | 'date';
+
+  let msPrecision  = $state<MsPrecision>('none');
+  let mode         = $state<DisplayMode>('binary');
+  let colorOn      = $state('#ffffff');
+  let alphaOn      = $state(100);
+  let colorOff     = $state('#000000');
+  let alphaOff     = $state(100);
+  let squareSize   = $state(20);
+  let glowSize     = $state(8);
+  let orientation  = $state<Orientation>('auto');
+  let range        = $state<Range>('full');
+  let settingsOpen = $state(false);
+  let isPortrait   = $state(true);
+
+  onMount(() => {
+    const mq = window.matchMedia('(orientation: portrait)');
+    isPortrait = mq.matches;
+    const handler = (e: MediaQueryListEvent) => { isPortrait = e.matches; };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  });
+
+  function resetColors() {
+    colorOn  = '#ffffff';
+    alphaOn  = 100;
+    colorOff = '#000000';
+    alphaOff = 100;
+  }
+
+  function hexToRgba(hex: string, alpha: number): string {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r},${g},${b},${alpha / 100})`;
+  }
+
+  let colorOnRgba  = $derived(hexToRgba(colorOn,  alphaOn));
+  let colorOffRgba = $derived(hexToRgba(colorOff, alphaOff));
+
+  const MIN_SIZE = 8;
+  const MAX_SIZE = 48;
+  const SIZE_STEP = 4;
+
+  const precisionOptions: { value: MsPrecision; label: string }[] = [
+    { value: 'none', label: 'none' },
+    { value: 'ds',   label: 'ds'   },
+    { value: 'cs',   label: 'cs'   },
+    { value: 'ms',   label: 'ms'   },
+  ];
+</script>
+
 <svelte:head>
-    <title>iansebelius</title>
-    <meta
-        name="description"
-        content="Personal portfolio of Ian Sebelius, featuring drawings."
-    />
+  <title>iansebelius</title>
+  <meta name="description" content="Personal portfolio of Ian Sebelius, featuring drawings." />
 </svelte:head>
 
-<div class="min-h-[80vh] flex flex-col justify-center items-center text-center px-4">
-    <div class="max-w-4xl">
-       <h1 class="text-white">ian sebelius</h1>
-    </div>
+<div class="min-h-[80vh] flex flex-col justify-center items-center">
+
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div onclick={() => settingsOpen = !settingsOpen} class="cursor-pointer portrait:scale-[2] portrait:my-16">
+    <BinaryClock {msPrecision} {mode} blendMode="normal" showBg={false}
+      colorOn={colorOnRgba} colorOff={colorOffRgba} {squareSize} {glowSize} {orientation} {range} />
+  </div>
+
 </div>
+
+<!-- Settings panel -->
+{#if settingsOpen}
+  <div
+    transition:fly={{ x: isPortrait ? 0 : -288, y: isPortrait ? 288 : 0, duration: 220 }}
+    class="
+      fixed z-20 bg-black overflow-y-auto
+      landscape:left-0 landscape:top-16 landscape:bottom-0 landscape:w-72 landscape:border-r landscape:border-white/10
+      portrait:bottom-0 portrait:inset-x-0 portrait:max-h-[70vh] portrait:rounded-t-xl portrait:border-t portrait:border-white/10
+    "
+  >
+    <!-- Drag handle (portrait only) -->
+    <div class="portrait:flex landscape:hidden justify-center pt-3 pb-1">
+      <div class="w-8 h-[3px] rounded-full bg-white/20"></div>
+    </div>
+
+    <div class="p-5 flex flex-col gap-4">
+      <div class="grid grid-cols-[auto_1fr] gap-x-5 gap-y-3 items-center">
+
+        <!-- Mode -->
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">mode</span>
+        <select bind:value={mode} class="bg-black text-white text-xs font-mono px-2 py-1 border border-white/20 focus:border-white/50 focus:outline-none cursor-pointer">
+          <option value="binary">binary</option>
+          <option value="digits">digits</option>
+          <option value="dots">dots</option>
+          <option value="circle">circle</option>
+          <option value="bars">bars</option>
+          <option value="lissajous">lissajous</option>
+          <option value="analog">analog</option>
+          <option value="noise">noise</option>
+        </select>
+
+        <!-- Last column -->
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">last col</span>
+        <select bind:value={msPrecision} class="bg-black text-white text-xs font-mono px-2 py-1 border border-white/20 focus:border-white/50 focus:outline-none cursor-pointer">
+          {#each precisionOptions as opt}
+            <option value={opt.value}>{opt.label}</option>
+          {/each}
+        </select>
+
+        <!-- Range -->
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">range</span>
+        <select bind:value={range} class="bg-black text-white text-xs font-mono px-2 py-1 border border-white/20 focus:border-white/50 focus:outline-none cursor-pointer">
+          <option value="full">ymdhms</option>
+          <option value="time">hms</option>
+          <option value="date">ymd</option>
+        </select>
+
+        <!-- Orientation -->
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">orientation</span>
+        <select bind:value={orientation} class="bg-black text-white text-xs font-mono px-2 py-1 border border-white/20 focus:border-white/50 focus:outline-none cursor-pointer">
+          <option value="auto">auto</option>
+          <option value="horizontal">horizontal</option>
+          <option value="vertical">vertical</option>
+        </select>
+
+        <!-- Glow -->
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">glow</span>
+        <div class="flex items-center gap-2">
+          <button
+            onclick={() => glowSize = Math.max(0, glowSize - 2)}
+            class="w-6 h-6 flex items-center justify-center text-white/50 hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
+          >−</button>
+          <span class="text-xs font-mono text-white/40 w-8 text-center">{glowSize}px</span>
+          <button
+            onclick={() => glowSize = Math.min(40, glowSize + 2)}
+            class="w-6 h-6 flex items-center justify-center text-white/50 hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
+          >+</button>
+        </div>
+
+        <!-- Size -->
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">size</span>
+        <div class="flex items-center gap-2">
+          <button
+            onclick={() => squareSize = Math.max(MIN_SIZE, squareSize - SIZE_STEP)}
+            class="w-6 h-6 flex items-center justify-center text-white/50 hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
+          >−</button>
+          <span class="text-xs font-mono text-white/40 w-8 text-center">{squareSize}px</span>
+          <button
+            onclick={() => squareSize = Math.min(MAX_SIZE, squareSize + SIZE_STEP)}
+            class="w-6 h-6 flex items-center justify-center text-white/50 hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
+          >+</button>
+        </div>
+
+        <!-- Color 1 -->
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">color 1</span>
+        <div class="flex flex-col gap-1">
+          <div class="flex items-center gap-2">
+            <input type="color" bind:value={colorOn} class="w-7 h-5 cursor-pointer rounded-sm border-0 bg-transparent p-0" />
+            <span class="text-[10px] font-mono text-white/25">{colorOn}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="range" min="0" max="100" bind:value={alphaOn} class="flex-1 h-[2px] accent-white cursor-pointer" />
+            <span class="text-[10px] font-mono text-white/25 w-7 text-right">{alphaOn}%</span>
+          </div>
+        </div>
+
+        <!-- Color 0 -->
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">color 0</span>
+        <div class="flex flex-col gap-1">
+          <div class="flex items-center gap-2">
+            <input type="color" bind:value={colorOff} class="w-7 h-5 cursor-pointer rounded-sm border-0 bg-transparent p-0" />
+            <span class="text-[10px] font-mono text-white/25">{colorOff}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="range" min="0" max="100" bind:value={alphaOff} class="flex-1 h-[2px] accent-white cursor-pointer" />
+            <span class="text-[10px] font-mono text-white/25 w-7 text-right">{alphaOff}%</span>
+          </div>
+        </div>
+
+        <!-- Reset colors -->
+        <div class="col-span-2 pt-1">
+          <button
+            onclick={resetColors}
+            class="w-full py-1 text-xs font-mono text-white/40 hover:text-white border border-white/10 hover:border-white/40 transition-colors"
+          >reset colors</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+{/if}
