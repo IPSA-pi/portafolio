@@ -18,9 +18,11 @@ export default {
         ],
       },
       colors: {
-        // Enforcing grayscale by default if we wanted, but default tailwind includes 'gray'
-        // We can just use standard classes.
-      }
+        accent: {
+          DEFAULT: '#39ff14',
+          hover:   '#2de010',
+        },
+      },
     }
   },
 
