@@ -3,8 +3,14 @@ import { writable } from 'svelte/store';
 
 type Theme = 'light' | 'dark';
 
-const defaultValue: Theme = 'dark';
-const initialValue = browser ? (window.localStorage.getItem('theme') as Theme) ?? defaultValue : defaultValue;
+function getInitialTheme(): Theme {
+    if (!browser) return 'dark';
+    const stored = window.localStorage.getItem('theme') as Theme | null;
+    if (stored) return stored;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+const initialValue = getInitialTheme();
 
 export const theme = writable<Theme>(initialValue);
 
