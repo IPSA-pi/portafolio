@@ -1,37 +1,37 @@
 <script lang="ts">
     const notebooks = [
         {
-            slug: "01_negro",
+            slug: "negro_1",
             title: "Notebook 01 (Black)",
             description: "Early explorations.",
             cover: "/drawings/cover_negro.jpg",
         },
         {
-            slug: "02_negro",
+            slug: "negro_2",
             title: "Notebook 02 (Black)",
             description: "Continued studies in black.",
             cover: "/drawings/cover_negro2.jpg",
         },
         {
-            slug: "03_verde",
+            slug: "verde_3",
             title: "Notebook 03 (Green)",
             description: "Introduction of organic forms.",
             cover: "/drawings/cover_verde3.jpg",
         },
         {
-            slug: "04_verde",
+            slug: "verde_4",
             title: "Notebook 04 (Green)",
             description: "Complex green compositions.",
             cover: "/drawings/cover_verde4.jpg",
         },
         {
-            slug: "05_azul",
+            slug: "azul_5",
             title: "Notebook 05 (Blue)",
             description: "Blue series studies.",
             cover: "/drawings/cover_azul.jpg",
         },
         {
-            slug: "06_rojo",
+            slug: "rojo_6",
             title: "Notebook 06 (Red)",
             description: "Vibrant red experiments.",
             cover: "/drawings/cover_rojo6.jpg",
