@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import "../app.css";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import { page } from "$app/stores";
+  import { isFullscreen } from "$lib/stores/fullscreen";
 
   interface Props {
     children?: import("svelte").Snippet;
@@ -10,6 +12,12 @@
   let { children }: Props = $props();
   let menuOpen = $state(false);
 
+  onMount(() => {
+    const handler = () => isFullscreen.set(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handler);
+    return () => document.removeEventListener('fullscreenchange', handler);
+  });
+
   const navLinks = [
     { href: '/drawing', label: 'Drawing' },
     { href: '/video', label: 'Video' },
@@ -17,6 +25,12 @@
     { href: '', label: 'Web Art' },
   ];
 </script>
+
+<!-- Mobile menu outside-click backdrop -->
+{#if menuOpen}
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div class="fixed inset-0 z-40" onclick={() => menuOpen = false}></div>
+{/if}
 
 <!-- Persistent background video -->
 <video
@@ -32,7 +46,7 @@
 </video>
 <div class="fixed inset-0 bg-black/40 -z-10"></div>
 
-<nav class="sticky top-0 z-50 bg-white dark:bg-black border-b border-black/10 dark:border-white/10 backdrop-blur-sm transition-colors duration-200">
+<nav class="sticky top-0 z-50 bg-white dark:bg-black border-b border-black/10 dark:border-white/10 backdrop-blur-sm transition-colors duration-200" class:hidden={$isFullscreen}>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex justify-between h-16">
 
