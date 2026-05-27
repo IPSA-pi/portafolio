@@ -62,6 +62,13 @@ stripe listen --forward-to localhost:5173/api/webhook
 
 Use Stripe's test card `4242 4242 4242 4242` (any future expiry, any CVC) to make test purchases.
 
+**Watching the workflow end-to-end:**
+- The `stripe listen` terminal shows each event as it arrives and is forwarded
+- The dev server terminal logs `Product marked as sold` and email send results
+- Check your inbox and the [Resend dashboard](https://resend.com) for the two outbound emails
+
+> **Resend test-mode note:** in test mode Resend only delivers to addresses verified in your account. To receive emails at an arbitrary address, either verify the sending domain (`iansebelius.com`) in Resend first, or temporarily set `to` to your verified address while testing.
+
 ## Building
 
 The build step pre-processes images before running Vite:
@@ -98,6 +105,8 @@ npx wrangler secret put STRIPE_SECRET_KEY
 npx wrangler secret put STRIPE_WEBHOOK_SECRET
 npx wrangler secret put RESEND_API_KEY
 ```
+
+Alternatively, add them as encrypted environment variables in the **Cloudflare dashboard → Workers & Pages → portafolio → Settings → Environment Variables** (required if deploying via Cloudflare Pages CI rather than Wrangler CLI).
 
 Use live keys (`sk_live_...`) for `STRIPE_SECRET_KEY` in production. `STRIPE_WEBHOOK_SECRET` comes from the Stripe dashboard after registering the webhook endpoint (step 3).
 
