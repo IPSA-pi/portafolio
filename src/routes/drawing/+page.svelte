@@ -1,41 +1,11 @@
 <script lang="ts">
     const notebooks = [
-        {
-            slug: "negro_1",
-            title: "Notebook 01 (Black)",
-            description: "Early explorations.",
-            cover: "/drawings/cover_negro.jpg",
-        },
-        {
-            slug: "negro_2",
-            title: "Notebook 02 (Black)",
-            description: "Continued studies in black.",
-            cover: "/drawings/cover_negro2.jpg",
-        },
-        {
-            slug: "verde_3",
-            title: "Notebook 03 (Green)",
-            description: "Introduction of organic forms.",
-            cover: "/drawings/cover_verde3.jpg",
-        },
-        {
-            slug: "verde_4",
-            title: "Notebook 04 (Green)",
-            description: "Complex green compositions.",
-            cover: "/drawings/cover_verde4.jpg",
-        },
-        {
-            slug: "azul_5",
-            title: "Notebook 05 (Blue)",
-            description: "Blue series studies.",
-            cover: "/drawings/cover_azul.jpg",
-        },
-        {
-            slug: "rojo_6",
-            title: "Notebook 06 (Red)",
-            description: "Vibrant red experiments.",
-            cover: "/drawings/cover_rojo6.jpg",
-        },
+        { slug: "negro_1", title: "Notebook 01 (Black)", description: "Early explorations." },
+        { slug: "negro_2", title: "Notebook 02 (Black)", description: "Continued studies in black." },
+        { slug: "verde_3", title: "Notebook 03 (Green)", description: "Introduction of organic forms." },
+        { slug: "verde_4", title: "Notebook 04 (Green)", description: "Complex green compositions." },
+        { slug: "azul_5",  title: "Notebook 05 (Blue)",  description: "Blue series studies." },
+        { slug: "rojo_6",  title: "Notebook 06 (Red)",   description: "Vibrant red experiments." },
     ];
 </script>
 
@@ -54,37 +24,15 @@
         </p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
         {#each notebooks as notebook}
-            <a href="/drawing/{notebook.slug}" class="group block">
-                <div
-                    class="aspect-[4/3] bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden mb-4 relative"
-                >
-                    <div
-                        class="absolute inset-0 flex items-center justify-center text-gray-300 dark:text-gray-600"
-                    >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke-width="1.5"
-                            stroke="currentColor"
-                            class="w-12 h-12"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"
-                            />
-                        </svg>
-                    </div>
-                </div>
-                <h2
-                    class="text-xl font-medium text-gray-900 dark:text-white group-hover:underline decoration-1 underline-offset-4"
-                >
-                    {notebook.title}
-                </h2>
-                <p class="text-sm text-gray-500 mt-1">{notebook.description}</p>
+            <a href="/drawing/{notebook.slug}" class="group flex flex-col items-center text-center">
+                <img
+                    src="/drawings/covers/{notebook.slug}.webp"
+                    alt="Cover of {notebook.title}"
+                    class="w-full max-w-xs transition-transform duration-500 group-hover:scale-105 drop-shadow-xl"
+                    loading="lazy"
+                />
             </a>
         {/each}
     </div>

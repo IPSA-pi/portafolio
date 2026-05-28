@@ -17,14 +17,22 @@
     let rotation = $state(0);
     let loading = $state(true);
 
-    // Reset rotation and loading when image changes
+    const ZOOM_STEPS = [1, 1.5, 2, 3];
+    let zoomIndex = $state(0);
+    let zoom = $derived(ZOOM_STEPS[zoomIndex]);
+    let panX = $state(0);
+    let panY = $state(0);
+    let isDragging = $state(false);
+    let dragStart = { x: 0, y: 0, px: 0, py: 0 };
+
     $effect(() => {
-        // We just need to depend on currentIndex to trigger this,
-        // but we actually want to reset rotation whenever currentIndex changes.
-        // creating a dependency:
         currentIndex;
         rotation = 0;
         loading = true;
+        zoomIndex = 0;
+        panX = 0;
+        panY = 0;
+        isDragging = false;
     });
 
     let currentImage = $derived(images[currentIndex]);
@@ -47,6 +55,57 @@
         rotation += 90;
     }
 
+    function zoomIn(e: Event) {
+        e.stopPropagation();
+        if (zoomIndex < ZOOM_STEPS.length - 1) zoomIndex++;
+    }
+
+    function zoomOut(e: Event) {
+        e.stopPropagation();
+        if (zoomIndex > 0) {
+            zoomIndex--;
+            if (zoomIndex === 0) { panX = 0; panY = 0; }
+        }
+    }
+
+    function clampPan(x: number, y: number) {
+        const maxX = (typeof window !== 'undefined' ? window.innerWidth : 1200) * 0.85 * (zoom - 1) / 2;
+        const maxY = (typeof window !== 'undefined' ? window.innerHeight : 800) * 0.85 * (zoom - 1) / 2;
+        return {
+            x: Math.max(-maxX, Math.min(maxX, x)),
+            y: Math.max(-maxY, Math.min(maxY, y)),
+        };
+    }
+
+    function handlePointerDown(e: PointerEvent) {
+        if (zoom === 1) return;
+        e.stopPropagation();
+        isDragging = true;
+        dragStart = { x: e.clientX, y: e.clientY, px: panX, py: panY };
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    }
+
+    function handlePointerMove(e: PointerEvent) {
+        if (!isDragging) return;
+        const clamped = clampPan(
+            dragStart.px + (e.clientX - dragStart.x),
+            dragStart.py + (e.clientY - dragStart.y),
+        );
+        panX = clamped.x;
+        panY = clamped.y;
+    }
+
+    function handlePointerUp() {
+        isDragging = false;
+    }
+
+    function formatTitle(slug: string): string {
+        const parts = slug.split('_');
+        const num = parts[parts.length - 1];
+        const notebook = parts.slice(0, -1).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+        return `${notebook} — ${num}`;
+    }
+
     function handleKeydown(e: KeyboardEvent) {
         if (e.key === "Escape") {
             onClose();
@@ -54,8 +113,25 @@
             next();
         } else if (e.key === "ArrowLeft") {
             prev();
+        } else if (e.key === "+" || e.key === "=") {
+            e.preventDefault();
+            if (zoomIndex < ZOOM_STEPS.length - 1) zoomIndex++;
+        } else if (e.key === "-") {
+            e.preventDefault();
+            if (zoomIndex > 0) {
+                zoomIndex--;
+                if (zoomIndex === 0) { panX = 0; panY = 0; }
+            }
         }
     }
+
+    let cursorClass = $derived(
+        zoom === 1 ? '' : isDragging ? 'cursor-grabbing' : 'cursor-grab'
+    );
+
+    let imageTransform = $derived(
+        `translate(${panX}px, ${panY}px) rotate(${rotation}deg) scale(${zoom})`
+    );
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -144,43 +220,70 @@
         </svg>
     </button>
 
-    <!-- Action Bar (Rotate + Purchase) -->
-    <div 
-        class="absolute bottom-8 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-6" 
+    <!-- Action Bar -->
+    <div
+        class="absolute bottom-8 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-4"
         onclick={(e) => e.stopPropagation()}
         onkeydown={(e) => e.stopPropagation()}
         role="presentation"
     >
-        <PurchaseButton 
-            priceId={currentProduct.priceId} 
-            price={currentProduct.price} 
-            slug={currentImage.slug} 
+        <PurchaseButton
+            priceId={currentProduct.priceId}
+            price={currentProduct.price}
+            slug={currentImage.slug}
             {notebookSlug}
-            sold={currentProduct.sold} 
+            sold={currentProduct.sold}
         />
 
-        <button
-            class="rounded-full bg-white/10 px-6 py-2 text-white backdrop-blur-md transition hover:bg-white/20 active:scale-95"
-            onclick={handleRotate}
-        >
-            <div class="flex items-center gap-2">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    class="h-5 w-5"
-                >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
-                    />
+        <div class="flex items-center gap-2">
+            <!-- Zoom Out -->
+            <button
+                class="rounded-full bg-white/10 p-2 text-white backdrop-blur-md transition hover:bg-white/20 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                onclick={zoomOut}
+                disabled={zoomIndex === 0}
+                aria-label="Zoom out"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803a7.5 7.5 0 0010.607 10.607zM13.5 10.5h-6" />
                 </svg>
-                <span>Rotate</span>
-            </div>
-        </button>
+            </button>
+
+            <!-- Rotate -->
+            <button
+                class="rounded-full bg-white/10 px-6 py-2 text-white backdrop-blur-md transition hover:bg-white/20 active:scale-95"
+                onclick={handleRotate}
+            >
+                <div class="flex items-center gap-2">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke-width="1.5"
+                        stroke="currentColor"
+                        class="h-5 w-5"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+                        />
+                    </svg>
+                    <span class="text-sm">Rotate</span>
+                </div>
+            </button>
+
+            <!-- Zoom In -->
+            <button
+                class="rounded-full bg-white/10 p-2 text-white backdrop-blur-md transition hover:bg-white/20 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                onclick={zoomIn}
+                disabled={zoomIndex === ZOOM_STEPS.length - 1}
+                aria-label="Zoom in"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
+                </svg>
+            </button>
+        </div>
     </div>
 
     <!-- Loading Spinner -->
@@ -215,24 +318,29 @@
     <!-- Image Container -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
-        class="relative flex items-center justify-center outline-none"
+        class="relative flex items-center justify-center outline-none {cursorClass}"
         onclick={(e) => e.stopPropagation()}
         onkeydown={(e) => e.stopPropagation()}
+        onpointerdown={handlePointerDown}
+        onpointermove={handlePointerMove}
+        onpointerup={handlePointerUp}
+        onpointercancel={handlePointerUp}
         role="group"
         tabindex="-1"
     >
         {#key currentImage}
             <div
-                class="transition-transform duration-300 ease-out"
-                style="transform: rotate({rotation}deg)"
+                style="transform: {imageTransform}; transition: {isDragging ? 'none' : 'transform 300ms ease-out'};"
+                class="will-change-transform"
                 transition:scale={{ duration: 300, start: 0.9 }}
             >
                 <img
                     src={currentImage.lg}
-                    alt="Fullscreen view"
-                    class="max-h-[85vh] w-auto max-w-[85vw] object-contain shadow-2xl transition-opacity duration-300 {loading
+                    alt={formatTitle(currentImage.slug)}
+                    class="max-h-[85vh] w-auto max-w-[85vw] object-contain shadow-2xl transition-opacity duration-300 select-none {loading
                         ? 'opacity-0'
                         : 'opacity-100'}"
+                    draggable="false"
                     onload={() => (loading = false)}
                 />
             </div>

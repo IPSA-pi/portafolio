@@ -5,7 +5,7 @@
   import { isFullscreen } from '$lib/stores/fullscreen';
 
   type MsPrecision = 'ms' | 'cs' | 'ds' | 'none';
-  type DisplayMode = 'binary' | 'digits' | 'dots' | 'circle' | 'bars' | 'lissajous' | 'analog' | 'noise';
+  type DisplayMode = 'binary' | 'digits' | 'circle' | 'bars';
   type Orientation = 'auto' | 'horizontal' | 'vertical';
   type Range       = 'full' | 'time' | 'date';
 
@@ -48,6 +48,7 @@
 
 
   $effect(() => {
+    mode;
     range;
     isPortrait;
     $isFullscreen;
@@ -63,7 +64,7 @@
     const PADDING = 32;
     const availW = $isFullscreen
       ? window.innerWidth  - PADDING * 2
-      : window.innerWidth  - (isPortrait ? 0 : 288) - PADDING * 2;
+      : window.innerWidth  - (isPortrait ? 0 : (settingsOpen ? 288 : 0)) - PADDING * 2;
     const availH = $isFullscreen
       ? window.innerHeight - PADDING * 2
       : window.innerHeight - (isPortrait ? 0 : 64)  - PADDING * 2;
@@ -152,12 +153,8 @@
         <select bind:value={mode} class="bg-black text-white text-xs font-mono px-2 py-1 border border-white/20 focus:border-white/50 focus:outline-none cursor-pointer">
           <option value="binary">binary</option>
           <option value="digits">digits</option>
-          <option value="dots">dots</option>
           <option value="circle">circle</option>
           <option value="bars">bars</option>
-          <option value="lissajous">lissajous</option>
-          <option value="analog">analog</option>
-          <option value="noise">noise</option>
         </select>
 
         <!-- Last column -->
@@ -183,6 +180,20 @@
           <option value="horizontal">vertical</option>
           <option value="vertical">horizontal</option>
         </select>
+
+        <!-- Size -->
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">size</span>
+        <div class="flex items-center gap-2">
+          <button
+            onclick={() => { squareSize = Math.max(MIN_SIZE, squareSize - SIZE_STEP); }}
+            class="w-6 h-6 flex items-center justify-center text-white/50 hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
+          >−</button>
+          <span class="text-xs font-mono text-white/40 w-8 text-center">{squareSize}</span>
+          <button
+            onclick={() => { squareSize = Math.min(MAX_SIZE, squareSize + SIZE_STEP); }}
+            class="w-6 h-6 flex items-center justify-center text-white/50 hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
+          >+</button>
+        </div>
 
         <!-- Glow -->
         <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">glow</span>
