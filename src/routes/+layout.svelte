@@ -114,3 +114,13 @@
 <main class="min-h-screen transition-colors duration-200">
   {@render children?.()}
 </main>
+
+<footer class="border-t border-black/10 dark:border-white/10 bg-white dark:bg-black transition-colors duration-200" class:hidden={$isFullscreen}>
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+    <p class="text-xs text-black/30 dark:text-white/30">&copy; {new Date().getFullYear()} Ian Sebelius. All rights reserved.</p>
+    <div class="flex gap-6">
+      <a href="/privacy" class="text-xs text-black/40 dark:text-white/40 hover:text-accent dark:hover:text-accent transition-colors">Privacy Policy</a>
+      <a href="/terms" class="text-xs text-black/40 dark:text-white/40 hover:text-accent dark:hover:text-accent transition-colors">Terms of Service</a>
+    </div>
+  </div>
+</footer>
