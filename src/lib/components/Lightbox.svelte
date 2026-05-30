@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { fade, scale } from "svelte/transition";
+    import { fade, fly } from "svelte/transition";
     import { untrack } from "svelte";
     import { page } from "$app/stores";
     import PurchaseButton from "./PurchaseButton.svelte";
@@ -15,7 +15,10 @@
     let currentIndex = $state(untrack(() => startIndex));
     let notebookSlug = $derived($page.params.slug ?? "");
     let rotation = $state(0);
-    let loading = $state(true);
+    let mdLoaded = $state(false);
+    let direction = $state<'next' | 'prev'>('next');
+    let viewportW = $state(typeof window !== 'undefined' ? window.innerWidth : 1200);
+    let viewportH = $state(typeof window !== 'undefined' ? window.innerHeight : 800);
 
     const ZOOM_STEPS = [1, 1.5, 2, 3];
     let zoomIndex = $state(0);
@@ -28,11 +31,17 @@
     $effect(() => {
         currentIndex;
         rotation = 0;
-        loading = true;
+        mdLoaded = false;
         zoomIndex = 0;
         panX = 0;
         panY = 0;
         isDragging = false;
+    });
+
+    $effect(() => {
+        function update() { viewportW = window.innerWidth; viewportH = window.innerHeight; }
+        window.addEventListener('resize', update);
+        return () => window.removeEventListener('resize', update);
     });
 
     let currentImage = $derived(images[currentIndex]);
@@ -43,10 +52,12 @@
     );
 
     function next() {
+        direction = 'next';
         currentIndex = nextIndex;
     }
 
     function prev() {
+        direction = 'prev';
         currentIndex = prevIndex;
     }
 
@@ -69,8 +80,8 @@
     }
 
     function clampPan(x: number, y: number) {
-        const maxX = (typeof window !== 'undefined' ? window.innerWidth : 1200) * 0.85 * (zoom - 1) / 2;
-        const maxY = (typeof window !== 'undefined' ? window.innerHeight : 800) * 0.85 * (zoom - 1) / 2;
+        const maxX = viewportW * 0.85 * (zoom - 1) / 2;
+        const maxY = viewportH * 0.85 * (zoom - 1) / 2;
         return {
             x: Math.max(-maxX, Math.min(maxX, x)),
             y: Math.max(-maxY, Math.min(maxY, y)),
@@ -287,10 +298,10 @@
     </div>
 
     <!-- Loading Spinner -->
-    {#if loading}
+    {#if !mdLoaded}
         <div
             class="absolute inset-0 flex items-center justify-center z-40 pointer-events-none"
-            transition:fade
+            transition:fade={{ duration: 150 }}
         >
             <svg
                 class="animate-spin h-10 w-10 text-white"
@@ -328,28 +339,44 @@
         role="group"
         tabindex="-1"
     >
-        {#key currentImage}
+        {#key currentIndex}
+            <!-- Outer: handles directional slide transition -->
             <div
-                style="transform: {imageTransform}; transition: {isDragging ? 'none' : 'transform 300ms ease-out'};"
-                class="will-change-transform"
-                transition:scale={{ duration: 300, start: 0.9 }}
+                in:fly={{ x: direction === 'next' ? 60 : -60, duration: 220, opacity: 0 }}
+                out:fly={{ x: direction === 'next' ? -60 : 60, duration: 220, opacity: 0 }}
             >
-                <img
-                    src={currentImage.lg}
-                    alt={formatTitle(currentImage.slug)}
-                    class="max-h-[85vh] w-auto max-w-[85vw] object-contain shadow-2xl transition-opacity duration-300 select-none {loading
-                        ? 'opacity-0'
-                        : 'opacity-100'}"
-                    draggable="false"
-                    onload={() => (loading = false)}
-                />
+                <!-- Inner: handles interactive zoom/pan/rotate — no conflict with outer transition -->
+                <div
+                    style="transform: {imageTransform}; transition: {isDragging ? 'none' : 'transform 300ms ease-out'};"
+                    class="will-change-transform relative w-[85vw] h-[85vh]"
+                >
+                    <!-- md: fixed-size container means no layout jump while image loads -->
+                    <img
+                        src={currentImage.md}
+                        alt={formatTitle(currentImage.slug)}
+                        class="w-full h-full object-contain shadow-2xl select-none"
+                        draggable="false"
+                        onload={() => (mdLoaded = true)}
+                    />
+                    <!-- lg: exact same box as md, fades in on top once loaded -->
+                    <img
+                        src={currentImage.lg}
+                        alt=""
+                        aria-hidden="true"
+                        class="absolute inset-0 w-full h-full object-contain select-none opacity-0 transition-opacity duration-300"
+                        draggable="false"
+                        onload={(e) => (e.currentTarget as HTMLImageElement).classList.replace('opacity-0', 'opacity-100')}
+                    />
+                </div>
             </div>
         {/key}
     </div>
 
-    <!-- Preloader -->
+    <!-- Preloader: prime browser cache for adjacent images (both md and lg) -->
     <div class="hidden">
+        <img src={images[nextIndex].md} alt="" />
         <img src={images[nextIndex].lg} alt="" />
+        <img src={images[prevIndex].md} alt="" />
         <img src={images[prevIndex].lg} alt="" />
     </div>
 </div>

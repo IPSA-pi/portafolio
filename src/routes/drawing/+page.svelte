@@ -27,12 +27,15 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
         {#each notebooks as notebook}
             <a href="/drawing/{notebook.slug}" class="group flex flex-col items-center text-center">
-                <img
-                    src="/drawings/covers/{notebook.slug}.webp"
-                    alt="Cover of {notebook.title}"
-                    class="w-full max-w-xs transition-transform duration-500 group-hover:scale-105 drop-shadow-xl"
-                    loading="lazy"
-                />
+                <div class="relative w-full max-w-xs aspect-[3/4]">
+                    <img
+                        src="/drawings/covers/{notebook.slug}.webp"
+                        alt="Cover of {notebook.title}"
+                        class="absolute inset-0 w-full h-full object-cover transition-[transform,opacity] duration-500 group-hover:scale-105 drop-shadow-xl opacity-0"
+                        loading="lazy"
+                        onload={(e) => (e.currentTarget as HTMLImageElement).classList.replace('opacity-0', 'opacity-100')}
+                    />
+                </div>
             </a>
         {/each}
     </div>

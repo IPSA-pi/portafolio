@@ -33,10 +33,11 @@
 		<div>
 			<button
 				type="button"
-				class="relative cursor-pointer overflow-hidden rounded-lg bg-gray-100 shadow-md transition-transform hover:scale-[1.02] dark:bg-gray-800 w-full p-0 border-0 block"
+				class="relative cursor-pointer overflow-hidden rounded-lg shadow-md transition-transform hover:scale-[1.02] w-full p-0 border-0 block aspect-[3/4]"
 				onclick={() => (selectedIndex = index)}
 				aria-label="View {formatTitle(image.slug)} in fullscreen"
 			>
+				<div class="absolute inset-0 bg-zinc-200 dark:bg-zinc-800 animate-pulse"></div>
 				<img
 					src={image.md}
 					srcset="{image.sm} 640w,
@@ -44,8 +45,9 @@
 							{image.lg} 1920w"
 					sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
 					alt={formatTitle(image.slug)}
-					class="h-full w-full object-cover {isSold ? 'opacity-60 grayscale-[0.5]' : ''}"
-					loading="lazy"
+					class="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 opacity-0 {isSold ? 'grayscale-[0.5]' : ''}"
+					loading={index < 3 ? 'eager' : 'lazy'}
+					onload={(e) => (e.currentTarget as HTMLImageElement).classList.replace('opacity-0', isSold ? 'opacity-60' : 'opacity-100')}
 				/>
 				{#if isSold}
 					<div class="absolute top-2 right-2">
