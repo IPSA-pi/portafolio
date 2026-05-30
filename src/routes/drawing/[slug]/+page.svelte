@@ -38,5 +38,5 @@
         </div>
     {/if}
 
-    <Gallery images={data.images} products={data.products} />
+    <Gallery images={data.images} products={data.products} notebookSlug={data.slug} />
 </div>

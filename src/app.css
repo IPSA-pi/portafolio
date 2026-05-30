@@ -8,9 +8,17 @@
   }
 }
 
-.video-feed {
+html, body {
   scrollbar-width: none;
 }
-.video-feed::-webkit-scrollbar {
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
   display: none;
 }

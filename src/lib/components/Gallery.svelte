@@ -1,8 +1,7 @@
 <script lang="ts">
-	import Lightbox from "./Lightbox.svelte";
+	import { goto } from '$app/navigation';
 
-	let { images = [], products = {} } = $props();
-	let selectedIndex = $state(-1);
+	let { images = [], products = {}, notebookSlug = '' } = $props();
 
 	function formatTitle(slug: string): string {
 		const parts = slug.split('_');
@@ -16,15 +15,6 @@
 	}
 </script>
 
-{#if selectedIndex >= 0}
-	<Lightbox
-		{images}
-		{products}
-		startIndex={selectedIndex}
-		onClose={() => (selectedIndex = -1)}
-	/>
-{/if}
-
 <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
 	{#each images as image, index}
 		{@const product = products[image.slug]}
@@ -34,7 +24,7 @@
 			<button
 				type="button"
 				class="relative cursor-pointer overflow-hidden rounded-lg shadow-md transition-transform hover:scale-[1.02] w-full p-0 border-0 block aspect-[3/4]"
-				onclick={() => (selectedIndex = index)}
+				onclick={() => goto(`/drawing/${notebookSlug}/${index + 1}`)}
 				aria-label="View {formatTitle(image.slug)} in fullscreen"
 			>
 				<div class="absolute inset-0 bg-zinc-200 dark:bg-zinc-800 animate-pulse"></div>
