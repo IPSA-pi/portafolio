@@ -27,11 +27,11 @@
 			aria-label="View {formatTitle(image.slug)} in fullscreen"
 		>
 			<img
-				src={image.md}
+				src={image.sm}
 				srcset="{image.sm} 640w,
 						{image.md} 1024w,
 						{image.lg} 1920w"
-				sizes="33vw"
+				sizes="(min-width: 768px) 8vw, 33vw"
 				alt={formatTitle(image.slug)}
 				class="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 opacity-0 {isSold ? 'grayscale-[0.5]' : ''}"
 				loading={index < 3 ? 'eager' : 'lazy'}

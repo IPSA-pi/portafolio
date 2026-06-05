@@ -11,6 +11,7 @@
 
   let { children }: Props = $props();
   let menuOpen = $state(false);
+  let isFeedRoute = $derived(/^\/drawing\/[^/]+\/\d+$/.test($page.url.pathname));
 
   onMount(() => {
     const handler = () => isFullscreen.set(!!document.fullscreenElement);
@@ -38,15 +39,15 @@
   loop
   muted
   playsinline
-  poster="/home/A001_04102104_C004-poster.webp"
+  poster="/home/hero-poster.webp"
   class="fixed inset-0 w-full h-full object-cover -z-10"
 >
-  <source src="/home/A001_04102104_C004.webm" type="video/webm" />
-  <source src="/home/A001_04102104_C004.mp4" type="video/mp4" />
+  <source src="/home/hero.webm" type="video/webm" />
+  <source src="/home/hero.mp4" type="video/mp4" />
 </video>
 <div class="fixed inset-0 bg-black/40 -z-10"></div>
 
-<nav class="sticky top-0 z-50 bg-white dark:bg-black border-b border-black/10 dark:border-white/10 backdrop-blur-sm transition-colors duration-200" class:hidden={$isFullscreen}>
+<nav class="sticky top-0 z-50 bg-white dark:bg-black border-b border-black/10 dark:border-white/10 backdrop-blur-sm transition-colors duration-200" class:hidden={$isFullscreen || isFeedRoute}>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex justify-between h-16">
 
@@ -115,7 +116,7 @@
   {@render children?.()}
 </main>
 
-<footer class="border-t border-black/10 dark:border-white/10 bg-white dark:bg-black transition-colors duration-200" class:hidden={$isFullscreen}>
+<footer class="border-t border-black/10 dark:border-white/10 bg-white dark:bg-black transition-colors duration-200" class:hidden={$isFullscreen || isFeedRoute}>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
     <p class="text-xs text-black/30 dark:text-white/30">&copy; {new Date().getFullYear()} Ian Sebelius. All rights reserved.</p>
     <div class="flex gap-6">
