@@ -15,43 +15,40 @@
 	}
 </script>
 
-<div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+<div class="grid grid-cols-3 gap-0 md:grid-cols-4 md:mx-auto md:w-1/3">
 	{#each images as image, index}
 		{@const product = products[image.slug]}
 		{@const isSold = product?.sold}
 		{@const isForSale = product && !isSold}
-		<div>
-			<button
-				type="button"
-				class="relative cursor-pointer overflow-hidden rounded-lg shadow-md transition-transform hover:scale-[1.02] w-full p-0 border-0 block aspect-[3/4]"
-				onclick={() => goto(`/drawing/${notebookSlug}/${index + 1}`)}
-				aria-label="View {formatTitle(image.slug)} in fullscreen"
-			>
-				<div class="absolute inset-0 bg-zinc-200 dark:bg-zinc-800 animate-pulse"></div>
-				<img
-					src={image.md}
-					srcset="{image.sm} 640w,
-							{image.md} 1024w,
-							{image.lg} 1920w"
-					sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-					alt={formatTitle(image.slug)}
-					class="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 opacity-0 {isSold ? 'grayscale-[0.5]' : ''}"
-					loading={index < 3 ? 'eager' : 'lazy'}
-					onload={(e) => (e.currentTarget as HTMLImageElement).classList.replace('opacity-0', isSold ? 'opacity-60' : 'opacity-100')}
-				/>
-				{#if isSold}
-					<div class="absolute top-2 right-2">
-						<span class="bg-black/70 text-white px-2 py-1 rounded text-xs font-bold uppercase tracking-widest">Sold</span>
-					</div>
-				{/if}
-				{#if isForSale}
-					<div class="absolute bottom-2 right-2">
-						<span class="bg-amber-700/80 text-white px-2 py-1 rounded text-xs font-semibold backdrop-blur-sm">
-							{formatPrice(product.price)}
-						</span>
-					</div>
-				{/if}
-			</button>
-		</div>
+		<button
+			type="button"
+			class="relative cursor-pointer overflow-hidden w-full p-0 border-0 block aspect-[3/5] bg-zinc-200 dark:bg-zinc-800"
+			onclick={() => goto(`/drawing/${notebookSlug}/${index + 1}`)}
+			aria-label="View {formatTitle(image.slug)} in fullscreen"
+		>
+			<img
+				src={image.md}
+				srcset="{image.sm} 640w,
+						{image.md} 1024w,
+						{image.lg} 1920w"
+				sizes="33vw"
+				alt={formatTitle(image.slug)}
+				class="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 opacity-0 {isSold ? 'grayscale-[0.5]' : ''}"
+				loading={index < 3 ? 'eager' : 'lazy'}
+				onload={(e) => (e.currentTarget as HTMLImageElement).classList.replace('opacity-0', isSold ? 'opacity-60' : 'opacity-100')}
+			/>
+			{#if isSold}
+				<div class="absolute top-2 right-2">
+					<span class="bg-black/70 text-white px-2 py-1 rounded text-xs font-bold uppercase tracking-widest">Sold</span>
+				</div>
+			{/if}
+			{#if isForSale}
+				<div class="absolute bottom-2 right-2">
+					<span class="bg-amber-700/80 text-white px-2 py-1 rounded text-xs font-semibold backdrop-blur-sm">
+						{formatPrice(product.price)}
+					</span>
+				</div>
+			{/if}
+		</button>
 	{/each}
 </div>

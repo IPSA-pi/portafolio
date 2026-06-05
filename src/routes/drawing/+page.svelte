@@ -18,10 +18,10 @@
         </p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-12">
         {#each notebooks as notebook}
             <a href="/drawing/{notebook.slug}" class="group flex flex-col items-center text-center">
-                <div class="relative w-full max-w-xs aspect-[3/4]">
+                <div class="relative w-full max-w-xs md:max-w-[160px] aspect-[3/4]">
                     <img
                         src="/drawings/covers/{notebook.slug}.webp"
                         alt="Cover of {notebook.title}"
