@@ -68,18 +68,10 @@
         return () => observer.disconnect();
     });
 
-    // Touch devices: auto-rotate to fill screen based on device orientation
+    // Detect touch devices (hides the manual rotate button). Image stays
+    // upright regardless of device orientation — no auto-rotation on phones.
     $effect(() => {
         isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
-        if (!isTouchDevice) return;
-
-        const mql = window.matchMedia('(orientation: landscape)');
-        function sync(e: MediaQueryList | MediaQueryListEvent) {
-            rotation = e.matches ? 90 : 0;
-        }
-        sync(mql);
-        mql.addEventListener('change', sync);
-        return () => mql.removeEventListener('change', sync);
     });
 
     // Dimension-swap trick: when rotated 90°, swap CSS width/height so the
