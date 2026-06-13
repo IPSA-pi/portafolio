@@ -16,6 +16,19 @@
         <p class="mt-2 text-gray-600 dark:text-gray-400">
             Select a notebook to view.
         </p>
+
+        <!-- View toggle: Notebooks (this page) ⇄ Feed (all drawings) -->
+        <div class="mt-6 inline-flex rounded-full border border-black/10 dark:border-white/15 p-1 text-sm">
+            <span class="px-4 py-1.5 rounded-full bg-black text-white dark:bg-white dark:text-black font-medium">
+                Notebooks
+            </span>
+            <a
+                href="/drawing/feed"
+                class="px-4 py-1.5 rounded-full text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent transition-colors"
+            >
+                Feed
+            </a>
+        </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-12">

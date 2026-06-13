@@ -11,7 +11,20 @@
 
   let { children }: Props = $props();
   let menuOpen = $state(false);
-  let isFeedRoute = $derived(/^\/drawing\/[^/]+\/\d+$/.test($page.url.pathname));
+  let isFeedRoute = $derived(
+    /^\/drawing\/[^/]+\/\d+$/.test($page.url.pathname) ||
+    $page.url.pathname === '/drawing/feed'
+  );
+
+  // Breadcrumb segments derived from the URL (shown on subpages instead of the
+  // section links). Underscores are stripped for display, e.g. verde_4 → verde4.
+  let segments = $derived($page.url.pathname.split('/').filter(Boolean));
+  let crumbs = $derived(
+    segments.map((seg, i) => ({
+      label: seg.replace(/_/g, ''),
+      href: '/' + segments.slice(0, i + 1).join('/'),
+    }))
+  );
 
   onMount(() => {
     const handler = () => isFullscreen.set(!!document.fullscreenElement);
@@ -55,19 +68,32 @@
       <div class="flex items-center">
         <a href="/" class="text-xl font-bold tracking-tight text-black dark:text-white hover:text-accent transition-colors">is</a>
 
-        <!-- Desktop links -->
-        <div class="hidden sm:ml-8 sm:flex sm:space-x-8">
-          {#each navLinks as link}
-            {#if link.href}
+        {#if segments.length === 0}
+          <!-- Desktop links (home only) -->
+          <div class="hidden sm:ml-8 sm:flex sm:space-x-8">
+            {#each navLinks as link}
+              {#if link.href}
+                <a
+                  href={link.href}
+                  class="inline-flex items-center px-1 pt-1 text-sm font-medium text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent transition-colors"
+                >{link.label}</a>
+              {:else}
+                <span class="inline-flex items-center px-1 pt-1 text-sm font-medium text-black/20 dark:text-white/20 cursor-not-allowed">{link.label}</span>
+              {/if}
+            {/each}
+          </div>
+        {:else}
+          <!-- Breadcrumb (subpages) -->
+          <div class="ml-2 flex items-center text-sm font-medium min-w-0">
+            {#each crumbs as crumb}
+              <span class="mx-1.5 text-black/30 dark:text-white/30">/</span>
               <a
-                href={link.href}
-                class="inline-flex items-center px-1 pt-1 text-sm font-medium text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent transition-colors"
-              >{link.label}</a>
-            {:else}
-              <span class="inline-flex items-center px-1 pt-1 text-sm font-medium text-black/20 dark:text-white/20 cursor-not-allowed">{link.label}</span>
-            {/if}
-          {/each}
-        </div>
+                href={crumb.href}
+                class="text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent transition-colors truncate"
+              >{crumb.label}</a>
+            {/each}
+          </div>
+        {/if}
       </div>
 
       <!-- Right side: theme toggle + hamburger -->

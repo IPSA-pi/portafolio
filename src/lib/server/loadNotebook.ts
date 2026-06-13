@@ -7,6 +7,33 @@ function variantUrl(storageUrl: string, variant: 'sm' | 'md' | 'lg'): string {
     return storageUrl.replace(/\.webp$/, `-${variant}.webp`);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildImages(drawings: any[]) {
+    return drawings.map(d => ({
+        slug:     d.slug,
+        notebook: d.notebook,
+        original: d.storage_url,
+        sm:       variantUrl(d.storage_url, 'sm'),
+        md:       variantUrl(d.storage_url, 'md'),
+        lg:       variantUrl(d.storage_url, 'lg'),
+    }));
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildProducts(drawings: any[]) {
+    const products: Record<string, { priceId: string; price: number; sold: boolean }> = {};
+    for (const d of drawings) {
+        if (d.stripe_price_id && d.price_cents) {
+            products[d.slug] = {
+                priceId: d.stripe_price_id,
+                price:   d.price_cents,
+                sold:    d.sold || d.reserved,
+            };
+        }
+    }
+    return products;
+}
+
 export async function loadNotebook(
     slug: string,
     seed: number,
@@ -27,26 +54,8 @@ export async function loadNotebook(
         throw error(404, 'Notebook not found');
     }
 
-    const baseImages = drawings.map(d => ({
-        slug:     d.slug,
-        original: d.storage_url,
-        sm:       variantUrl(d.storage_url, 'sm'),
-        md:       variantUrl(d.storage_url, 'md'),
-        lg:       variantUrl(d.storage_url, 'lg'),
-    }));
-
-    const images = seededShuffle(baseImages, seed);
-
-    const products: Record<string, { priceId: string; price: number; sold: boolean }> = {};
-    for (const d of drawings) {
-        if (d.stripe_price_id && d.price_cents) {
-            products[d.slug] = {
-                priceId: d.stripe_price_id,
-                price:   d.price_cents,
-                sold:    d.sold || d.reserved,
-            };
-        }
-    }
+    const images = seededShuffle(buildImages(drawings), seed);
+    const products = buildProducts(drawings);
 
     if (sessionId) {
         try {
@@ -63,4 +72,27 @@ export async function loadNotebook(
     }
 
     return { images, products, slug };
+}
+
+// Loads every drawing across all notebooks, seeded-shuffled, for the
+// full-screen random feed at /drawing/feed.
+export async function loadAllDrawings(seed: number) {
+    const { data: drawings, error: dbError } = await getSupabase()
+        .from('drawings')
+        .select('*')
+        .order('display_order', { ascending: true });
+
+    if (dbError) {
+        console.error('Supabase query error:', dbError.message);
+        throw error(500, 'Failed to load drawings');
+    }
+
+    if (!drawings || drawings.length === 0) {
+        throw error(404, 'No drawings found');
+    }
+
+    return {
+        images:   seededShuffle(buildImages(drawings), seed),
+        products: buildProducts(drawings),
+    };
 }
