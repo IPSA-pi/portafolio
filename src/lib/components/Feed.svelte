@@ -15,6 +15,10 @@
 
     let { images, products, startIndex, notebookSlug, mode = 'notebook' }: Props = $props();
 
+    // The all-drawings feed scrolls vertically (doom-scroll); a single notebook's
+    // lightbox scrolls horizontally.
+    let vertical = $derived(mode === 'all');
+
     // Bottom bar is h-16 (64px). Image height accounts for it exactly.
     const BAR_H = 64;
 
@@ -31,7 +35,8 @@
     }
 
     function scrollToIndex(i: number, behavior: ScrollBehavior = 'smooth') {
-        container?.scrollTo({ left: i * window.innerWidth, behavior });
+        if (vertical) container?.scrollTo({ top: i * window.innerHeight, behavior });
+        else container?.scrollTo({ left: i * window.innerWidth, behavior });
     }
 
     function close() {
@@ -49,9 +54,26 @@
         else if (e.key === 'r' || e.key === 'R') toggleRotation();
     }
 
+    // In the horizontal lightbox a mouse wheel scrolls vertically, which would do
+    // nothing. Translate any wheel gesture into one step of horizontal navigation,
+    // with a short lock so a single flick advances exactly one image. (The vertical
+    // feed uses native scrolling, so this is only wired up in horizontal mode.)
+    let wheelLock = false;
+    function handleWheel(e: WheelEvent) {
+        const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+        if (Math.abs(delta) < 10) return;
+        e.preventDefault();
+        if (wheelLock) return;
+        wheelLock = true;
+        if (delta > 0) scrollToIndex(Math.min(currentIndex + 1, images.length - 1));
+        else scrollToIndex(Math.max(currentIndex - 1, 0));
+        setTimeout(() => { wheelLock = false; }, 450);
+    }
+
     $effect(() => {
         if (!container) return;
         untrack(() => scrollToIndex(startIndex, 'instant'));
+        if (!vertical) container.addEventListener('wheel', handleWheel, { passive: false });
 
         const slides = container.querySelectorAll<HTMLElement>('[data-index]');
         const observer = new IntersectionObserver(
@@ -69,7 +91,10 @@
             { threshold: 0.5 }
         );
         slides.forEach(s => observer.observe(s));
-        return () => observer.disconnect();
+        return () => {
+            observer.disconnect();
+            container?.removeEventListener('wheel', handleWheel);
+        };
     });
 
     // Dimension-swap trick: when rotated 90°, swap CSS width/height so the
@@ -96,10 +121,10 @@
     </svg>
 </button>
 
-<!-- Scroll feed (horizontal) -->
+<!-- Scroll feed: vertical for the all-drawings feed, horizontal for a notebook lightbox -->
 <div
     bind:this={container}
-    class="fixed inset-0 z-40 flex overflow-x-scroll overflow-y-hidden snap-x snap-mandatory bg-black scrollbar-none"
+    class="fixed inset-0 z-40 bg-black scrollbar-none snap-mandatory {vertical ? 'overflow-y-scroll snap-y' : 'flex overflow-x-scroll overflow-y-hidden snap-x'}"
     style="-webkit-overflow-scrolling: touch;"
 >
     {#each images as image, i}
@@ -107,7 +132,7 @@
         <!-- Each slide: flex column so the bar is always at the bottom -->
         <div
             data-index={i}
-            class="snap-start h-dvh w-screen flex-none flex flex-col overflow-hidden"
+            class="snap-start h-dvh flex flex-col overflow-hidden {vertical ? 'w-full' : 'w-screen flex-none'}"
         >
             <!-- Image area: fills all space above the bottom bar -->
             <div class="flex-1 min-h-0 relative">
