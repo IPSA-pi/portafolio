@@ -132,7 +132,7 @@
         <!-- Each slide: flex column so the bar is always at the bottom -->
         <div
             data-index={i}
-            class="snap-start h-dvh flex flex-col overflow-hidden {vertical ? 'w-full' : 'w-screen flex-none'}"
+            class="snap-start snap-always h-dvh flex flex-col overflow-hidden {vertical ? 'w-full' : 'w-screen flex-none'}"
         >
             <!-- Image area: fills all space above the bottom bar -->
             <div class="flex-1 min-h-0 relative">
