@@ -10,15 +10,20 @@ export const POST = async ({ request, url }) => {
             return json({ error: 'Missing slug or notebookSlug' }, { status: 400 });
         }
 
-        // Atomic reservation: only succeeds if not already sold or reserved.
-        // Uses UPDATE ... WHERE to avoid race conditions — if two requests
-        // arrive simultaneously, exactly one will get rowCount=1.
+        // Atomic reservation: only succeeds if not already sold, AND
+        // it's either not reserved or the reservation is stale (>35 mins old).
+        // The UPDATE ... WHERE is race-safe: if two requests arrive at once,
+        // Postgres serializes them and re-checks the WHERE on the locked row,
+        // so exactly one gets a row back. The 35-min threshold sits above
+        // Stripe's 30-min session expiry, so any reservation we take over is
+        // guaranteed to have a dead checkout session — never two live ones.
+        const staleThreshold = new Date(Date.now() - 35 * 60 * 1000).toISOString();
         const { data, error: dbError } = await getSupabase()
             .from('drawings')
             .update({ reserved: true, reserved_at: new Date().toISOString() })
             .eq('slug', slug)
             .eq('sold', false)
-            .eq('reserved', false)
+            .or(`reserved.eq.false,reserved_at.lt.${staleThreshold}`)
             .select('stripe_price_id')
             .single();
 
