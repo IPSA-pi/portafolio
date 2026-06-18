@@ -1,12 +1,14 @@
 <script lang="ts">
+    import Seo from "$lib/components/Seo.svelte";
     let { data } = $props();
     const { notebooks } = data;
 </script>
 
-<svelte:head>
-    <title>Drawings | Artist Name</title>
-    <meta name="description" content="Selected drawings and sketches." />
-</svelte:head>
+<Seo
+    title="Drawings"
+    description="Browse notebooks of original drawings by Ian Sebelius — each page available as a one-of-a-kind original."
+    path="/drawing"
+/>
 
 <div class="container mx-auto px-4 py-8">
     <div class="mb-12">

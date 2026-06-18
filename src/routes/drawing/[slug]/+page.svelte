@@ -1,21 +1,21 @@
 <script lang="ts">
     import { page } from "$app/stores";
     import Gallery from "$lib/components/Gallery.svelte";
+    import Seo from "$lib/components/Seo.svelte";
+    import { NOTEBOOKS_BY_SLUG } from "$lib/notebooks";
 
     let { data } = $props();
 
-    // Map of slugs to titles
-    const titles: Record<string, string> = {
-        "01_negro": "Notebook 01 (Black)",
-        "05_azul": "Notebook 05 (Blue)",
-    };
-
-    let title = $derived(titles[$page.params.slug ?? ""] || "Gallery");
+    let notebook = $derived(NOTEBOOKS_BY_SLUG[$page.params.slug ?? ""]);
+    let title = $derived(notebook?.title ?? "Gallery");
 </script>
 
-<svelte:head>
-    <title>{title} | Artist Name</title>
-</svelte:head>
+<Seo
+    {title}
+    description={notebook?.description}
+    image={notebook ? `/og/${notebook.slug}.jpg` : undefined}
+    path={$page.url.pathname}
+/>
 
 <div class="container mx-auto px-4 py-8">
     <div class="mb-8 flex items-baseline gap-4">

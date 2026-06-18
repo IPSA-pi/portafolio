@@ -28,3 +28,9 @@ vite.config.ts.timestamp-*
 
 # Notes
 /notes.md
+*.swp
+*.swo
+
+# Local tooling / scratch
+.claude.md
+/agy_artifacts

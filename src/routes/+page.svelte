@@ -2,6 +2,7 @@
   import { onMount, untrack } from 'svelte';
   import { fly } from 'svelte/transition';
   import BinaryClock from '$lib/components/BinaryClock.svelte';
+  import Seo from '$lib/components/Seo.svelte';
   import { isFullscreen } from '$lib/stores/fullscreen';
 
   type MsPrecision = 'ms' | 'cs' | 'ds' | 'none';
@@ -107,10 +108,7 @@
   ];
 </script>
 
-<svelte:head>
-  <title>iansebelius</title>
-  <meta name="description" content="Personal portfolio of Ian Sebelius, featuring drawings." />
-</svelte:head>
+<Seo path="/" description="Personal portfolio of Ian Sebelius — original drawings, video, and web art." />
 
 <div class="{$isFullscreen ? 'h-screen' : 'h-[calc(100vh-4rem)]'} flex flex-col justify-center items-center overflow-hidden">
 
