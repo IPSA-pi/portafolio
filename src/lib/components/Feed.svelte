@@ -19,13 +19,34 @@
     // lightbox scrolls horizontally.
     let vertical = $derived(mode === 'all');
 
-    // Bottom bar is h-16 (64px). Image height accounts for it exactly.
-    const BAR_H = 64;
-
     let container = $state<HTMLElement | null>(null);
     let currentIndex = $state(untrack(() => startIndex));
     let mdLoaded: boolean[] = $state(untrack(() => Array(images.length).fill(false) as boolean[]));
     let rotation = $state(0);
+
+    // Double-click zoom, centred on the click point — desktop only. On touch
+    // devices we leave the browser's own pinch / double-tap zoom to the user
+    // instead. Deliberately simple: no panning — click to inspect detail, click
+    // again to reset. Resets automatically on navigation so a new slide starts 1×.
+    let canDblZoom = $state(false);
+    let zoom = $state(1);
+    let zoomOrigin = $state({ x: 50, y: 50 });
+    let zoomStyle = $derived(
+        `transform: scale(${zoom}); transform-origin: ${zoomOrigin.x}% ${zoomOrigin.y}%; cursor: ${canDblZoom ? (zoom === 1 ? 'zoom-in' : 'zoom-out') : 'default'};`
+    );
+
+    // Floating controls auto-hide after a short idle so the artwork is unobscured;
+    // any pointer movement or tap brings them back.
+    let controlsVisible = $state(true);
+    let hideTimer: ReturnType<typeof setTimeout>;
+    function showControls() {
+        controlsVisible = true;
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => { controlsVisible = false; }, 2500);
+    }
+
+    let currentImage = $derived(images[currentIndex]);
+    let currentProduct = $derived(currentImage ? products[currentImage.slug] : undefined);
 
     function formatTitle(slug: string): string {
         const parts = slug.split('_');
@@ -45,6 +66,19 @@
 
     function toggleRotation() {
         rotation = rotation === 0 ? 90 : 0;
+        showControls();
+    }
+
+    function toggleZoom(e: MouseEvent) {
+        if (!canDblZoom) return; // touch devices use native pinch zoom
+        if (zoom !== 1) { zoom = 1; return; }
+        if (!(e.currentTarget instanceof HTMLElement)) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        zoomOrigin = {
+            x: ((e.clientX - rect.left) / rect.width) * 100,
+            y: ((e.clientY - rect.top) / rect.height) * 100
+        };
+        zoom = 2;
     }
 
     function handleKeydown(e: KeyboardEvent) {
@@ -72,7 +106,11 @@
 
     $effect(() => {
         if (!container) return;
+        // A fine, hovering pointer (mouse/trackpad) gets click-to-zoom; touch
+        // devices fall back to the browser's native pinch zoom.
+        canDblZoom = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
         untrack(() => scrollToIndex(startIndex, 'instant'));
+        untrack(showControls);
         if (!vertical) container.addEventListener('wheel', handleWheel, { passive: false });
 
         const slides = container.querySelectorAll<HTMLElement>('[data-index]');
@@ -81,6 +119,7 @@
                 for (const entry of entries) {
                     if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
                         const i = Number((entry.target as HTMLElement).dataset.index);
+                        if (i !== currentIndex) zoom = 1; // new slide always starts at 1×
                         currentIndex = i;
                         if (mode === 'notebook') {
                             history.replaceState(null, '', `/drawing/${notebookSlug}/${i + 1}`);
@@ -94,21 +133,22 @@
         return () => {
             observer.disconnect();
             container?.removeEventListener('wheel', handleWheel);
+            clearTimeout(hideTimer);
         };
     });
 
     // Dimension-swap trick: when rotated 90°, swap CSS width/height so the
     // visual footprint stays the same but a portrait drawing fills the
-    // rotated (landscape-shaped) box much more fully.
-    // Height uses calc(100dvh - BAR_H) so the image never hides behind the bar.
+    // rotated (landscape-shaped) box much more fully. The image now fills the
+    // full viewport height; the floating controls overlay it.
     let imageContainerStyle = $derived(
         rotation % 180 !== 0
-            ? `width: calc(100dvh - ${BAR_H}px); height: 85vw; transform: rotate(${rotation}deg);`
-            : `width: 85vw; height: calc(100dvh - ${BAR_H}px);`
+            ? `width: 100dvh; height: 85vw; transform: rotate(${rotation}deg);`
+            : `width: 85vw; height: 100dvh;`
     );
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} onmousemove={showControls} />
 
 <!-- Close button — outside scroll container, dark bg so it's visible against any image -->
 <button
@@ -124,30 +164,37 @@
 <!-- Scroll feed: vertical for the all-drawings feed, horizontal for a notebook lightbox -->
 <div
     bind:this={container}
+    onpointerdown={showControls}
+    onscroll={() => { if (zoom !== 1) zoom = 1; }}
     class="fixed inset-0 z-40 bg-black scrollbar-none snap-mandatory {vertical ? 'overflow-y-scroll snap-y' : 'flex overflow-x-scroll overflow-y-hidden snap-x'}"
     style="-webkit-overflow-scrolling: touch;"
 >
     {#each images as image, i}
-        {@const product = products[image.slug]}
-        <!-- Each slide: flex column so the bar is always at the bottom -->
+        <!-- Each slide is full-bleed; the floating controls overlay the image. -->
         <div
             data-index={i}
-            class="snap-start snap-always h-dvh flex flex-col overflow-hidden {vertical ? 'w-full' : 'w-screen flex-none'}"
+            class="snap-start snap-always h-dvh relative overflow-hidden {vertical ? 'w-full' : 'w-screen flex-none'}"
         >
-            <!-- Image area: fills all space above the bottom bar -->
-            <div class="flex-1 min-h-0 relative">
-                <!-- Spinner -->
-                {#if !mdLoaded[i]}
-                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                        <svg class="animate-spin h-8 w-8 text-white/40" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    </div>
-                {/if}
+            <!-- Spinner -->
+            {#if !mdLoaded[i]}
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                    <svg class="animate-spin h-8 w-8 text-white/40" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+            {/if}
 
-                <!-- Image: centered, rotatable -->
-                <div class="absolute inset-0 flex items-center justify-center overflow-hidden">
+            <!-- Image: centred, rotatable, double-tap to zoom -->
+            <div class="absolute inset-0 flex items-center justify-center overflow-hidden">
+                <!-- Zoom layer: scales toward the tap point -->
+                <div
+                    ondblclick={toggleZoom}
+                    role="presentation"
+                    class="transition-transform duration-300 ease-out"
+                    style={i === currentIndex ? zoomStyle : ''}
+                >
+                    <!-- Rotation layer -->
                     <div
                         class="transition-[transform,width,height] duration-300 ease-in-out"
                         style={imageContainerStyle}
@@ -172,41 +219,45 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Bottom bar: fixed height, always visible. Title is absolutely
-                 centred so it stays centred regardless of the side controls. -->
-            <div class="h-16 flex-none relative flex items-center px-4 bg-black border-t border-white/10">
-                <!-- Left: rotate button (always shown) -->
-                <button
-                    onclick={toggleRotation}
-                    class="flex-none rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20 active:scale-95"
-                    aria-label="Rotate image"
-                    title="Rotate (R)"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                    </svg>
-                </button>
-
-                <!-- Centre: drawing title (absolutely centred) -->
-                <p class="absolute left-1/2 -translate-x-1/2 max-w-[55%] text-center text-white/70 text-sm tracking-wide truncate select-none pointer-events-none">
-                    {formatTitle(image.slug)}
-                </p>
-
-                <!-- Right: buy button or spacer -->
-                <div class="ml-auto flex-none flex justify-end" style="min-width: 2.25rem;">
-                    {#if product}
-                        <PurchaseButton
-                            priceId={product.priceId}
-                            price={product.price}
-                            slug={image.slug}
-                            notebookSlug={image.notebook ?? notebookSlug}
-                            sold={product.sold}
-                            compact
-                        />
-                    {/if}
-                </div>
-            </div>
         </div>
     {/each}
+</div>
+
+<!-- Floating controls: rotate · title · buy. Overlay the artwork on a soft
+     bottom gradient and auto-hide after idle. Driven by the current slide. -->
+<div
+    class="fixed inset-x-0 bottom-0 z-50 flex items-center gap-3 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-12 bg-gradient-to-t from-black/70 via-black/40 to-transparent transition-opacity duration-300 {controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}"
+>
+    <!-- Rotate -->
+    <button
+        onclick={toggleRotation}
+        class="flex-none rounded-full bg-white/10 backdrop-blur-sm p-2.5 text-white transition hover:bg-white/20 active:scale-95"
+        aria-label="Rotate image"
+        title="Rotate (R)"
+    >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+        </svg>
+    </button>
+
+    <!-- Title -->
+    {#if currentImage}
+        <p class="flex-1 min-w-0 text-center text-white/80 text-sm tracking-wide truncate select-none pointer-events-none drop-shadow">
+            {formatTitle(currentImage.slug)}
+        </p>
+    {/if}
+
+    <!-- Buy (or width-reserving spacer so the title stays centred) -->
+    <div class="flex-none flex justify-end" style="min-width: 2.75rem;">
+        {#if currentImage && currentProduct}
+            <PurchaseButton
+                priceId={currentProduct.priceId}
+                price={currentProduct.price}
+                slug={currentImage.slug}
+                notebookSlug={currentImage.notebook ?? notebookSlug}
+                sold={currentProduct.sold}
+                compact
+            />
+        {/if}
+    </div>
 </div>
