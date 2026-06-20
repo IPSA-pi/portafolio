@@ -10,7 +10,13 @@
     path="/learn"
 />
 
-<div class="container mx-auto px-4 py-12 max-w-3xl">
+<!--
+  Full-width solid background blocks the layout's fixed background video so the
+  long-form text stays readable. Theme-aware: light gray in light mode, near-black
+  in dark mode (matching the prose colors below).
+-->
+<div class="min-h-screen bg-gray-100 dark:bg-neutral-950">
+  <div class="container mx-auto px-4 py-12 max-w-3xl">
     <!--
       The content is rendered from LEARN.md at build time (see +page.server.ts).
       Tailwind Typography's `prose` styles the generated HTML; `dark:prose-invert`
@@ -24,4 +30,5 @@
     >
         {@html data.html}
     </article>
+  </div>
 </div>
