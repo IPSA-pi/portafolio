@@ -1,0 +1,363 @@
+# LEARN — how this site is built (and the web-dev ideas behind it)
+
+This is the **conceptual** companion to the [README](./README.md). The README tells you
+*how to run and deploy* the site; this file explains *why it's built the way it is* and uses
+the real code as a way to learn core web-development concepts.
+
+It's written to grow as the project grows, and to eventually become the source for an on-site
+"How this site was built" page.
+
+> Audience: curious beginners and intermediate devs. If a section assumes knowledge you don't
+> have yet, skip it and come back — the sections are independent.
+
+---
+
+## Table of contents
+
+1. [The 30-second pitch](#the-30-second-pitch)
+2. [How a request flows through the site](#how-a-request-flows-through-the-site)
+3. [Folder map](#folder-map)
+4. [Svelte 5 features, with examples from this site](#svelte-5-features-with-examples-from-this-site)
+5. [SvelteKit concepts: routing, loading, server vs client](#sveltekit-concepts)
+6. [Interesting design decisions worth understanding](#interesting-design-decisions)
+7. [Glossary](#glossary)
+8. [Where to go next](#where-to-go-next)
+
+---
+
+## The 30-second pitch
+
+A **SvelteKit 5** artist portfolio where every drawing is a one-of-a-kind item for sale.
+Each page splits into a **server loader** that safely talks to the database
+([Supabase](#glossary)) and payments ([Stripe](#glossary)), and a **Svelte component** that
+renders the result in the browser. The UI is built with **Svelte 5 runes** for reactivity,
+styled with **Tailwind CSS**, and deployed to the edge on **Cloudflare**.
+
+---
+
+## How a request flows through the site
+
+```
+Browser asks for /drawing/negro_1
+  │
+  ▼
+hooks.server.ts        Runs first, on every request. Assigns a per-visitor random
+                       "seed" cookie used to shuffle the art consistently.
+  │
+  ▼
++page.server.ts        Runs ONLY on the server. Queries Supabase for that notebook's
+  (load function)      drawings and checks Stripe. Returns plain data (JSON).
+  │
+  ▼
++page.svelte           Runs in the browser. Receives that data as a prop and renders
+                       the gallery with Svelte 5 runes.
+  │
+  ▼
+User clicks "Buy"  →  POST /api/checkout  →  Stripe Checkout page  →  payment
+                                                                        │
+                                                                        ▼
+                                                       /api/webhook marks it "sold"
+                                                       and sends a confirmation email
+```
+
+**The single most important idea:** files ending in `.server.ts` (and anything in a
+`lib/server/` folder) **never get sent to the browser**. That's where secret keys live. The
+`.svelte` files are the public UI. This server/client split is the backbone of how SvelteKit
+keeps secrets safe while still rendering dynamic pages.
+
+---
+
+## Folder map
+
+| Path | Role |
+|------|------|
+| `src/routes/` | Each folder is a URL. Special filenames have special meaning (see below). |
+| `src/lib/components/` | Reusable UI pieces: `Feed`, `PurchaseButton`, `ThemeToggle`, `BinaryClock`. |
+| `src/lib/server/` | Server-only modules. The `server/` name makes SvelteKit guarantee they never ship to the browser. |
+| `src/lib/stores/` | App-wide shared state (`theme`, `fullscreen`). |
+| `src/hooks.server.ts` | Runs on every request before pages — sets the session seed. |
+| `scripts/` | Node tooling to process/upload images and seed the database. |
+
+**Special route filenames** (SvelteKit convention):
+
+| File | Meaning |
+|------|---------|
+| `+page.svelte` | The page UI at this URL. |
+| `+page.server.ts` | Server-only data loader for that page (`load` function). |
+| `+server.ts` | An API endpoint (returns JSON/responses, not a page). |
+| `+layout.svelte` | Wraps all pages in this folder and below (nav, footer, background). |
+
+**Dynamic routes** use square brackets:
+- `drawing/[slug]/` → matches `/drawing/negro_1`, `/drawing/verde_3`, … (`slug` is a variable)
+- `drawing/[slug]/[index]/` → matches `/drawing/negro_1/3` (image #3 of that notebook)
+
+---
+
+## Svelte 5 features, with examples from this site
+
+Svelte 5's headline feature is **runes** — special `$`-prefixed functions that mark what's
+reactive. Older Svelte made *every* top-level `let` magically reactive; runes make it explicit,
+which is easier to read and reason about.
+
+### `$props()` — a component's inputs
+
+Components receive data from their parent through props. You declare them by destructuring one
+object, fully typed, with normal JavaScript defaults:
+
+```ts
+// src/lib/components/PurchaseButton.svelte
+interface Props {
+    priceId: string;
+    price: number;
+    sold: boolean;
+    compact?: boolean;          // optional
+}
+let { priceId, price, sold, compact = false }: Props = $props();
+```
+
+> Concept: **props** are how data flows *down* from parent to child — the fundamental unit of
+> composition in component frameworks (React, Vue, Svelte all share this idea).
+
+### `$state()` — reactive local state
+
+A value that re-renders the UI whenever you reassign it:
+
+```ts
+// src/routes/+layout.svelte
+let menuOpen = $state(false);
+// ...
+onclick={() => menuOpen = !menuOpen}   // flipping it updates the DOM automatically
+```
+
+> Concept: **reactive state**. You change a variable; the framework updates the screen for you,
+> so you never touch the DOM by hand. Note that non-reactive values (like the `navLinks` array)
+> stay plain `const` — only things that *change over time* need `$state`.
+
+### `$derived()` — computed values
+
+A value calculated *from* other reactive values; it recomputes automatically when they change:
+
+```ts
+// src/lib/components/PurchaseButton.svelte — money formatting follows `price`
+const formattedPrice = $derived(
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+        .format(price / 100)
+);
+
+// src/routes/+layout.svelte — breadcrumbs follow the URL
+let segments = $derived($page.url.pathname.split('/').filter(Boolean));
+```
+
+> Concept: **derived/computed state**. Instead of manually keeping two variables in sync, you
+> express one *as a function of* the other. Fewer bugs, less bookkeeping.
+
+### `$effect()` — side effects and cleanup
+
+Runs code when its reactive dependencies change, and can return a cleanup function. This is the
+tool for talking to the outside world (timers, browser APIs, subscriptions):
+
+```ts
+// src/lib/components/BinaryClock.svelte — a self-correcting clock tick
+const effectiveInterval = $derived(baseInterval[msPrecision]);
+$effect(() => {
+    clearInterval(timer);
+    timer = setInterval(() => { now = new Date(); }, effectiveInterval);
+    return () => clearInterval(timer);   // cleanup runs before re-run / on unmount
+});
+```
+
+Because the effect *reads* `effectiveInterval`, Svelte automatically re-runs it (tearing down the
+old timer, starting a new one) whenever the precision changes.
+
+A more advanced example in `Feed.svelte` uses an `IntersectionObserver` to detect which image is
+on screen, then returns a cleanup that disconnects it:
+
+```ts
+// src/lib/components/Feed.svelte (abridged)
+$effect(() => {
+    const observer = new IntersectionObserver(/* update currentIndex + URL */);
+    slides.forEach(s => observer.observe(s));
+    return () => observer.disconnect();   // no memory leaks
+});
+```
+
+> Concept: **side effects and lifecycle/cleanup**. Anything that reaches outside your component
+> (timers, event listeners, observers) must be cleaned up when the component goes away, or you
+> leak memory. The returned function is that cleanup.
+
+### `untrack()` — opting *out* of reactivity
+
+Inside an `$effect`, reading a reactive value normally subscribes you to it. Sometimes you want
+to read a value *once* without re-running when it later changes:
+
+```ts
+// src/lib/components/Feed.svelte
+let currentIndex = $state(untrack(() => startIndex));
+// ...
+untrack(() => scrollToIndex(startIndex, 'instant'));  // scroll once, don't re-fire on every index change
+```
+
+> Concept: **fine-grained reactivity control**. Knowing when *not* to react is as important as
+> knowing when to. This prevents feedback loops (effect changes a value → value re-triggers effect).
+
+### Snippets and `{@render}` — reusable markup / "slots"
+
+A layout wraps the current page using a **snippet** (Svelte 5's replacement for slots):
+
+```ts
+// src/routes/+layout.svelte
+let { children }: Props = $props();   // children is a Snippet
+```
+```svelte
+<main>
+  {@render children?.()}    <!-- render the current page here -->
+</main>
+```
+
+> Concept: **composition / "holes" in a layout**. The layout defines a shell (nav, footer) and
+> leaves a hole where each page's content gets injected.
+
+### Event attributes — `onclick`, not `on:click`
+
+Svelte 5 dropped the colon; events are plain HTML-like attributes:
+
+```svelte
+<button onclick={toggleTheme}>Toggle</button>
+<svelte:window onkeydown={handleKeydown} onmousemove={showControls} />
+```
+
+### Stores still exist — and we use them on purpose
+
+App-wide state (the theme, fullscreen mode) uses Svelte's classic **store** API rather than runes:
+
+```ts
+// src/lib/stores/fullscreen.ts
+import { writable } from 'svelte/store';
+export const isFullscreen = writable(false);
+```
+```svelte
+<!-- the $ prefix auto-subscribes and reads the current value -->
+<nav class:hidden={$isFullscreen}>…</nav>
+```
+
+> Concept: **local vs global state**. Use `$state` for state that lives inside one component;
+> use a store for state that many unrelated components share. This codebase is a clean example of
+> picking the right tool for each — not everything needs to be a rune.
+
+---
+
+## SvelteKit concepts
+
+### Server-side `load` functions
+
+When you visit `/drawing/negro_1`, SvelteKit runs the matching `+page.server.ts` **on the server**
+before rendering. It fetches data and hands the page a ready-made object:
+
+```ts
+// src/routes/drawing/[slug]/[index]/+page.server.ts
+export async function load({ params, locals }) {
+    const data = await loadNotebook(params.slug, locals.sessionSeed);
+    return { ...data, index: Number(params.index) };
+}
+```
+
+- `params.slug` is the `[slug]` part of the URL.
+- `locals.sessionSeed` was set earlier by `hooks.server.ts` (see below).
+- The returned object becomes the page's `data` prop.
+
+> Concept: **server-side rendering & data loading**. The page arrives at the browser already
+> populated with data — better for speed and for search engines than fetching after load.
+
+### Hooks — code that runs on every request
+
+`hooks.server.ts` is a chokepoint every request passes through. Here it gives each visitor a
+random seed stored in a cookie:
+
+```ts
+// src/hooks.server.ts
+export const handle = async ({ event, resolve }) => {
+    let seed = Number(event.cookies.get('session_seed'));
+    if (!seed) {
+        seed = Math.floor(Math.random() * 2 ** 32);
+        event.cookies.set('session_seed', String(seed), { path: '/', sameSite: 'lax' });
+    }
+    event.locals.sessionSeed = seed;   // now available to every load function
+    return resolve(event);
+};
+```
+
+> Concept: **middleware**. A single place to run logic (auth, cookies, logging) for *all*
+> requests, instead of repeating it in every route.
+
+### API endpoints (`+server.ts`)
+
+`/api/checkout` and `/api/webhook` aren't pages — they return data/responses. `PurchaseButton`
+calls checkout with `fetch`, gets back a Stripe URL, and redirects the browser there.
+
+> Concept: **the front end and back end of the same app talking over HTTP/JSON** — the basic
+> shape of almost every web app.
+
+---
+
+## Interesting design decisions
+
+These are the bits worth understanding deeply, because they show *why* the architecture is shaped
+the way it is.
+
+### The "seeded shuffle"
+
+Each visitor gets one random number in a cookie (`hooks.server.ts`). That number seeds a
+deterministic shuffle of the artwork (`src/lib/utils/shuffle.ts`, used in `loadNotebook.ts`). The
+result: the gallery looks freshly randomized for each visitor, but stays *stable* as they navigate
+around — image #3 is still image #3 when they come back. Randomness that's reproducible.
+
+> Concepts: **cookies**, **deterministic randomness (seeding)**, **idempotency** (same seed →
+> same order every time).
+
+### Secrets never reach the browser
+
+The Supabase service-role key and Stripe secret key are imported only inside `src/lib/server/`.
+Because of the `server/` folder convention, SvelteKit will refuse to bundle them into client code.
+The browser only ever sees the harmless rendered result.
+
+> Concept: **the trust boundary** between client and server — the foundation of web security.
+
+### Guarding a one-of-a-kind purchase
+
+Because each original can only be sold once, the checkout flow has to handle two people trying to
+buy the same piece. `PurchaseButton` watches for a `409 Conflict` response ("someone bought it
+first"), and the data layer treats an item as unavailable if it's either `sold` **or** `reserved`.
+
+> Concept: **race conditions and concurrency** — what happens when two users act at the same time.
+
+---
+
+## Glossary
+
+| Term | Plain-English meaning |
+|------|-----------------------|
+| **SvelteKit** | The framework that handles routing, server rendering, and building. Svelte is the UI library; SvelteKit is the full app framework around it. |
+| **Rune** | A `$`-prefixed function (`$state`, `$derived`, `$effect`, `$props`) that marks reactive behavior in Svelte 5. |
+| **Reactivity** | The framework automatically updating the screen when data changes. |
+| **Prop** | A value passed from a parent component into a child. |
+| **Store** | A holder for state that many components can share, with `$` auto-subscription. |
+| **Supabase** | Hosted Postgres database + file storage. Holds drawing metadata and the image files. |
+| **Stripe** | Payment processor. Hosts the checkout page and tells us (via webhook) when something sold. |
+| **Resend** | Service for sending transactional email (order confirmations). |
+| **Cloudflare** | The host/CDN that serves the site from servers near each visitor ("the edge"). |
+| **Webhook** | An HTTP call *from* an external service *to* us, to notify of an event (e.g. "payment succeeded"). |
+| **SSR** | Server-Side Rendering — building the HTML on the server before sending it. |
+| **Edge** | Running code on servers geographically close to the user for lower latency. |
+
+---
+
+## Where to go next
+
+- **Official Svelte 5 tutorial:** https://svelte.dev/tutorial — the interactive runes tutorial is the fastest way to internalize this file.
+- **SvelteKit docs:** https://svelte.dev/docs/kit — routing, loading, hooks.
+- **Try it in this repo:** pick one component and trace it end to end. `PurchaseButton.svelte` is a great first read (small, uses props + state + derived + a fetch call).
+
+---
+
+*This document is a living reference. As features are added, extend the relevant section with a
+short "why" and a real code snippet rather than just describing what changed.*

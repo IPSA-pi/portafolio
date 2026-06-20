@@ -35,6 +35,7 @@
   const navLinks = [
     { href: '/drawing', label: 'Drawing' },
     { href: '/video', label: 'Video' },
+    { href: '/learn', label: 'Learn' },
     { href: '', label: 'Photography' },
     { href: '', label: 'Web Art' },
   ];

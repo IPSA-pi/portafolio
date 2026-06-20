@@ -4,6 +4,10 @@ Personal portfolio and drawing gallery with e-commerce, built with SvelteKit and
 
 Live at [iansebelius.com](https://iansebelius.com)
 
+> New to the codebase or learning web dev? See [LEARN.md](./LEARN.md) for a concept-first
+> walkthrough of how the site works and the ideas behind it. This README covers running and
+> operating the site.
+
 ## Stack
 
 - **SvelteKit** — framework
