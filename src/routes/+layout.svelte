@@ -7,9 +7,10 @@
 
   interface Props {
     children?: import("svelte").Snippet;
+    data?: { isAdmin?: boolean };
   }
 
-  let { children }: Props = $props();
+  let { children, data }: Props = $props();
   let menuOpen = $state(false);
   let isFeedRoute = $derived(
     /^\/drawing\/[^/]+\/\d+$/.test($page.url.pathname) ||
@@ -32,13 +33,16 @@
     return () => document.removeEventListener('fullscreenchange', handler);
   });
 
-  const navLinks = [
+  // New Music is a private (owner-only) section, so it's only listed when the
+  // request is the authenticated owner (Cloudflare Access). See +layout.server.ts.
+  let navLinks = $derived([
     { href: '/drawing', label: 'Drawing' },
     { href: '/video', label: 'Video' },
     { href: '/learn', label: 'Learn' },
+    ...(data?.isAdmin ? [{ href: '/new-music', label: 'New Music' }] : []),
     { href: '', label: 'Photography' },
     { href: '', label: 'Web Art' },
-  ];
+  ]);
 </script>
 
 <!-- Mobile menu outside-click backdrop -->

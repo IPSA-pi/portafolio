@@ -15,7 +15,9 @@
 		"rename:apply": "node scripts/rename.js --apply",
 		"upload": "node --env-file=.env.local scripts/upload.js",
 		"seed": "node --env-file=.env.local scripts/seed.js",
-		"seed:dry": "node --env-file=.env.local scripts/seed.js --dry-run"
+		"seed:dry": "node --env-file=.env.local scripts/seed.js --dry-run",
+		"scrape": "node --env-file=.env.local scripts/scrape-music.js",
+		"scrape:dry": "node scripts/scrape-music.js --dry-run"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.0",

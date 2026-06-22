@@ -18,6 +18,28 @@ export type Drawing = {
     updated_at: string;
 };
 
+export type ReleaseStatus = 'new' | 'liked' | 'queued' | 'unavailable' | 'dismissed';
+
+export type Release = {
+    id: string;
+    source: string;
+    source_guid: string | null;
+    artist: string;
+    title: string;
+    dedupe_key: string;
+    label: string | null;
+    catalog_no: string | null;
+    genre: string[] | null;
+    source_url: string | null;
+    released_at: string | null;
+    status: ReleaseStatus;
+    tidal_track_id: string | null;
+    tidal_album_url: string | null;
+    tidal_available: boolean | null;
+    created_at: string;
+    updated_at: string;
+};
+
 type Database = {
     public: {
         Tables: {
@@ -25,6 +47,12 @@ type Database = {
                 Row: Drawing;
                 Insert: Omit<Drawing, 'id' | 'created_at' | 'updated_at'> & Partial<Pick<Drawing, 'id' | 'created_at' | 'updated_at'>>;
                 Update: Partial<Omit<Drawing, 'id'>>;
+                Relationships: [];
+            };
+            releases: {
+                Row: Release;
+                Insert: Omit<Release, 'id' | 'created_at' | 'updated_at'> & Partial<Pick<Release, 'id' | 'created_at' | 'updated_at'>>;
+                Update: Partial<Omit<Release, 'id'>>;
                 Relationships: [];
             };
         };

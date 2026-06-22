@@ -64,3 +64,47 @@ SELECT cron.schedule(
   $$
 );
 */
+
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- NEW MUSIC — releases scraped from external sources (nodata.tv, etc.)
+-- Powers the /new-music worklist. Same conventions as `drawings`:
+-- public read, service-role writes, auto updated_at.
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE TABLE releases (
+    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    source           TEXT        NOT NULL,            -- e.g. 'nodata.tv'
+    source_guid      TEXT,                            -- stable per-source id (e.g. nodata numeric id)
+    artist           TEXT        NOT NULL,
+    title            TEXT        NOT NULL,
+    dedupe_key       TEXT        UNIQUE NOT NULL,     -- lower(trim(artist)|trim(title)), global across sources
+    label            TEXT,
+    catalog_no       TEXT,
+    genre            TEXT[],                          -- genre/category tags
+    source_url       TEXT,
+    released_at      DATE,                            -- source post / release date
+    status           TEXT        NOT NULL DEFAULT 'new',  -- new|liked|queued|unavailable|dismissed
+    -- Tidal enrichment (filled in stage 2/3)
+    tidal_track_id   TEXT,
+    tidal_album_url  TEXT,
+    tidal_available  BOOLEAN,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_releases_status ON releases (status, created_at DESC);
+CREATE INDEX idx_releases_source ON releases (source);
+
+-- Reuse the set_updated_at() function defined above for drawings.
+CREATE TRIGGER releases_updated_at
+    BEFORE UPDATE ON releases
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE releases ENABLE ROW LEVEL SECURITY;
+
+-- Anyone can read; the /new-music page itself is gated by Cloudflare Access.
+CREATE POLICY "public_read" ON releases
+    FOR SELECT USING (true);
+
+-- All writes require the service role key (scraper + server actions). No policy needed.
