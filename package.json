@@ -17,7 +17,9 @@
 		"seed": "node --env-file=.env.local scripts/seed.js",
 		"seed:dry": "node --env-file=.env.local scripts/seed.js --dry-run",
 		"scrape": "node --env-file=.env.local scripts/scrape-music.js",
-		"scrape:dry": "node scripts/scrape-music.js --dry-run"
+		"scrape:dry": "node scripts/scrape-music.js --dry-run",
+		"enrich": "node --env-file=.env.local scripts/enrich-music.js",
+		"enrich:dry": "node --env-file=.env.local scripts/enrich-music.js --dry-run"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.0",

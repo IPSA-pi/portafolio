@@ -10,6 +10,7 @@
 
     let statusFilter = $state<'all' | ReleaseStatus>('all');
     let sourceFilter = $state<'all' | string>('all');
+    let availableOnly = $state(false);
     let selected = new SvelteSet<string>();
     let copied = $state<string | null>(null); // id (or 'selected') most recently copied
 
@@ -29,7 +30,8 @@
         releases.filter(
             (r) =>
                 (statusFilter === 'all' || r.status === statusFilter) &&
-                (sourceFilter === 'all' || r.source === sourceFilter)
+                (sourceFilter === 'all' || r.source === sourceFilter) &&
+                (!availableOnly || r.tidal_available === true)
         )
     );
 
@@ -117,6 +119,10 @@
                         {/each}
                     </select>
                 {/if}
+                <label class="flex items-center gap-1.5 text-black/60 dark:text-white/60">
+                    <input type="checkbox" bind:checked={availableOnly} class="h-3.5 w-3.5 accent-accent" />
+                    Available on Tidal only
+                </label>
             </div>
         </header>
 
@@ -146,7 +152,11 @@
         <!-- List -->
         {#if filtered.length === 0}
             <p class="py-16 text-center text-black/40 dark:text-white/40">
-                No releases. Run <code class="font-mono">npm run scrape</code> to populate.
+                {#if releases.length === 0}
+                    No releases. Run <code class="font-mono">npm run scrape</code> to populate.
+                {:else}
+                    No releases match these filters.
+                {/if}
             </p>
         {:else}
             <ul class="space-y-2">
