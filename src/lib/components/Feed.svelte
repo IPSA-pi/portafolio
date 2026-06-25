@@ -64,8 +64,11 @@
         goto(mode === 'all' ? '/drawing' : '/drawing/' + notebookSlug);
     }
 
-    function toggleRotation() {
-        rotation = rotation === 0 ? 90 : 0;
+    // Rotate in 90° steps, either direction. The angle accumulates freely
+    // (no wrap) so the CSS transition always animates the short 90° way and
+    // never spins backward across a 360° boundary.
+    function rotateBy(delta: number) {
+        rotation += delta;
         showControls();
     }
 
@@ -85,7 +88,7 @@
         if (e.key === 'Escape') close();
         else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') scrollToIndex(Math.min(currentIndex + 1, images.length - 1));
         else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') scrollToIndex(Math.max(currentIndex - 1, 0));
-        else if (e.key === 'r' || e.key === 'R') toggleRotation();
+        else if (e.key === 'r' || e.key === 'R') rotateBy(e.shiftKey ? -90 : 90);
     }
 
     // In the horizontal lightbox a mouse wheel scrolls vertically, which would do
@@ -142,9 +145,9 @@
     // rotated (landscape-shaped) box much more fully. The image now fills the
     // full viewport height; the floating controls overlay it.
     let imageContainerStyle = $derived(
-        rotation % 180 !== 0
+        Math.abs(rotation / 90) % 2 === 1
             ? `width: 100dvh; height: 85vw; transform: rotate(${rotation}deg);`
-            : `width: 85vw; height: 100dvh;`
+            : `width: 85vw; height: 100dvh; transform: rotate(${rotation}deg);`
     );
 </script>
 
@@ -228,15 +231,27 @@
 <div
     class="fixed inset-x-0 bottom-0 z-50 flex items-center gap-3 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-12 bg-gradient-to-t from-black/70 via-black/40 to-transparent transition-opacity duration-300 {controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}"
 >
-    <!-- Rotate -->
+    <!-- Rotate left (counter-clockwise, −90°): left-pointing curved arrow -->
     <button
-        onclick={toggleRotation}
+        onclick={() => rotateBy(-90)}
         class="flex-none rounded-full bg-white/10 backdrop-blur-sm p-2.5 text-white transition hover:bg-white/20 active:scale-95"
-        aria-label="Rotate image"
-        title="Rotate (R)"
+        aria-label="Rotate left"
+        title="Rotate left (Shift+R)"
     >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+        </svg>
+    </button>
+
+    <!-- Rotate right (clockwise, +90°): right-pointing curved arrow -->
+    <button
+        onclick={() => rotateBy(90)}
+        class="flex-none rounded-full bg-white/10 backdrop-blur-sm p-2.5 text-white transition hover:bg-white/20 active:scale-95"
+        aria-label="Rotate right"
+        title="Rotate right (R)"
+    >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m15 15 6-6m0 0-6-6m6 6H9a6 6 0 0 0 0 12h3" />
         </svg>
     </button>
 
