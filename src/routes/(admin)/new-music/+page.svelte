@@ -193,22 +193,25 @@
                         </div>
 
                         <!-- Actions -->
-                        <div class="flex shrink-0 items-center gap-1.5">
-                            <button
-                                onclick={() => copy(label(r), r.id)}
-                                title="Copy “Artist — Title”"
-                                class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black/60 dark:text-white/60 hover:text-accent hover:border-accent transition-colors"
-                            >
-                                {copied === r.id ? 'Copied!' : 'Copy'}
-                            </button>
+                        <div class=”flex shrink-0 items-center gap-1.5”>
                             <a
-                                href={tidalUrl(r)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black/60 dark:text-white/60 hover:text-accent hover:border-accent transition-colors"
+                                href=”https://music.youtube.com/search?q={encodeURIComponent(`${r.artist} ${r.title}`)}”
+                                target=”_blank”
+                                rel=”noopener noreferrer”
+                                class=”rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black/60 dark:text-white/60 hover:text-accent hover:border-accent transition-colors”
                             >
-                                {r.tidal_album_url ? 'Tidal ✓' : 'Tidal ↗'}
+                                YT Music ↗
                             </a>
+                            {#if r.tidal_available}
+                                <a
+                                    href={tidalUrl(r)}
+                                    target=”_blank”
+                                    rel=”noopener noreferrer”
+                                    class=”rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black/60 dark:text-white/60 hover:text-accent hover:border-accent transition-colors”
+                                >
+                                    Tidal ✓
+                                </a>
+                            {/if}
                             <select
                                 value={r.status}
                                 onchange={(e) => setStatus(r, e.currentTarget.value as ReleaseStatus)}

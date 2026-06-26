@@ -17,12 +17,7 @@ export const load: PageServerLoad = async () => {
             return { releases: [] };
         }
 
-        // Surface unworked items first: `new` on top, then by recency (already sorted).
-        const releases = (data ?? []).sort(
-            (a, b) => (a.status === 'new' ? 0 : 1) - (b.status === 'new' ? 0 : 1)
-        );
-
-        return { releases };
+        return { releases: data ?? [] };
     } catch (err) {
         // Missing env / table not created yet — render the empty state, not a 500.
         console.error('releases load error:', (err as Error).message);
