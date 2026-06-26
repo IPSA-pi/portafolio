@@ -23,10 +23,12 @@ export type ReleaseStatus = 'new' | 'liked' | 'queued' | 'unavailable' | 'dismis
 export type Release = {
     id: string;
     source: string;
+    sources: string[];
     source_guid: string | null;
     artist: string;
     title: string;
     dedupe_key: string;
+    release_year: number | null;
     label: string | null;
     catalog_no: string | null;
     genre: string[] | null;
@@ -36,6 +38,8 @@ export type Release = {
     tidal_track_id: string | null;
     tidal_album_url: string | null;
     tidal_available: boolean | null;
+    spotify_album_url: string | null;
+    spotify_available: boolean | null;
     created_at: string;
     updated_at: string;
 };

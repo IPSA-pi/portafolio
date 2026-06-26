@@ -74,16 +74,18 @@ SELECT cron.schedule(
 
 CREATE TABLE releases (
     id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    source           TEXT        NOT NULL,            -- e.g. 'nodata.tv'
+    source           TEXT        NOT NULL,            -- e.g. 'nodata.tv' (first source to find the release)
+    sources          TEXT[]      NOT NULL DEFAULT '{}', -- all sources that found it, e.g. '{nodata.tv,ra.co}'
     source_guid      TEXT,                            -- stable per-source id (e.g. nodata numeric id)
     artist           TEXT        NOT NULL,
     title            TEXT        NOT NULL,
     dedupe_key       TEXT        UNIQUE NOT NULL,     -- lower(trim(artist)|trim(title)), global across sources
+    release_year     INT,                             -- e.g. 2026, extracted from title bracket or source metadata
     label            TEXT,
     catalog_no       TEXT,
     genre            TEXT[],                          -- genre/category tags
     source_url       TEXT,
-    released_at      DATE,                            -- source post / release date
+    released_at      DATE,                            -- source post / review date
     status           TEXT        NOT NULL DEFAULT 'new',  -- new|liked|queued|unavailable|dismissed
     -- Tidal enrichment (filled in stage 2/3)
     tidal_track_id   TEXT,
@@ -93,8 +95,9 @@ CREATE TABLE releases (
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_releases_status ON releases (status, created_at DESC);
-CREATE INDEX idx_releases_source ON releases (source);
+CREATE INDEX idx_releases_status  ON releases (status, created_at DESC);
+CREATE INDEX idx_releases_source  ON releases (source);
+CREATE INDEX idx_releases_sources ON releases USING GIN (sources);
 
 -- Reuse the set_updated_at() function defined above for drawings.
 CREATE TRIGGER releases_updated_at

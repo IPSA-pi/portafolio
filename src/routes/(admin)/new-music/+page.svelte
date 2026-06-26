@@ -11,6 +11,7 @@
     let statusFilter = $state<'all' | ReleaseStatus>('all');
     let sourceFilter = $state<'all' | string>('all');
     let availableOnly = $state(false);
+    let spotifyOnly = $state(false);
     let selected = new SvelteSet<string>();
     let copied = $state<string | null>(null); // id (or 'selected') most recently copied
 
@@ -24,14 +25,15 @@
         dismissed: 'bg-neutral-500/10 text-neutral-500 line-through'
     };
 
-    let sources = $derived([...new Set(releases.map((r) => r.source))].sort());
+    let sources = $derived([...new Set(releases.flatMap((r) => r.sources ?? [r.source]))].sort());
 
     let filtered = $derived(
         releases.filter(
             (r) =>
                 (statusFilter === 'all' || r.status === statusFilter) &&
-                (sourceFilter === 'all' || r.source === sourceFilter) &&
-                (!availableOnly || r.tidal_available === true)
+                (sourceFilter === 'all' || (r.sources ?? [r.source]).includes(sourceFilter)) &&
+                (!availableOnly || r.tidal_available === true) &&
+                (!spotifyOnly || r.spotify_available === true)
         )
     );
 
@@ -42,6 +44,11 @@
     function tidalUrl(r: Release): string {
         if (r.tidal_album_url) return r.tidal_album_url;
         return `https://tidal.com/search?q=${encodeURIComponent(`${r.artist} ${r.title}`)}`;
+    }
+
+    function spotifyUrl(r: Release): string {
+        if (r.spotify_album_url) return r.spotify_album_url;
+        return `https://open.spotify.com/search/${encodeURIComponent(`${r.artist} ${r.title}`)}`;
     }
 
     function ytMusicUrl(r: Release): string {
@@ -125,7 +132,11 @@
                 {/if}
                 <label class="flex items-center gap-1.5 text-black/60 dark:text-white/60">
                     <input type="checkbox" bind:checked={availableOnly} class="h-3.5 w-3.5 accent-accent" />
-                    Available on Tidal only
+                    Tidal only
+                </label>
+                <label class="flex items-center gap-1.5 text-black/60 dark:text-white/60">
+                    <input type="checkbox" bind:checked={spotifyOnly} class="h-3.5 w-3.5 accent-accent" />
+                    Spotify only
                 </label>
             </div>
         </header>
@@ -166,7 +177,7 @@
             <ul class="space-y-2">
                 {#each filtered as r (r.id)}
                     <li
-                        class="group flex flex-col gap-2 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-3 sm:flex-row sm:items-center sm:gap-4"
+                        class="group flex flex-col gap-2 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-3 sm:flex-row sm:items-start sm:gap-4"
                         class:ring-1={r.status === 'new'}
                         class:ring-accent={r.status === 'new'}
                     >
@@ -180,19 +191,29 @@
 
                         <!-- Main info -->
                         <div class="min-w-0 flex-1">
-                            <div class="flex items-center gap-2">
-                                <span class="truncate font-medium text-black dark:text-white">
-                                    {r.artist} <span class="text-black/40 dark:text-white/40">—</span> {r.title}
-                                </span>
-                                <span
-                                    class="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium {STATUS_STYLES[r.status]}"
-                                >{r.status}</span>
-                            </div>
-                            <div class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-black/45 dark:text-white/45">
-                                <span>{r.source}</span>
-                                {#if r.label}<span>· {r.label}</span>{/if}
-                                {#if r.released_at}<span>· {r.released_at}</span>{/if}
-                                {#if r.genre?.length}<span class="truncate">· {r.genre.join(', ')}</span>{/if}
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0">
+                                    <p class="truncate font-semibold text-black dark:text-white">{r.artist}</p>
+                                    <p class="truncate text-sm text-black/80 dark:text-white/80">{r.title}</p>
+                                    {#if r.label || r.release_year}
+                                        <p class="mt-0.5 text-xs text-black/45 dark:text-white/45">
+                                            {[r.label, r.release_year].filter(Boolean).join(' · ')}
+                                        </p>
+                                    {/if}
+                                    {#if r.genre?.length}
+                                        <div class="mt-1.5 flex flex-wrap gap-1">
+                                            {#each r.genre as g}
+                                                <span class="rounded px-1.5 py-0.5 text-[10px] bg-black/5 dark:bg-white/10 text-black/55 dark:text-white/50">{g}</span>
+                                            {/each}
+                                        </div>
+                                    {/if}
+                                </div>
+                                <div class="shrink-0 flex flex-col items-end gap-1.5 pt-0.5">
+                                    <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {STATUS_STYLES[r.status]}">{r.status}</span>
+                                    <span class="text-[10px] text-black/30 dark:text-white/30 leading-none">
+                                        {(r.sources ?? [r.source]).join(' · ')}
+                                    </span>
+                                </div>
                             </div>
                         </div>
 
@@ -214,6 +235,16 @@
                                     class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black/60 dark:text-white/60 hover:text-accent hover:border-accent transition-colors"
                                 >
                                     Tidal ✓
+                                </a>
+                            {/if}
+                            {#if r.spotify_available}
+                                <a
+                                    href={spotifyUrl(r)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black/60 dark:text-white/60 hover:text-accent hover:border-accent transition-colors"
+                                >
+                                    Spotify ✓
                                 </a>
                             {/if}
                             <select

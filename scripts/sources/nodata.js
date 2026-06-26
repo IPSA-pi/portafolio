@@ -55,12 +55,14 @@ function tagAll(xml, name) {
     return out;
 }
 
-/** Split "Artist / Title [Year]" into { artist, title }. */
+/** Split "Artist / Title [Year]" into { artist, title, release_year }. */
 function parseTitle(rawTitle) {
-    const t = rawTitle.replace(/\s*\[\d{4}\]\s*$/, '').trim(); // drop trailing [YYYY]
+    const yearMatch = rawTitle.match(/\[(\d{4})\]\s*$/);
+    const release_year = yearMatch ? parseInt(yearMatch[1], 10) : null;
+    const t = rawTitle.replace(/\s*\[\d{4}\]\s*$/, '').trim();
     const slash = t.indexOf(' / ');
-    if (slash === -1) return { artist: '', title: t };
-    return { artist: t.slice(0, slash).trim(), title: t.slice(slash + 3).trim() };
+    if (slash === -1) return { artist: '', title: t, release_year };
+    return { artist: t.slice(0, slash).trim(), title: t.slice(slash + 3).trim(), release_year };
 }
 
 export async function fetch() {
@@ -76,7 +78,7 @@ export async function fetch() {
     for (const item of items) {
         const rawTitle = tag(item, 'title');
         if (!rawTitle) continue;
-        const { artist, title } = parseTitle(rawTitle);
+        const { artist, title, release_year } = parseTitle(rawTitle);
         if (!artist || !title) continue; // skip anything that doesn't fit the format
 
         const link = tag(item, 'link');
@@ -97,6 +99,7 @@ export async function fetch() {
             source_guid: guidMatch ? guidMatch[1] : null,
             artist,
             title,
+            release_year,
             label: labelMatch ? labelMatch[1].trim() : null,
             catalog_no: catMatch ? catMatch[1].replace(/[\]]+$/, '') : null,
             genre: genre.length ? genre : null,
