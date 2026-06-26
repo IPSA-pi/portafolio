@@ -196,8 +196,8 @@
                             </div>
                         </div>
 
-                        <!-- Actions -->
-                        <div class="flex shrink-0 items-center gap-1.5">
+                        <!-- Actions: links left, status picker pinned to right edge -->
+                        <div class="flex w-full items-center gap-1.5 sm:flex-1">
                             <a
                                 href={ytMusicUrl(r)}
                                 target="_blank"
@@ -219,7 +219,7 @@
                             <select
                                 value={r.status}
                                 onchange={(e) => setStatus(r, e.currentTarget.value as ReleaseStatus)}
-                                class="rounded-md border border-black/10 dark:border-white/15 bg-white dark:bg-neutral-900 px-1.5 py-1 text-xs text-black dark:text-white"
+                                class="ml-auto rounded-md border border-black/10 dark:border-white/15 bg-white dark:bg-neutral-900 px-1.5 py-1 text-xs text-black dark:text-white"
                                 aria-label="Set status"
                             >
                                 {#each STATUSES as s}
