@@ -44,6 +44,10 @@
         return `https://tidal.com/search?q=${encodeURIComponent(`${r.artist} ${r.title}`)}`;
     }
 
+    function ytMusicUrl(r: Release): string {
+        return `https://music.youtube.com/search?q=${encodeURIComponent(`${r.artist} ${r.title}`)}`;
+    }
+
     async function copy(text: string, key: string) {
         try {
             await navigator.clipboard.writeText(text);
@@ -193,21 +197,21 @@
                         </div>
 
                         <!-- Actions -->
-                        <div class=”flex shrink-0 items-center gap-1.5”>
+                        <div class="flex shrink-0 items-center gap-1.5">
                             <a
-                                href=”https://music.youtube.com/search?q={encodeURIComponent(r.artist + ' ' + r.title)}”
-                                target=”_blank”
-                                rel=”noopener noreferrer”
-                                class=”rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black/60 dark:text-white/60 hover:text-accent hover:border-accent transition-colors”
+                                href={ytMusicUrl(r)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black/60 dark:text-white/60 hover:text-accent hover:border-accent transition-colors"
                             >
                                 YT Music ↗
                             </a>
                             {#if r.tidal_available}
                                 <a
                                     href={tidalUrl(r)}
-                                    target=”_blank”
-                                    rel=”noopener noreferrer”
-                                    class=”rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black/60 dark:text-white/60 hover:text-accent hover:border-accent transition-colors”
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black/60 dark:text-white/60 hover:text-accent hover:border-accent transition-colors"
                                 >
                                     Tidal ✓
                                 </a>
