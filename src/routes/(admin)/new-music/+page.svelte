@@ -195,7 +195,7 @@
                         <!-- Actions -->
                         <div class=”flex shrink-0 items-center gap-1.5”>
                             <a
-                                href=”https://music.youtube.com/search?q={encodeURIComponent(`${r.artist} ${r.title}`)}”
+                                href=”https://music.youtube.com/search?q={encodeURIComponent(r.artist + ' ' + r.title)}”
                                 target=”_blank”
                                 rel=”noopener noreferrer”
                                 class=”rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black/60 dark:text-white/60 hover:text-accent hover:border-accent transition-colors”
