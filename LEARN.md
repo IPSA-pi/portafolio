@@ -19,9 +19,10 @@ It's written to grow as the project grows, and to eventually become the source f
 3. [Folder map](#folder-map)
 4. [Svelte 5 features, with examples from this site](#svelte-5-features-with-examples-from-this-site)
 5. [SvelteKit concepts: routing, loading, server vs client](#sveltekit-concepts)
-6. [Interesting design decisions worth understanding](#interesting-design-decisions)
-7. [Glossary](#glossary)
-8. [Where to go next](#where-to-go-next)
+6. [Stripe + Supabase: how the shop works](#stripe--supabase-how-the-shop-works)
+7. [Interesting design decisions worth understanding](#interesting-design-decisions)
+8. [Glossary](#glossary)
+9. [Where to go next](#where-to-go-next)
 
 ---
 
@@ -296,6 +297,94 @@ calls checkout with `fetch`, gets back a Stripe URL, and redirects the browser t
 
 > Concept: **the front end and back end of the same app talking over HTTP/JSON** — the basic
 > shape of almost every web app.
+
+---
+
+## Stripe + Supabase: how the shop works
+
+Stripe and Supabase each own a different part of the sale. Supabase is the **source of truth for
+availability**; Stripe is the **source of truth for money**. The `slug` (e.g. `negro_2_09`) is the
+only link between them — it travels through Stripe's session metadata so the webhook knows which
+database row to update.
+
+### Data model
+
+Each drawing has one row in the Supabase `drawings` table:
+
+| Column | Role |
+|--------|------|
+| `slug` | Unique identifier, e.g. `negro_2_09`. The key that ties everything together. |
+| `stripe_product_id` | The Stripe Product object for this drawing. |
+| `stripe_price_id` | The active Stripe Price (the amount the buyer pays). |
+| `price_cents` | Mirror of the Stripe price — used to display the price without calling Stripe. |
+| `sold` | `true` once payment is confirmed. Permanent. |
+| `reserved` | `true` while a checkout session is active (≤ 30 min). Temporary. |
+| `reserved_at` | Timestamp of the reservation, used to detect stale locks. |
+
+Images are stored in Supabase Storage (bucket: `drawings`) with four variants per drawing:
+`negro_2_09.webp`, `negro_2_09-sm.webp`, `negro_2_09-md.webp`, `negro_2_09-lg.webp`.
+
+### Purchase flow
+
+```
+User clicks Buy
+      │
+      ▼
+POST /api/checkout
+  Supabase: UPDATE drawings SET reserved=true, reserved_at=now()
+            WHERE slug=? AND sold=false
+            AND (reserved=false OR reserved_at < 35 minutes ago)
+  → If 0 rows updated: drawing is taken → return 409
+  → If 1 row updated: read stripe_price_id from that row
+  Stripe: checkout.sessions.create({ price: stripe_price_id, metadata: { slug } })
+  → Return the Stripe-hosted checkout URL to the browser
+      │
+      ▼
+User pays on Stripe's page (30-min session window)
+      │
+      ├─ Payment succeeds ──────────────────────────────────────────────────────┐
+      │                                                                         ▼
+      │                                                         POST /api/webhook
+      │                                                           (checkout.session.completed)
+      │                                                         Verify Stripe signature
+      │                                                         Supabase: sold=true, reserved=false
+      │                                                         Resend: email to buyer + artist
+      │
+      └─ Session expires (user abandons) ──────────────────────────────────────┐
+                                                                               ▼
+                                                               POST /api/webhook
+                                                                 (checkout.session.expired)
+                                                               Supabase: reserved=false
+                                                               → Drawing is available again
+```
+
+### Setting prices
+
+Prices are managed with `scripts/set-price.js`. It creates a Stripe Product + Price, sets it as the
+product's default, and mirrors `stripe_price_id` and `price_cents` back into Supabase — all in one
+command:
+
+```sh
+node --env-file=.env.local scripts/set-price.js negro_2_09 150
+node --env-file=.env.local scripts/set-price.js --notebook negro_2 150
+```
+
+**Why Stripe prices are immutable:** Stripe doesn't let you edit the amount on an existing price
+object. To change a price you create a new one and make it the default. The script handles this
+automatically — re-running it on an already-priced drawing creates a new price and deactivates the
+old one in Stripe if Supabase fails to update (so you never accumulate orphaned prices).
+
+### Key safety properties
+
+- **Atomic reservation** — the `UPDATE ... WHERE` is a single Postgres operation. If two users click
+  Buy at the same instant, Postgres serializes them: exactly one succeeds, the other gets a 409.
+- **Stale reservation cleanup** — the 35-minute threshold (slightly above Stripe's 30-minute session
+  expiry) means a reservation whose checkout session has definitely expired can be taken over. A
+  `pg_cron` job also sweeps stale reservations every 10 minutes (see `schema.sql`).
+- **Webhook idempotency** — the webhook checks `sold` before updating, so duplicate event deliveries
+  from Stripe are harmless.
+- **Signature verification** — every webhook request is verified with `STRIPE_WEBHOOK_SECRET` before
+  any database write, preventing spoofed payment notifications.
 
 ---
 

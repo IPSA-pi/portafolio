@@ -136,14 +136,32 @@ Size variants use a `-` suffix before the size: `negro_1_01-sm.webp`, `negro_1_0
    ```
    This uploads all files under `src/lib/assets/drawings/` to the `drawings` bucket, skipping any already uploaded. Use `--force` to overwrite.
 
-4. **Add DB rows** — open the Supabase dashboard → Table Editor → `drawings` and insert a row for each new original image:
-   - `slug`: e.g. `negro_7_01`
-   - `notebook`: e.g. `negro_7`
-   - `drawing_number`: e.g. `1`
-   - `display_order`: position in the gallery
-   - `storage_url`: `https://your-project.supabase.co/storage/v1/object/public/drawings/negro_7/negro_7_01.webp`
+4. **Add DB rows** — re-run the seed script (safe to run repeatedly, uses upsert):
+   ```sh
+   npm run seed
+   ```
+   This reads all files under `src/lib/assets/drawings/`, creates one row per original, and links any existing Stripe products.
 
-5. **List for sale** (optional) — to add a buy button, create a product in the Stripe dashboard, copy its price ID, and set `stripe_price_id` and `price_cents` on the DB row.
+5. **List for sale** (optional) — to add a buy button, set a price with the `set-price.js` script:
+   ```sh
+   # Single drawing
+   node --env-file=.env.local scripts/set-price.js negro_7_01 150
+
+   # Entire notebook at once
+   node --env-file=.env.local scripts/set-price.js --notebook negro_7 150
+   ```
+   This creates a Stripe product + price and updates the DB row in one step.
+
+### Operational scripts
+
+```sh
+# Set or update a price (creates Stripe product + price, updates Supabase)
+node --env-file=.env.local scripts/set-price.js <slug> <dollars>
+node --env-file=.env.local scripts/set-price.js --notebook <notebook> <dollars>
+
+# Delete one or more drawings (removes DB rows + all 4 storage variants)
+node --env-file=.env.local scripts/delete-drawing.js <slug> [slug2 slug3 ...]
+```
 
 ### Migration scripts
 
@@ -184,6 +202,8 @@ scripts/
   rename.js                   # One-time file rename migration
   upload.js                   # Uploads images to Supabase Storage
   seed.js                     # Seeds Supabase DB from filesystem + Stripe
+  set-price.js                # Creates Stripe product + price, updates Supabase
+  delete-drawing.js           # Deletes drawings from DB and Storage
   schema.sql                  # Supabase table DDL (run once in SQL editor)
 ```
 
