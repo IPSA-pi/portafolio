@@ -197,7 +197,15 @@
                                     <p class="truncate text-sm text-black/80 dark:text-white/80">{r.title}</p>
                                     {#if r.label || r.release_year}
                                         <p class="mt-0.5 text-xs text-black/45 dark:text-white/45">
-                                            {[r.label, r.release_year].filter(Boolean).join(' · ')}
+                                            {#if r.label}
+                                                <a
+                                                    href="https://www.discogs.com/search?q={encodeURIComponent(r.label)}&type=label"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    class="hover:text-accent transition-colors"
+                                                >{r.label}</a>{#if r.release_year} · {/if}
+                                            {/if}
+                                            {#if r.release_year}{r.release_year}{/if}
                                         </p>
                                     {/if}
                                     {#if r.genre?.length}
@@ -227,6 +235,16 @@
                             >
                                 YT Music ↗
                             </a>
+                            {#if r.source_url?.startsWith('https://ra.co')}
+                                <a
+                                    href={r.source_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black/60 dark:text-white/60 hover:text-accent hover:border-accent transition-colors"
+                                >
+                                    RA Review ↗
+                                </a>
+                            {/if}
                             {#if r.tidal_available}
                                 <a
                                     href={tidalUrl(r)}
