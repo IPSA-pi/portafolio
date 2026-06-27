@@ -46,7 +46,8 @@ export const POST = async ({ request, url }) => {
             mode: 'payment',
             success_url: `${url.origin}/drawing/${notebookSlug}?success=true&drawing=${slug}&session_id={CHECKOUT_SESSION_ID}`,
             cancel_url:  `${url.origin}/drawing/${notebookSlug}`,
-            metadata:    { slug, notebookSlug },
+            metadata:             { slug, notebookSlug },
+            client_reference_id:  slug,
             shipping_address_collection: {
                 allowed_countries: ['US', 'CA', 'GB', 'FR', 'DE', 'IT', 'ES', 'MX'],
             },

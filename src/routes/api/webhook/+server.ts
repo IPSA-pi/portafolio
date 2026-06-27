@@ -155,11 +155,17 @@ export const POST = async ({ request }) => {
 
         if (slug) {
             try {
+                // Only release the reservation that belongs to this specific session.
+                // If a new buyer reserved the drawing after this session was created,
+                // their reserved_at will be newer than session.created — don't touch it.
+                // +5s buffer absorbs any clock skew between our server and Stripe.
+                const sessionCreatedAt = new Date((session.created + 5) * 1000).toISOString();
                 await getSupabase()
                     .from('drawings')
                     .update({ reserved: false, reserved_at: null })
                     .eq('slug', slug)
-                    .eq('sold', false);
+                    .eq('sold', false)
+                    .lte('reserved_at', sessionCreatedAt);
 
                 console.log(`Reservation released for ${slug}.`);
             } catch (err) {
