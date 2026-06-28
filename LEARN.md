@@ -19,7 +19,7 @@ It's written to grow as the project grows, and to eventually become the source f
 3. [Folder map](#folder-map)
 4. [Svelte 5 features, with examples from this site](#svelte-5-features-with-examples-from-this-site)
 5. [SvelteKit concepts: routing, loading, server vs client](#sveltekit-concepts)
-6. [Stripe + Supabase: how the shop works](#stripe--supabase-how-the-shop-works)
+6. [Stripe + Supabase: how the shop works](#stripe-supabase-how-the-shop-works)
 7. [Interesting design decisions worth understanding](#interesting-design-decisions)
 8. [Glossary](#glossary)
 9. [Where to go next](#where-to-go-next)
