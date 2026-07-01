@@ -41,14 +41,26 @@
         return `${r.artist} — ${r.title}`;
     }
 
+    // Prefer the native-app URI schemes so links open Tidal/Spotify directly
+    // rather than the browser web player. Both apps register these protocol
+    // handlers on desktop and mobile; if the app isn't installed the OS falls
+    // back to a prompt. Web-search URLs are kept as-is (no reliable app scheme).
     function tidalUrl(r: Release): string {
-        if (r.tidal_album_url) return r.tidal_album_url;
+        if (r.tidal_album_url) {
+            const m = r.tidal_album_url.match(/album\/(\d+)/);
+            if (m) return `tidal://album/${m[1]}`;
+            return r.tidal_album_url;
+        }
         return `https://tidal.com/search?q=${encodeURIComponent(`${r.artist} ${r.title}`)}`;
     }
 
     function spotifyUrl(r: Release): string {
-        if (r.spotify_album_url) return r.spotify_album_url;
-        return `https://open.spotify.com/search/${encodeURIComponent(`${r.artist} ${r.title}`)}`;
+        if (r.spotify_album_url) {
+            const m = r.spotify_album_url.match(/open\.spotify\.com\/(.+)$/);
+            if (m) return `spotify:${m[1].split('?')[0].replace(/\//g, ':')}`;
+            return r.spotify_album_url;
+        }
+        return `spotify:search:${encodeURIComponent(`${r.artist} ${r.title}`)}`;
     }
 
     function ytMusicUrl(r: Release): string {
@@ -219,7 +231,19 @@
                                 <div class="shrink-0 flex flex-col items-end gap-1.5 pt-0.5">
                                     <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {STATUS_STYLES[r.status]}">{r.status}</span>
                                     <span class="text-[10px] text-black/30 dark:text-white/30 leading-none">
-                                        {(r.sources ?? [r.source]).join(' · ')}
+                                        {#each r.sources ?? [r.source] as s, i}
+                                            {#if i > 0}<span> · </span>{/if}
+                                            {#if r.source_url?.includes(s)}
+                                                <a
+                                                    href={r.source_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    class="hover:text-accent transition-colors"
+                                                >{s}</a>
+                                            {:else}
+                                                {s}
+                                            {/if}
+                                        {/each}
                                     </span>
                                 </div>
                             </div>
@@ -235,16 +259,6 @@
                             >
                                 YT Music ↗
                             </a>
-                            {#if r.source_url?.startsWith('https://ra.co')}
-                                <a
-                                    href={r.source_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black/60 dark:text-white/60 hover:text-accent hover:border-accent transition-colors"
-                                >
-                                    RA Review ↗
-                                </a>
-                            {/if}
                             {#if r.tidal_available}
                                 <a
                                     href={tidalUrl(r)}
