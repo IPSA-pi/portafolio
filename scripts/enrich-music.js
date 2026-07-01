@@ -6,8 +6,11 @@
  * direct album link and the top track id (the track id is unused until
  * Stage 3, where it's what gets added to a playlist).
  *
- * Safe to re-run: only touches rows where tidal_available is still null, so
- * re-running never re-checks (or overwrites) releases already enriched.
+ * Also re-checks releases marked unavailable but released within the last
+ * RECHECK_DAYS: sources announce releases around (or before) their street date,
+ * so TIDAL often doesn't have them yet at first enrich, and a later addition
+ * would otherwise never be picked up. Older "unavailable" rows are left alone —
+ * they're genuinely not on streaming — so re-running stays cheap.
  *
  * Usage:
  *   node --env-file=.env.local scripts/enrich-music.js
@@ -42,10 +45,14 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// Re-check unavailable releases from within this window; see header comment.
+const RECHECK_DAYS = 45;
+const recheckCutoff = new Date(Date.now() - RECHECK_DAYS * 86_400_000).toISOString().slice(0, 10);
+
 const { data: rows, error } = await supabase
     .from('releases')
     .select('id, artist, title')
-    .is('tidal_available', null)
+    .or(`tidal_available.is.null,and(tidal_available.is.false,released_at.gte.${recheckCutoff})`)
     .limit(LIMIT);
 
 if (error) {
