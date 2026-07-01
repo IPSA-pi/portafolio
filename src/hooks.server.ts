@@ -2,11 +2,6 @@ import type { Handle } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { verifyAccessJwt } from '$lib/server/access';
 
-// Team login domain (e.g. https://myteam.cloudflareaccess.com) and the Access
-// application's Audience (AUD) tag. Set both in the Workers env / .env.local.
-const TEAM_DOMAIN = env.CF_ACCESS_TEAM_DOMAIN?.replace(/\/$/, '');
-const ACCESS_AUD = env.CF_ACCESS_AUD;
-
 /**
  * Owner check, exposed as `locals.isAdmin` and used to unlock owner-only controls
  * (e.g. editing on /new-music) and gate the write endpoints under /admin.
@@ -29,12 +24,18 @@ async function isOwner(event: Parameters<Handle>[0]['event']): Promise<boolean> 
         event.request.headers.get('cf-access-jwt-assertion') ?? event.cookies.get('CF_Authorization');
     if (!token) return false;
 
-    if (!TEAM_DOMAIN || !ACCESS_AUD) {
+    // Read env per-request: on Cloudflare Workers `$env/dynamic/private` is only
+    // populated during a request, so reading these at module top level yields
+    // undefined. Team login domain (e.g. https://myteam.cloudflareaccess.com) and
+    // the Access application's Audience (AUD) tag.
+    const teamDomain = env.CF_ACCESS_TEAM_DOMAIN?.replace(/\/$/, '');
+    const aud = env.CF_ACCESS_AUD;
+    if (!teamDomain || !aud) {
         console.error('CF_ACCESS_TEAM_DOMAIN / CF_ACCESS_AUD not set — refusing owner access');
         return false; // fail closed
     }
 
-    return verifyAccessJwt(token, { teamDomain: TEAM_DOMAIN, aud: ACCESS_AUD });
+    return verifyAccessJwt(token, { teamDomain, aud });
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
