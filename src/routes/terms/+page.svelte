@@ -9,7 +9,7 @@
         <a href="/" class="text-sm text-gray-500 hover:text-black dark:hover:text-white transition-colors">← Back</a>
 
         <h1 class="mt-6 text-3xl font-bold text-gray-900 dark:text-white">Terms of Service</h1>
-        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Effective date: May 28, 2025</p>
+        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Effective date: July 1, 2026</p>
 
         <p class="mt-6 text-gray-700 dark:text-gray-300 leading-relaxed">
             These Terms of Service govern your use of <em>iansebelius.com</em> and any purchase made through the store. By accessing the site or completing a purchase, you agree to these terms. The site is operated by Ian Sebelius.
@@ -91,10 +91,7 @@
             <div>
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">7. Governing Law</h2>
                 <p class="mt-3 text-gray-700 dark:text-gray-300 leading-relaxed">
-                    These terms are governed by the laws of the <strong>[your state/country]</strong>, without regard to conflict of law principles. Any disputes arising from these terms or a purchase shall be resolved in the courts of that jurisdiction.
-                </p>
-                <p class="mt-2 text-xs text-gray-400 dark:text-gray-500 italic">
-                    Note: Replace [your state/country] with your actual jurisdiction before publishing.
+                    These terms are governed by the laws of the <strong>Province of British Columbia, Canada</strong>, without regard to conflict of law principles. Any disputes arising from these terms or a purchase shall be resolved in the courts of that jurisdiction.
                 </p>
             </div>
 
