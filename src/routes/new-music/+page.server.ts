@@ -4,13 +4,22 @@ import type { PageServerLoad } from './$types';
 // Dynamic data — never prerender.
 export const prerender = false;
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ locals }) => {
     try {
-        const { data, error } = await getSupabase()
+        let query = getSupabase()
             .from('releases')
             .select('*')
             .order('created_at', { ascending: false })
             .limit(500);
+
+        // Public visitors see the curated list only — the owner's internal
+        // "not interested / not on streaming" states stay private. The owner
+        // (locals.isAdmin) still sees everything for editing.
+        if (!locals.isAdmin) {
+            query = query.not('status', 'in', '(dismissed,unavailable)');
+        }
+
+        const { data, error } = await query;
 
         if (error) {
             console.error('Failed to load releases:', error.message);

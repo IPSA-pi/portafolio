@@ -33,15 +33,15 @@
     return () => document.removeEventListener('fullscreenchange', handler);
   });
 
-  // New Music is a private (owner-only) section, so it's only listed when the
-  // request is the authenticated owner (Cloudflare Access). See +layout.server.ts.
   let navLinks = $derived([
     { href: '/drawing', label: 'Drawing' },
     { href: '/video', label: 'Video' },
     { href: '/learn', label: 'Learn' },
-    ...(data?.isAdmin ? [{ href: '/new-music', label: 'New Music' }] : []),
+    { href: '/new-music', label: 'New Music' },
     { href: '', label: 'Photography' },
     { href: '', label: 'Web Art' },
+    // Owner-only hub (behind Cloudflare Access); only listed for the owner.
+    ...(data?.isAdmin ? [{ href: '/admin', label: 'Admin' }] : []),
   ]);
 </script>
 

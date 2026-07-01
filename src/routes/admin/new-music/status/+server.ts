@@ -6,8 +6,10 @@ import type { RequestHandler } from './$types';
 const VALID: ReleaseStatus[] = ['new', 'liked', 'queued', 'unavailable', 'dismissed'];
 
 /**
- * Update a release's worklist status. Owner-only: the (admin) group sits behind
- * Cloudflare Access, and `locals.isAdmin` is re-checked here as a backstop.
+ * Update a release's worklist status. Owner-only: the /new-music page is public,
+ * but this write path lives under /admin so it stays behind Cloudflare Access
+ * (single app on path `admin`). `locals.isAdmin` is re-checked here as a
+ * fail-closed backstop — layout guards don't run for +server endpoints.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
     if (!locals.isAdmin) throw error(403, 'Forbidden');

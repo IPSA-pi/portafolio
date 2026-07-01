@@ -1,9 +1,14 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
     import { SvelteSet } from 'svelte/reactivity';
     import Seo from '$lib/components/Seo.svelte';
     import type { Release, ReleaseStatus } from '$lib/server/supabase';
 
     let { data } = $props();
+
+    // Owner sees editing controls (status picker, batch tools); the public gets a
+    // read-only view with a personal "heard" tracker. See hooks.server.ts.
+    let isAdmin = $derived(Boolean(data.isAdmin));
 
     // Local mutable copy so status changes update the UI optimistically.
     let releases = $state<Release[]>(data.releases);
@@ -14,6 +19,30 @@
     let spotifyOnly = $state(false);
     let selected = new SvelteSet<string>();
     let copied = $state<string | null>(null); // id (or 'selected') most recently copied
+
+    // Visitor "heard" tracker: persisted per-browser in localStorage (no account
+    // needed) so a returning visitor sees what they've already checked off.
+    const SEEN_KEY = 'new-music:heard';
+    let heard = new SvelteSet<string>();
+
+    onMount(() => {
+        try {
+            const raw = localStorage.getItem(SEEN_KEY);
+            if (raw) for (const id of JSON.parse(raw) as string[]) heard.add(id);
+        } catch {
+            /* storage unavailable / bad JSON — start empty */
+        }
+    });
+
+    function toggleHeard(id: string) {
+        if (heard.has(id)) heard.delete(id);
+        else heard.add(id);
+        try {
+            localStorage.setItem(SEEN_KEY, JSON.stringify([...heard]));
+        } catch {
+            /* storage unavailable (private mode, quota) — in-memory only */
+        }
+    }
 
     const STATUSES: ReleaseStatus[] = ['new', 'liked', 'queued', 'unavailable', 'dismissed'];
 
@@ -90,7 +119,7 @@
     async function setStatus(r: Release, status: ReleaseStatus) {
         const prev = r.status;
         r.status = status; // optimistic
-        const res = await fetch('/new-music/status', {
+        const res = await fetch('/admin/new-music/status', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ id: r.id, status })
@@ -122,15 +151,17 @@
 
             <!-- Filters -->
             <div class="flex flex-wrap items-center gap-2 text-sm">
-                <select
-                    bind:value={statusFilter}
-                    class="rounded-md border border-black/10 dark:border-white/15 bg-white dark:bg-neutral-900 px-2 py-1 text-black dark:text-white"
-                >
-                    <option value="all">All statuses</option>
-                    {#each STATUSES as s}
-                        <option value={s}>{s}</option>
-                    {/each}
-                </select>
+                {#if isAdmin}
+                    <select
+                        bind:value={statusFilter}
+                        class="rounded-md border border-black/10 dark:border-white/15 bg-white dark:bg-neutral-900 px-2 py-1 text-black dark:text-white"
+                    >
+                        <option value="all">All statuses</option>
+                        {#each STATUSES as s}
+                            <option value={s}>{s}</option>
+                        {/each}
+                    </select>
+                {/if}
                 {#if sources.length > 1}
                     <select
                         bind:value={sourceFilter}
@@ -153,8 +184,8 @@
             </div>
         </header>
 
-        <!-- Batch bar -->
-        {#if selected.size > 0}
+        <!-- Batch bar (owner only) -->
+        {#if isAdmin && selected.size > 0}
             <div
                 class="sticky top-16 z-10 mb-3 flex items-center justify-between gap-3 rounded-lg border border-accent/30 bg-accent/10 px-4 py-2 text-sm backdrop-blur-sm"
             >
@@ -189,17 +220,29 @@
             <ul class="space-y-2">
                 {#each filtered as r (r.id)}
                     <li
-                        class="group flex flex-col gap-2 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-3 sm:flex-row sm:items-start sm:gap-4"
-                        class:ring-1={r.status === 'new'}
-                        class:ring-accent={r.status === 'new'}
+                        class="group flex flex-col gap-2 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-3 transition-opacity sm:flex-row sm:items-start sm:gap-4"
+                        class:ring-1={isAdmin && r.status === 'new'}
+                        class:ring-accent={isAdmin && r.status === 'new'}
+                        class:opacity-50={!isAdmin && heard.has(r.id)}
                     >
-                        <input
-                            type="checkbox"
-                            checked={selected.has(r.id)}
-                            onchange={() => toggle(r.id)}
-                            class="h-4 w-4 shrink-0 accent-accent"
-                            aria-label="Select {label(r)}"
-                        />
+                        {#if isAdmin}
+                            <input
+                                type="checkbox"
+                                checked={selected.has(r.id)}
+                                onchange={() => toggle(r.id)}
+                                class="h-4 w-4 shrink-0 accent-accent"
+                                aria-label="Select {label(r)}"
+                            />
+                        {:else}
+                            <input
+                                type="checkbox"
+                                checked={heard.has(r.id)}
+                                onchange={() => toggleHeard(r.id)}
+                                class="h-4 w-4 shrink-0 accent-accent"
+                                title="Mark as heard — remembered on this device"
+                                aria-label="Mark {label(r)} as heard"
+                            />
+                        {/if}
 
                         <!-- Main info -->
                         <div class="min-w-0 flex-1">
@@ -229,7 +272,9 @@
                                     {/if}
                                 </div>
                                 <div class="shrink-0 flex flex-col items-end gap-1.5 pt-0.5">
-                                    <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {STATUS_STYLES[r.status]}">{r.status}</span>
+                                    {#if isAdmin}
+                                        <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {STATUS_STYLES[r.status]}">{r.status}</span>
+                                    {/if}
                                     <span class="text-[10px] text-black/30 dark:text-white/30 leading-none">
                                         {#each r.sources ?? [r.source] as s, i}
                                             {#if i > 0}<span> · </span>{/if}
@@ -279,16 +324,18 @@
                                     Spotify ✓
                                 </a>
                             {/if}
-                            <select
-                                value={r.status}
-                                onchange={(e) => setStatus(r, e.currentTarget.value as ReleaseStatus)}
-                                class="ml-auto rounded-md border border-black/10 dark:border-white/15 bg-white dark:bg-neutral-900 px-1.5 py-1 text-xs text-black dark:text-white"
-                                aria-label="Set status"
-                            >
-                                {#each STATUSES as s}
-                                    <option value={s}>{s}</option>
-                                {/each}
-                            </select>
+                            {#if isAdmin}
+                                <select
+                                    value={r.status}
+                                    onchange={(e) => setStatus(r, e.currentTarget.value as ReleaseStatus)}
+                                    class="ml-auto rounded-md border border-black/10 dark:border-white/15 bg-white dark:bg-neutral-900 px-1.5 py-1 text-xs text-black dark:text-white"
+                                    aria-label="Set status"
+                                >
+                                    {#each STATUSES as s}
+                                        <option value={s}>{s}</option>
+                                    {/each}
+                                </select>
+                            {/if}
                         </div>
                     </li>
                 {/each}
