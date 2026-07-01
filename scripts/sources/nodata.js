@@ -55,11 +55,23 @@ function tagAll(xml, name) {
     return out;
 }
 
-/** Split "Artist / Title [Year]" into { artist, title, release_year }. */
+/**
+ * Split "Artist / Title [Year]" into { artist, title, release_year }.
+ *
+ * nodata separates artist from title with " / ", except when the release
+ * title itself contains a " / " (a two-track single like "Good Night Baby /
+ * Hang (Remixes)") — then the feed switches to an en-dash, "Artist – Title",
+ * and the " / " belongs to the title. So when an en-dash is present, prefer it
+ * as the separator; otherwise fall back to the first " / ".
+ */
 function parseTitle(rawTitle) {
     const yearMatch = rawTitle.match(/\[(\d{4})\]\s*$/);
     const release_year = yearMatch ? parseInt(yearMatch[1], 10) : null;
     const t = rawTitle.replace(/\s*\[\d{4}\]\s*$/, '').trim();
+
+    const dash = t.indexOf(' – '); // " – " en-dash: artist/title separator for multi-track titles
+    if (dash !== -1) return { artist: t.slice(0, dash).trim(), title: t.slice(dash + 3).trim(), release_year };
+
     const slash = t.indexOf(' / ');
     if (slash === -1) return { artist: '', title: t, release_year };
     return { artist: t.slice(0, slash).trim(), title: t.slice(slash + 3).trim(), release_year };

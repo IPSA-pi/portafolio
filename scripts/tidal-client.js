@@ -51,18 +51,36 @@ function normalize(s) {
 }
 
 /**
+ * Strip the punctuation that derails TIDAL's search ranking — parentheses,
+ * brackets, and slashes — while leaving the words (and any accents) intact.
+ * TIDAL ranks "Kid Lib Living In The Zone (Remix)" against generic popular
+ * "(Remix)" albums and buries the real release, but the same query without the
+ * parens returns that release as the sole hit.
+ */
+function searchQuery(artist, title) {
+    return `${artist} ${title}`.replace(/[()[\]/]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
  * `candidateTitle` is allowed to be `expectedTitle` plus extra decoration
  * (e.g. Tidal listing "Quench, Vol. 1 (Air) - EP" for our "Quench Vol. 1
  * (Air)"). The reverse is deliberately NOT accepted: checking whether our
  * title contains the candidate's let a generic short album literally titled
  * "Kind" falsely match our "Kind 013" — any short candidate title is a
  * substring of half the things people release.
+ *
+ * A nodata release title can also bundle two tracks ("Living In The Zone
+ * (Remix) / A New Start") where TIDAL titles the album after just one of them,
+ * so accept a match on the whole expected title or on any " / " segment of it.
  */
 function titlesMatch(candidateTitle, expectedTitle) {
     const candidate = normalize(candidateTitle ?? '');
-    const expected = normalize(expectedTitle ?? '');
-    if (!candidate || !expected) return false;
-    return candidate === expected || candidate.includes(expected);
+    if (!candidate) return false;
+    for (const part of [expectedTitle, ...String(expectedTitle ?? '').split(/\s*\/\s*/)]) {
+        const expected = normalize(part);
+        if (expected && (candidate === expected || candidate.includes(expected))) return true;
+    }
+    return false;
 }
 
 /**
@@ -91,10 +109,8 @@ function findMatchingAlbum(json, expectedTitle) {
  * it's actually needed for a playlist-add, which is more precise than trying
  * to fuzzy-match an individual track out of this search response.
  */
-export async function searchTidal({ clientId, clientSecret, artist, title, countryCode = 'US', debug = false }) {
-    const token = await getAccessToken(clientId, clientSecret);
-    const query = `${artist} ${title}`;
-
+/** Run one search query, retrying once on a 429, and return the parsed body. */
+async function fetchSearchResults({ token, query, countryCode }) {
     const url = `${API_BASE}/v2/searchResults/${encodeURIComponent(query)}?countryCode=${countryCode}&include=albums`;
     const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.api+json' }
@@ -103,16 +119,32 @@ export async function searchTidal({ clientId, clientSecret, artist, title, count
     if (res.status === 429) {
         const retryAfter = Number(res.headers.get('retry-after')) || 2;
         await new Promise((r) => setTimeout(r, retryAfter * 1000));
-        return searchTidal({ clientId, clientSecret, artist, title, countryCode, debug });
+        return fetchSearchResults({ token, query, countryCode });
     }
     if (!res.ok) {
         throw new Error(`Tidal search failed for "${query}": ${res.status} ${await res.text()}`);
     }
+    return res.json();
+}
 
-    const json = await res.json();
-    if (debug) console.log(JSON.stringify(json, null, 2));
+export async function searchTidal({ clientId, clientSecret, artist, title, countryCode = 'US', debug = false }) {
+    const token = await getAccessToken(clientId, clientSecret);
 
-    const album = findMatchingAlbum(json, title);
+    // A compound release title ("Living In The Zone (Remix) / A New Start")
+    // makes a noisy query — TIDAL ranks the second track's words in and buries
+    // the real album — so if the whole title finds nothing, retry with just
+    // the lead segment.
+    const segments = String(title).split(/\s*\/\s*/);
+    const titleQueries = segments.length > 1 ? [title, segments[0]] : [title];
+
+    let album = null;
+    for (const tq of titleQueries) {
+        const json = await fetchSearchResults({ token, query: searchQuery(artist, tq), countryCode });
+        if (debug) console.log(JSON.stringify(json, null, 2));
+        album = findMatchingAlbum(json, title);
+        if (album) break;
+    }
+
     const sharingLink = album?.attributes?.externalLinks?.find((l) => l.meta?.type === 'TIDAL_SHARING')?.href;
 
     return {
