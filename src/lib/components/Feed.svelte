@@ -42,7 +42,7 @@
     function showControls() {
         controlsVisible = true;
         clearTimeout(hideTimer);
-        hideTimer = setTimeout(() => { controlsVisible = false; }, 2500);
+        hideTimer = setTimeout(() => { controlsVisible = false; }, 4500);
     }
 
     let currentImage = $derived(images[currentIndex]);

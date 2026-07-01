@@ -7,7 +7,7 @@
     let { data } = $props();
 
     let notebook = $derived(NOTEBOOKS_BY_SLUG[$page.params.slug ?? ""]);
-    let title = $derived(notebook?.title ?? "Gallery");
+    let title = $derived($page.params.slug ?? "Gallery");
 </script>
 
 <Seo

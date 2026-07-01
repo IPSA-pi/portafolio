@@ -3,8 +3,8 @@
     <meta name="description" content="Privacy policy for iansebelius.com — how your data is collected, used, and protected." />
 </svelte:head>
 
-<div class="min-h-screen py-16 px-4">
-    <div class="max-w-2xl mx-auto bg-white/95 dark:bg-black/95 backdrop-blur-sm rounded-lg px-8 py-12 shadow-lg">
+<div class="min-h-screen bg-gray-100 dark:bg-neutral-950 py-16 px-4">
+    <div class="max-w-2xl mx-auto px-8 py-12">
 
         <a href="/" class="text-sm text-gray-500 hover:text-black dark:hover:text-white transition-colors">← Back</a>
 

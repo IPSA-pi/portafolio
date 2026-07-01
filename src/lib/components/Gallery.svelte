@@ -15,7 +15,7 @@
 	}
 </script>
 
-<div class="grid grid-cols-3 gap-0 md:grid-cols-4 md:mx-auto md:w-1/3">
+<div class="grid grid-cols-3 gap-0 md:grid-cols-4 lg:grid-cols-6">
 	{#each images as image, index}
 		{@const product = products[image.slug]}
 		{@const isSold = product?.sold}
