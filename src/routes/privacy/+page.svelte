@@ -9,7 +9,7 @@
         <a href="/" class="text-sm text-gray-500 hover:text-black dark:hover:text-white transition-colors">← Back</a>
 
         <h1 class="mt-6 text-3xl font-bold text-gray-900 dark:text-white">Privacy Policy</h1>
-        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Effective date: May 28, 2025</p>
+        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Effective date: July 1, 2026</p>
 
         <p class="mt-6 text-gray-700 dark:text-gray-300 leading-relaxed">
             This site is operated by Ian Sebelius (<em>iansebelius.com</em>). This policy explains what personal information is collected when you visit or make a purchase, how it is used, and who it is shared with.
@@ -60,9 +60,21 @@
             </div>
 
             <div>
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">4. Cookies and Session State</h2>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">4. Cookies and Local Storage</h2>
                 <p class="mt-3 text-gray-700 dark:text-gray-300 leading-relaxed">
-                    This site does not use advertising or analytics cookies. A session token may be stored in your browser's local storage to preserve the state of your checkout flow. This data is not used for tracking and is cleared when the session ends or expires.
+                    This site uses <strong>no advertising, analytics, or cross-site tracking cookies</strong>, and therefore shows no cookie-consent banner. It stores only the strictly necessary and functional items listed below. All are first-party (set by this site), stay on your device or this site's own systems, and are never used to profile you or shared with advertisers.
+                </p>
+                <ul class="mt-3 space-y-2 text-gray-700 dark:text-gray-300 leading-relaxed list-disc list-inside">
+                    <li><strong><code>session_seed</code> (cookie)</strong> — a random number that keeps the artwork shuffled in a consistent order for you as you browse. Contains no personal information and expires when you close your browser.</li>
+                    <li><strong><code>theme</code> (local storage)</strong> — remembers your light or dark appearance choice. Set only when you change the theme and stays on your device.</li>
+                    <li><strong>&ldquo;heard&rdquo; list (local storage)</strong> — on the New Music page, remembers which releases you have ticked as heard so the list is preserved on your next visit. Set only when you tick an item, stays on your device, and is never sent to us.</li>
+                    <li><strong><code>CF_Authorization</code> (cookie)</strong> — a sign-in token set only for the site owner after logging in to the private admin area. It is not set for ordinary visitors.</li>
+                </ul>
+                <p class="mt-3 text-gray-700 dark:text-gray-300 leading-relaxed">
+                    Our hosting and security provider, <strong>Cloudflare</strong>, may set its own strictly necessary cookies (for example <code>__cf_bm</code> and <code>cf_clearance</code>) to protect the site from bots and abuse. During payment, <strong>Stripe</strong>'s hosted checkout sets its own cookies on Stripe's domain — see Stripe's privacy policy linked above.
+                </p>
+                <p class="mt-3 text-gray-700 dark:text-gray-300 leading-relaxed">
+                    You can delete or block any of these in your browser settings. Blocking the functional items above may reset your theme or shuffle order, but will not prevent you from browsing or making a purchase.
                 </p>
             </div>
 
