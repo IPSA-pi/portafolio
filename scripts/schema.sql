@@ -117,18 +117,24 @@ CREATE POLICY "public_read" ON releases
 -- ORDERS — one row per sold drawing, written at webhook fulfillment time.
 -- This is the durable record of a sale (Stripe session + buyer details),
 -- independent of the confirmation emails, which can fail to send.
+--
+-- A multi-item cart checkout produces ONE Stripe session covering several
+-- drawings, so stripe_session_id is not unique by itself — the uniqueness
+-- (and idempotency guard against double-inserting on a webhook retry) is on
+-- the (stripe_session_id, drawing_slug) pair instead.
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE TABLE orders (
     id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     drawing_slug       TEXT        NOT NULL,
-    stripe_session_id  TEXT        UNIQUE NOT NULL,
+    stripe_session_id  TEXT        NOT NULL,
     payment_intent     TEXT,
     amount_total       INT,
     customer_name      TEXT,
     customer_email     TEXT,
     shipping_address   JSONB,
-    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (stripe_session_id, drawing_slug)
 );
 
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
@@ -141,13 +147,14 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 CREATE TABLE orders (
     id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     drawing_slug       TEXT        NOT NULL,
-    stripe_session_id  TEXT        UNIQUE NOT NULL,
+    stripe_session_id  TEXT        NOT NULL,
     payment_intent     TEXT,
     amount_total       INT,
     customer_name      TEXT,
     customer_email     TEXT,
     shipping_address   JSONB,
-    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (stripe_session_id, drawing_slug)
 );
 
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;

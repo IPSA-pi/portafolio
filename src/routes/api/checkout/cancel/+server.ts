@@ -1,14 +1,15 @@
 import { getStripe } from '$lib/server/stripe';
 import { getSupabase } from '$lib/server/supabase';
+import { getSlugsFromSession } from '$lib/server/checkoutSlugs';
 import { json } from '@sveltejs/kit';
 
 // Best-effort cleanup for a buyer who hit Back from Stripe Checkout. Expires
 // the (still-open) session so the existing expired webhook fires normally,
-// then also releases the reservation directly here for immediate effect —
-// otherwise the buyer would see their own drawing "Sold" until the webhook
+// then also releases the reservation(s) directly here for immediate effect —
+// otherwise the buyer would see their own drawing(s) "Sold" until the webhook
 // (or the 35-min stale threshold) catches up.
 //
-// The slug is derived ONLY from the retrieved Stripe session's metadata,
+// The slug(s) are derived ONLY from the retrieved Stripe session's metadata,
 // never from the request body, so this endpoint can't be abused to release
 // an arbitrary drawing's reservation by passing someone else's slug.
 export const POST = async ({ request }) => {
@@ -24,12 +25,12 @@ export const POST = async ({ request }) => {
             await getStripe().checkout.sessions.expire(sessionId);
         }
 
-        const slug = session.metadata?.slug;
-        if (slug) {
+        const slugs = getSlugsFromSession(session);
+        if (slugs.length > 0) {
             await getSupabase()
                 .from('drawings')
                 .update({ reserved: false, reserved_at: null })
-                .eq('slug', slug)
+                .in('slug', slugs)
                 .eq('sold', false);
         }
 
