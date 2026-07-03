@@ -41,25 +41,36 @@ export const POST = async ({ request, url }) => {
             return json({ error: 'Drawing is not for sale' }, { status: 409 });
         }
 
-        const session = await getStripe().checkout.sessions.create({
-            line_items: [{ price: priceId, quantity: 1 }],
-            mode: 'payment',
-            success_url: `${url.origin}/drawing/${notebookSlug}?success=true&drawing=${slug}&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url:  `${url.origin}/drawing/${notebookSlug}`,
-            metadata:             { slug, notebookSlug },
-            client_reference_id:  slug,
-            shipping_address_collection: {
-                allowed_countries: [
-                    'US', 'CA', 'GB', 'FR', 'DE', 'IT', 'ES', 'MX',
-                    'JP', 'AR', 'BR', 'CL', 'CO', 'EC', 'PE', 'PY', 'UY', 'BO',
-                ],
-            },
-            expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-        });
+        let session;
+        try {
+            session = await getStripe().checkout.sessions.create({
+                line_items: [{ price: priceId, quantity: 1 }],
+                mode: 'payment',
+                success_url: `${url.origin}/drawing/${notebookSlug}?success=true&drawing=${slug}&session_id={CHECKOUT_SESSION_ID}`,
+                cancel_url:  `${url.origin}/drawing/${notebookSlug}`,
+                metadata:             { slug, notebookSlug },
+                client_reference_id:  slug,
+                shipping_address_collection: {
+                    allowed_countries: [
+                        'US', 'CA', 'GB', 'FR', 'DE', 'IT', 'ES', 'MX',
+                        'JP', 'AR', 'BR', 'CL', 'CO', 'EC', 'PE', 'PY', 'UY', 'BO',
+                    ],
+                },
+                expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+            });
+        } catch (stripeErr) {
+            // Roll back reservation — Stripe session creation failed, don't
+            // leave the drawing stuck as reserved with nobody in checkout.
+            await getSupabase()
+                .from('drawings')
+                .update({ reserved: false, reserved_at: null })
+                .eq('slug', slug);
+            throw stripeErr;
+        }
 
         return json({ url: session.url });
     } catch (e: any) {
         console.error('Checkout error:', e);
-        return json({ error: e.message }, { status: 500 });
+        return json({ error: 'Checkout is temporarily unavailable. Please try again.' }, { status: 500 });
     }
 };
