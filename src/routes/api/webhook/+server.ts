@@ -4,6 +4,15 @@ import { getResend } from '$lib/server/resend';
 import { env } from '$env/dynamic/private';
 import { error, json } from '@sveltejs/kit';
 
+function escapeHtml(s: string): string {
+    return s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function buildCustomerEmail(customerName: string, slug: string) {
     return `
 <!DOCTYPE html>
@@ -16,7 +25,7 @@ function buildCustomerEmail(customerName: string, slug: string) {
           <p style="font-size:13px;letter-spacing:4px;text-transform:uppercase;color:#999;margin:0 0 32px;">iansebelius.com</p>
           <h1 style="font-size:28px;font-weight:400;color:#111;margin:0 0 24px;">Thank you for your purchase.</h1>
           <p style="font-size:16px;color:#444;line-height:1.7;margin:0 0 16px;">
-            Hi ${customerName},
+            Hi ${escapeHtml(customerName)},
           </p>
           <p style="font-size:16px;color:#444;line-height:1.7;margin:0 0 16px;">
             Your original drawing <strong>${slug}</strong> is on its way to you soon.
@@ -41,9 +50,11 @@ function buildCustomerEmail(customerName: string, slug: string) {
 
 function artistNotificationEmail(slug: string, customerName: string, customerEmail: string, address: any, amountTotal: number) {
     const formattedAmount = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amountTotal / 100);
-    const formattedAddress = address
-        ? [address.line1, address.line2, address.city, address.state, address.postal_code, address.country].filter(Boolean).join(', ')
-        : 'No address provided';
+    const formattedAddress = escapeHtml(
+        address
+            ? [address.line1, address.line2, address.city, address.state, address.postal_code, address.country].filter(Boolean).join(', ')
+            : 'No address provided',
+    );
 
     return `
 <!DOCTYPE html>
@@ -66,7 +77,7 @@ function artistNotificationEmail(slug: string, customerName: string, customerEma
             </tr>
             <tr>
               <td style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#999;padding-bottom:4px;">Buyer</td>
-              <td style="font-size:16px;color:#111;padding-bottom:16px;">${customerName} &lt;${customerEmail}&gt;</td>
+              <td style="font-size:16px;color:#111;padding-bottom:16px;">${escapeHtml(customerName)} &lt;${escapeHtml(customerEmail)}&gt;</td>
             </tr>
             <tr>
               <td style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#999;padding-bottom:4px;vertical-align:top;">Ship to</td>
@@ -110,7 +121,10 @@ async function fulfillOrder(session: any) {
 
     const customerEmail = session.customer_details?.email;
     const customerName  = session.customer_details?.name || 'there';
-    const shippingAddress = session.shipping_details?.address;
+    // Stripe moved this field to collected_information in the API versions
+    // this webhook is pinned to; fall back to the legacy location just in case.
+    const shippingAddress = session.collected_information?.shipping_details?.address
+        ?? session.shipping_details?.address;
     const amountTotal   = session.amount_total;
 
     // The DB write above is now committed, so `sold` is already true —
