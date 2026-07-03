@@ -2,6 +2,7 @@ import { getStripe } from '$lib/server/stripe';
 import { getSupabase } from '$lib/server/supabase';
 import { getResend } from '$lib/server/resend';
 import { getSlugsFromSession } from '$lib/server/checkoutSlugs';
+import { releaseSessionReservations } from '$lib/server/reservations';
 import { env } from '$env/dynamic/private';
 import { error, json } from '@sveltejs/kit';
 
@@ -187,29 +188,6 @@ async function fulfillOrder(session: any) {
     }
 }
 
-async function releaseReservation(session: any) {
-    const slugs = getSlugsFromSession(session);
-    if (slugs.length === 0) return;
-
-    try {
-        // Only release reservations that belong to this specific session.
-        // If a new buyer reserved a drawing after this session was created,
-        // their reserved_at will be newer than session.created — don't touch it.
-        // +5s buffer absorbs any clock skew between our server and Stripe.
-        const sessionCreatedAt = new Date((session.created + 5) * 1000).toISOString();
-        await getSupabase()
-            .from('drawings')
-            .update({ reserved: false, reserved_at: null })
-            .in('slug', slugs)
-            .eq('sold', false)
-            .lte('reserved_at', sessionCreatedAt);
-
-        console.log(`Reservations released for: ${slugs.join(', ')}`);
-    } catch (err) {
-        console.error('Error releasing reservations:', err);
-    }
-}
-
 export const POST = async ({ request }) => {
     const body = await request.text();
     const signature = request.headers.get('stripe-signature');
@@ -244,12 +222,12 @@ export const POST = async ({ request }) => {
 
     if (event.type === 'checkout.session.async_payment_failed') {
         const session = event.data.object as any;
-        await releaseReservation(session);
+        await releaseSessionReservations(session);
     }
 
     if (event.type === 'checkout.session.expired') {
         const session = event.data.object as any;
-        await releaseReservation(session);
+        await releaseSessionReservations(session);
     }
 
     return json({ received: true });

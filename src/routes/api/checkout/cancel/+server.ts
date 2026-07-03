@@ -1,6 +1,5 @@
 import { getStripe } from '$lib/server/stripe';
-import { getSupabase } from '$lib/server/supabase';
-import { getSlugsFromSession } from '$lib/server/checkoutSlugs';
+import { releaseSessionReservations } from '$lib/server/reservations';
 import { json } from '@sveltejs/kit';
 
 // Best-effort cleanup for a buyer who hit Back from Stripe Checkout. Expires
@@ -11,7 +10,10 @@ import { json } from '@sveltejs/kit';
 //
 // The slug(s) are derived ONLY from the retrieved Stripe session's metadata,
 // never from the request body, so this endpoint can't be abused to release
-// an arbitrary drawing's reservation by passing someone else's slug.
+// an arbitrary drawing's reservation by passing someone else's slug. And
+// release only happens through the shared releaseSessionReservations helper,
+// which scopes to reservations that actually belong to THIS session — so a
+// stale/replayed session id can't release a different buyer's live hold.
 export const POST = async ({ request }) => {
     try {
         const { sessionId } = await request.json();
@@ -25,13 +27,10 @@ export const POST = async ({ request }) => {
             await getStripe().checkout.sessions.expire(sessionId);
         }
 
-        const slugs = getSlugsFromSession(session);
-        if (slugs.length > 0) {
-            await getSupabase()
-                .from('drawings')
-                .update({ reserved: false, reserved_at: null })
-                .in('slug', slugs)
-                .eq('sold', false);
+        // Never release a reservation backing a session that already paid —
+        // the webhook (or fulfillOrder racing this call) owns that outcome.
+        if (session.payment_status !== 'paid') {
+            await releaseSessionReservations(session);
         }
 
         return json({ ok: true });

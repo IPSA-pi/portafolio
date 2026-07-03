@@ -1,5 +1,6 @@
 import { getStripe } from '$lib/server/stripe';
 import { getSupabase } from '$lib/server/supabase';
+import { STALE_RESERVATION_MS } from '$lib/server/reservations';
 import { json } from '@sveltejs/kit';
 
 const MAX_ITEMS = 20;
@@ -31,13 +32,13 @@ export const POST = async ({ request, url }) => {
         const isSingleItemFlow = drawingSlugs.length === 1 && !!notebookSlug;
 
         // Atomic reservation: only succeeds if not already sold, AND it's either
-        // not reserved or the reservation is stale (>35 mins old). The UPDATE ...
-        // WHERE is race-safe: if two requests arrive at once, Postgres serializes
-        // them and re-checks the WHERE on the locked row, so exactly one gets a
-        // row back. The 35-min threshold sits above Stripe's 30-min session
-        // expiry, so any reservation we take over is guaranteed to have a dead
-        // checkout session — never two live ones.
-        const staleThreshold = new Date(Date.now() - 35 * 60 * 1000).toISOString();
+        // not reserved or the reservation is stale. The UPDATE ... WHERE is
+        // race-safe: if two requests arrive at once, Postgres serializes them
+        // and re-checks the WHERE on the locked row, so exactly one gets a row
+        // back. STALE_RESERVATION_MS sits above Stripe's 30-min session expiry,
+        // so any reservation we take over is guaranteed to have a dead checkout
+        // session — never two live ones.
+        const staleThreshold = new Date(Date.now() - STALE_RESERVATION_MS).toISOString();
 
         const reservedSlugs: string[] = []; // successfully reserved in this request — rolled back together on any failure
         const unavailable: string[] = [];
