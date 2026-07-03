@@ -7,10 +7,11 @@
         slug: string;
         notebookSlug: string;
         sold: boolean;
+        reserved?: boolean;
         compact?: boolean;
     }
 
-    let { priceId, price, slug, notebookSlug, sold, compact = false }: Props = $props();
+    let { priceId, price, slug, notebookSlug, sold, reserved = false, compact = false }: Props = $props();
     let loading = $state(false);
     let errorMessage = $state<string | null>(null);
     let errorTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -22,7 +23,7 @@
     }
 
     async function handleCheckout() {
-        if (sold || loading) return;
+        if (sold || reserved || loading) return;
         loading = true;
 
         try {
@@ -62,6 +63,11 @@
     <!-- Compact variant for bottom bars -->
     {#if sold}
         <span class="text-red-400 text-xs font-bold uppercase tracking-widest">Sold</span>
+    {:else if reserved}
+        <span
+            class="text-zinc-300 text-xs font-semibold uppercase tracking-widest"
+            title="In someone's checkout — check back soon"
+        >On hold</span>
     {:else if priceId}
         <button
             onclick={handleCheckout}
@@ -84,6 +90,13 @@
         {#if sold}
             <div class="bg-red-500/80 text-white px-6 py-2 rounded-full font-bold uppercase tracking-widest text-lg backdrop-blur-sm">
                 Sold
+            </div>
+        {:else if reserved}
+            <div
+                class="bg-zinc-600/80 text-white px-6 py-2 rounded-full font-bold uppercase tracking-widest text-lg backdrop-blur-sm"
+                title="In someone's checkout — check back soon"
+            >
+                On hold
             </div>
         {:else if priceId}
             <button

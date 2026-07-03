@@ -21,13 +21,14 @@ function buildImages(drawings: any[]) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildProducts(drawings: any[]) {
-    const products: Record<string, { priceId: string; price: number; sold: boolean }> = {};
+    const products: Record<string, { priceId: string; price: number; sold: boolean; reserved: boolean }> = {};
     for (const d of drawings) {
         if (d.stripe_price_id && d.price_cents) {
             products[d.slug] = {
-                priceId: d.stripe_price_id,
-                price:   d.price_cents,
-                sold:    d.sold || d.reserved,
+                priceId:  d.stripe_price_id,
+                price:    d.price_cents,
+                sold:     d.sold,
+                reserved: d.reserved && !d.sold,
             };
         }
     }
@@ -63,7 +64,7 @@ export async function loadNotebook(
             if (session.payment_status === 'paid') {
                 const soldSlug = session.metadata?.slug;
                 if (soldSlug && products[soldSlug]) {
-                    products[soldSlug] = { ...products[soldSlug], sold: true };
+                    products[soldSlug] = { ...products[soldSlug], sold: true, reserved: false };
                 }
             }
         } catch (e) {

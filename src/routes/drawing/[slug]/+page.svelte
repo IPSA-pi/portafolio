@@ -1,5 +1,7 @@
 <script lang="ts">
+    import { onMount } from "svelte";
     import { page } from "$app/stores";
+    import { invalidateAll, replaceState } from "$app/navigation";
     import Gallery from "$lib/components/Gallery.svelte";
     import Seo from "$lib/components/Seo.svelte";
     import { NOTEBOOKS_BY_SLUG } from "$lib/notebooks";
@@ -8,6 +10,26 @@
 
     let notebook = $derived(NOTEBOOKS_BY_SLUG[$page.params.slug ?? ""]);
     let title = $derived($page.params.slug ?? "Gallery");
+
+    onMount(async () => {
+        const params = $page.url.searchParams;
+        if (params.get("canceled") === "true" && params.get("session_id")) {
+            try {
+                await fetch("/api/checkout/cancel", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ sessionId: params.get("session_id") }),
+                });
+            } catch (e) {
+                console.error("Error releasing canceled reservation:", e);
+            }
+            await invalidateAll();
+            const url = new URL($page.url);
+            url.searchParams.delete("canceled");
+            url.searchParams.delete("session_id");
+            replaceState(url, {});
+        }
+    });
 </script>
 
 <Seo

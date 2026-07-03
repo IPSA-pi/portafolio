@@ -5,7 +5,7 @@
 
     interface Props {
         images: { original: string; sm: string; md: string; lg: string; slug: string; notebook?: string }[];
-        products: Record<string, { priceId: string; price: number; sold: boolean }>;
+        products: Record<string, { priceId: string; price: number; sold: boolean; reserved: boolean }>;
         startIndex: number;
         notebookSlug: string;
         // 'notebook' = single-notebook viewer (per-image URL); 'all' = the random
@@ -271,6 +271,7 @@
                 slug={currentImage.slug}
                 notebookSlug={currentImage.notebook ?? notebookSlug}
                 sold={currentProduct.sold}
+                reserved={currentProduct.reserved}
                 compact
             />
         {/if}
