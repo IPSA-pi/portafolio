@@ -3,20 +3,42 @@
     import { page } from "$app/stores";
     import { replaceState } from "$app/navigation";
     import Seo from "$lib/components/Seo.svelte";
-    import { clearCart } from "$lib/stores/cart";
+    import { removeFromCart } from "$lib/stores/cart";
     import { clearPendingCheckout } from "$lib/utils/checkoutReturn";
 
     let { data } = $props();
     let notebooks = $derived(data.notebooks);
     let showSuccess = $state(false);
+    let showPending = $state(false);
 
-    onMount(() => {
+    onMount(async () => {
         const params = $page.url.searchParams;
-        if (params.get("success") === "true" && params.get("session_id")) {
-            showSuccess = true;
-            clearCart();
-            // Payment went through — nothing to release, just forget the marker.
+        const sessionId = params.get("session_id");
+        if (params.get("success") === "true" && sessionId) {
+            // Payment went through or not — nothing to release either way,
+            // just forget the marker so a stray Back navigation later doesn't
+            // fire a spurious (harmless, but pointless) cancel call.
             clearPendingCheckout();
+
+            try {
+                const response = await fetch(`/api/checkout/session-status?session_id=${encodeURIComponent(sessionId)}`);
+                const status = await response.json();
+                if (status.paid) {
+                    showSuccess = true;
+                    // Only the slugs this session actually paid for — not the
+                    // whole cart, which may hold items added since checkout.
+                    for (const slug of status.slugs as string[]) removeFromCart(slug);
+                } else {
+                    // Delayed payment method (e.g. OXXO/bank transfer) or a
+                    // hand-crafted session_id — either way, don't claim success
+                    // and don't touch the cart.
+                    showPending = true;
+                }
+            } catch (e) {
+                console.error("Error verifying checkout session:", e);
+                showPending = true;
+            }
+
             const url = new URL($page.url);
             url.searchParams.delete("success");
             url.searchParams.delete("session_id");
@@ -38,6 +60,13 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <p class="font-medium">Thank you for your purchase! You will receive an email confirmation shortly.</p>
+        </div>
+    {:else if showPending}
+        <div class="mb-8 p-4 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 rounded-lg border border-amber-200 dark:border-amber-800 flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p class="font-medium">Your payment is processing — you'll receive an email once it's confirmed.</p>
         </div>
     {/if}
 
