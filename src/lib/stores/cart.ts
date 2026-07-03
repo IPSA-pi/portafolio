@@ -10,6 +10,9 @@ export type CartItem = {
 
 const STORAGE_KEY = 'cart:v1';
 
+// Matches /api/checkout's MAX_ITEMS — a 21st item could never check out anyway.
+export const MAX_CART_ITEMS = 20;
+
 function getInitialItems(): CartItem[] {
     if (!browser) return [];
     try {
@@ -33,8 +36,19 @@ cartItems.subscribe((items) => {
     }
 });
 
-export function addToCart(item: CartItem) {
-    cartItems.update((items) => (items.some((i) => i.slug === item.slug) ? items : [...items, item]));
+// Returns false (no-op) when the cart is already at MAX_CART_ITEMS and this
+// would be a genuinely new item; true otherwise (added, or already present).
+export function addToCart(item: CartItem): boolean {
+    let added = true;
+    cartItems.update((items) => {
+        if (items.some((i) => i.slug === item.slug)) return items;
+        if (items.length >= MAX_CART_ITEMS) {
+            added = false;
+            return items;
+        }
+        return [...items, item];
+    });
+    return added;
 }
 
 export function removeFromCart(slug: string) {

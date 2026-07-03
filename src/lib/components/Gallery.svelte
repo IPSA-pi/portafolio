@@ -1,9 +1,19 @@
 <script lang="ts">
+	import { fade } from 'svelte/transition';
 	import { goto } from '$app/navigation';
-	import { cartItems, addToCart, removeFromCart } from '$lib/stores/cart';
+	import { cartItems, addToCart, removeFromCart, MAX_CART_ITEMS } from '$lib/stores/cart';
 	import { formatTitle } from '$lib/utils/formatTitle';
 
 	let { images = [], products = {}, notebookSlug = '' } = $props();
+
+	let cartFullMessage = $state<string | null>(null);
+	let cartFullTimeout: ReturnType<typeof setTimeout> | undefined;
+
+	function showCartFull() {
+		cartFullMessage = `Cart is full (${MAX_CART_ITEMS} max)`;
+		clearTimeout(cartFullTimeout);
+		cartFullTimeout = setTimeout(() => (cartFullMessage = null), 3000);
+	}
 
 	function formatPrice(cents: number): string {
 		return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -55,7 +65,7 @@
 						onclick={(e) => {
 							e.stopPropagation();
 							if (inCart) removeFromCart(image.slug);
-							else addToCart({ slug: image.slug, notebook: image.notebook ?? notebookSlug, price: product.price, image: image.sm });
+							else if (!addToCart({ slug: image.slug, notebook: image.notebook ?? notebookSlug, price: product.price, image: image.sm })) showCartFull();
 						}}
 						class="bg-amber-700/80 text-white px-2 py-1 rounded text-xs font-semibold backdrop-blur-sm hover:bg-amber-700 transition-colors"
 						aria-label={inCart ? `Remove ${formatTitle(image.slug)} from cart` : `Add ${formatTitle(image.slug)} to cart — ${formatPrice(product.price)}`}
@@ -67,3 +77,12 @@
 		</div>
 	{/each}
 </div>
+
+{#if cartFullMessage}
+	<div
+		transition:fade={{ duration: 150 }}
+		class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-black text-white text-sm px-5 py-3 rounded-full shadow-lg border border-white/10 max-w-[90vw] text-center"
+	>
+		{cartFullMessage}
+	</div>
+{/if}

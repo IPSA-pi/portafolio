@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { page } from '$app/stores';
-    import { cartItems, cartTotal, removeFromCart } from '$lib/stores/cart';
+    import { cartItems, cartTotal, removeFromCart, MAX_CART_ITEMS } from '$lib/stores/cart';
     import { formatTitle } from '$lib/utils/formatTitle';
     import { handleCheckoutReturn, setPendingCheckout } from '$lib/utils/checkoutReturn';
     import Seo from '$lib/components/Seo.svelte';
@@ -141,9 +141,14 @@
             <span class="font-medium text-gray-900 dark:text-white">Subtotal</span>
             <span class="font-semibold text-gray-900 dark:text-white">{formatPrice($cartTotal)}</span>
         </div>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">
             Each drawing is a one-of-a-kind original. Free worldwide shipping.
         </p>
+        {#if $cartItems.length >= MAX_CART_ITEMS}
+            <p class="text-sm text-amber-600 dark:text-amber-400 mb-4">
+                Cart is full ({MAX_CART_ITEMS} max) — remove an item to add another.
+            </p>
+        {/if}
 
         {#if checkoutError}
             <p class="text-sm text-red-600 dark:text-red-400 mb-4">{checkoutError}</p>

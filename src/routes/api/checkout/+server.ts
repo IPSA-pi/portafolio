@@ -20,10 +20,18 @@ export const POST = async ({ request, url }) => {
             return json({ error: 'Missing slug or slugs' }, { status: 400 });
         }
 
-        if (slugs.length === 0 || slugs.length > MAX_ITEMS || !slugs.every((s) => typeof s === 'string')) {
+        if (slugs.length === 0 || !slugs.every((s) => typeof s === 'string')) {
             return json({ error: `Provide between 1 and ${MAX_ITEMS} drawing slugs` }, { status: 400 });
         }
-        const drawingSlugs = slugs as string[];
+
+        // Dedup before the item-count check — a crafted { slugs: ['x', 'x'] }
+        // body would otherwise self-conflict (the second reservation attempt
+        // matches nothing because the first just reserved it), producing a
+        // spurious 409 for what is really just one item.
+        const drawingSlugs = [...new Set(slugs as string[])];
+        if (drawingSlugs.length > MAX_ITEMS) {
+            return json({ error: `Provide between 1 and ${MAX_ITEMS} drawing slugs` }, { status: 400 });
+        }
         const notebookSlug: string | undefined = body.notebookSlug;
 
         // A single drawing bought with its notebook context keeps the existing

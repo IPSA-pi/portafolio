@@ -1,8 +1,9 @@
 <script lang="ts">
     import { goto, replaceState } from '$app/navigation';
     import { untrack } from 'svelte';
+    import { fade } from 'svelte/transition';
     import PurchaseButton from './PurchaseButton.svelte';
-    import { cartItems, cartCount, addToCart, removeFromCart } from '$lib/stores/cart';
+    import { cartItems, cartCount, addToCart, removeFromCart, MAX_CART_ITEMS } from '$lib/stores/cart';
     import { formatTitle } from '$lib/utils/formatTitle';
 
     interface Props {
@@ -46,10 +47,21 @@
     let isPurchasable = $derived(!!currentProduct && !currentProduct.sold && !currentProduct.reserved);
     let inCart = $derived(!!currentImage && $cartItems.some((i) => i.slug === currentImage.slug));
 
+    let cartFullMessage = $state<string | null>(null);
+    let cartFullTimeout: ReturnType<typeof setTimeout> | undefined;
+
     function toggleCart() {
         if (!currentImage || !currentProduct) return;
-        if (inCart) removeFromCart(currentImage.slug);
-        else addToCart({ slug: currentImage.slug, notebook: currentImage.notebook ?? notebookSlug, price: currentProduct.price, image: currentImage.sm });
+        if (inCart) {
+            removeFromCart(currentImage.slug);
+            return;
+        }
+        const added = addToCart({ slug: currentImage.slug, notebook: currentImage.notebook ?? notebookSlug, price: currentProduct.price, image: currentImage.sm });
+        if (!added) {
+            cartFullMessage = `Cart is full (${MAX_CART_ITEMS} max)`;
+            clearTimeout(cartFullTimeout);
+            cartFullTimeout = setTimeout(() => (cartFullMessage = null), 3000);
+        }
     }
 
     // Floating controls auto-hide after a short idle so the artwork is unobscured;
@@ -318,3 +330,12 @@
         </div>
     </div>
 </div>
+
+{#if cartFullMessage}
+    <div
+        transition:fade={{ duration: 150 }}
+        class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] bg-black text-white text-sm px-5 py-3 rounded-full shadow-lg border border-white/10 max-w-[90vw] text-center"
+    >
+        {cartFullMessage}
+    </div>
+{/if}
