@@ -81,6 +81,87 @@ function artistNotificationEmail(slug: string, customerName: string, customerEma
 </html>`;
 }
 
+async function fulfillOrder(session: any) {
+    const slug = session.metadata?.slug;
+    if (!slug) return;
+
+    // Atomic idempotency guard: only proceed if this call is the one that
+    // actually flips sold false -> true. If two deliveries of the same (or
+    // related) event race, only one gets a row back — the other sees no row
+    // and no error, meaning "already sold", and skips straight to returning.
+    const { data: updated, error: updateError } = await getSupabase()
+        .from('drawings')
+        .update({ sold: true, reserved: false, reserved_at: null })
+        .eq('slug', slug)
+        .eq('sold', false)
+        .select('slug');
+
+    if (updateError) {
+        console.error('Error marking drawing sold:', updateError);
+        throw error(500, 'Failed to record sale');
+    }
+
+    if (!updated || updated.length === 0) {
+        console.log(`Drawing ${slug} already sold, skipping.`);
+        return;
+    }
+
+    console.log(`Drawing ${slug} marked as sold.`);
+
+    const customerEmail = session.customer_details?.email;
+    const customerName  = session.customer_details?.name || 'there';
+    const shippingAddress = session.shipping_details?.address;
+    const amountTotal   = session.amount_total;
+
+    // The DB write above is now committed, so `sold` is already true —
+    // a Stripe retry would hit the idempotency guard and skip this
+    // block entirely. That means a failed send here can't be fixed by
+    // retrying; we log it (for manual follow-up) instead of throwing,
+    // so we don't return a false 500 for an already-recorded sale.
+    try {
+        if (customerEmail) {
+            await getResend().emails.send({
+                from:    'Ian Sebelius <no-reply@iansebelius.com>',
+                to:      customerEmail,
+                subject: `Your original drawing — ${slug}`,
+                html:    buildCustomerEmail(customerName, slug),
+            });
+        }
+
+        await getResend().emails.send({
+            from:    'Store <no-reply@iansebelius.com>',
+            to:      'sebeliusancira@gmail.com',
+            subject: `Sold: ${slug}`,
+            html:    artistNotificationEmail(slug, customerName, customerEmail ?? 'unknown', shippingAddress, amountTotal),
+        });
+    } catch (err) {
+        console.error(`Error sending fulfillment emails for ${slug}:`, err);
+    }
+}
+
+async function releaseReservation(session: any) {
+    const slug = session.metadata?.slug;
+    if (!slug) return;
+
+    try {
+        // Only release the reservation that belongs to this specific session.
+        // If a new buyer reserved the drawing after this session was created,
+        // their reserved_at will be newer than session.created — don't touch it.
+        // +5s buffer absorbs any clock skew between our server and Stripe.
+        const sessionCreatedAt = new Date((session.created + 5) * 1000).toISOString();
+        await getSupabase()
+            .from('drawings')
+            .update({ reserved: false, reserved_at: null })
+            .eq('slug', slug)
+            .eq('sold', false)
+            .lte('reserved_at', sessionCreatedAt);
+
+        console.log(`Reservation released for ${slug}.`);
+    } catch (err) {
+        console.error('Error releasing reservation:', err);
+    }
+}
+
 export const POST = async ({ request }) => {
     const body = await request.text();
     const signature = request.headers.get('stripe-signature');
@@ -99,96 +180,28 @@ export const POST = async ({ request }) => {
 
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object as any;
-        const slug = session.metadata?.slug;
-
-        if (slug) {
-            // Idempotency guard: skip if already sold. Not wrapped with the
-            // email sends below — a DB failure here must throw so Stripe
-            // retries, but once `sold` is true we never want a retry to
-            // re-enter this block (see email try/catch below for why).
-            const { data: drawing, error: readError } = await getSupabase()
-                .from('drawings')
-                .select('sold')
-                .eq('slug', slug)
-                .single();
-
-            if (readError) {
-                console.error('Error reading drawing for fulfillment:', readError);
-                throw error(500, 'Failed to read drawing state');
-            }
-
-            if (drawing?.sold) {
-                console.log(`Drawing ${slug} already sold, skipping.`);
-                return json({ received: true });
-            }
-
-            const { error: updateError } = await getSupabase()
-                .from('drawings')
-                .update({ sold: true, reserved: false, reserved_at: null })
-                .eq('slug', slug);
-
-            if (updateError) {
-                console.error('Error marking drawing sold:', updateError);
-                throw error(500, 'Failed to record sale');
-            }
-
-            console.log(`Drawing ${slug} marked as sold.`);
-
-            const customerEmail = session.customer_details?.email;
-            const customerName  = session.customer_details?.name || 'there';
-            const shippingAddress = session.shipping_details?.address;
-            const amountTotal   = session.amount_total;
-
-            // The DB write above is now committed, so `sold` is already true —
-            // a Stripe retry would hit the idempotency guard and skip this
-            // block entirely. That means a failed send here can't be fixed by
-            // retrying; we log it (for manual follow-up) instead of throwing,
-            // so we don't return a false 500 for an already-recorded sale.
-            try {
-                if (customerEmail) {
-                    await getResend().emails.send({
-                        from:    'Ian Sebelius <no-reply@iansebelius.com>',
-                        to:      customerEmail,
-                        subject: `Your original drawing — ${slug}`,
-                        html:    buildCustomerEmail(customerName, slug),
-                    });
-                }
-
-                await getResend().emails.send({
-                    from:    'Store <no-reply@iansebelius.com>',
-                    to:      'sebeliusancira@gmail.com',
-                    subject: `Sold: ${slug}`,
-                    html:    artistNotificationEmail(slug, customerName, customerEmail ?? 'unknown', shippingAddress, amountTotal),
-                });
-            } catch (err) {
-                console.error(`Error sending fulfillment emails for ${slug}:`, err);
-            }
+        // checkout.session.completed also fires for delayed payment methods
+        // (e.g. OXXO/bank transfers in MX) with payment_status 'unpaid' — the
+        // async_payment_succeeded/failed events below are what actually settle
+        // those. Only fulfill here once payment has actually cleared.
+        if (session.payment_status === 'paid') {
+            await fulfillOrder(session);
         }
+    }
+
+    if (event.type === 'checkout.session.async_payment_succeeded') {
+        const session = event.data.object as any;
+        await fulfillOrder(session);
+    }
+
+    if (event.type === 'checkout.session.async_payment_failed') {
+        const session = event.data.object as any;
+        await releaseReservation(session);
     }
 
     if (event.type === 'checkout.session.expired') {
         const session = event.data.object as any;
-        const slug = session.metadata?.slug;
-
-        if (slug) {
-            try {
-                // Only release the reservation that belongs to this specific session.
-                // If a new buyer reserved the drawing after this session was created,
-                // their reserved_at will be newer than session.created — don't touch it.
-                // +5s buffer absorbs any clock skew between our server and Stripe.
-                const sessionCreatedAt = new Date((session.created + 5) * 1000).toISOString();
-                await getSupabase()
-                    .from('drawings')
-                    .update({ reserved: false, reserved_at: null })
-                    .eq('slug', slug)
-                    .eq('sold', false)
-                    .lte('reserved_at', sessionCreatedAt);
-
-                console.log(`Reservation released for ${slug}.`);
-            } catch (err) {
-                console.error('Error releasing reservation:', err);
-            }
-        }
+        await releaseReservation(session);
     }
 
     return json({ received: true });
