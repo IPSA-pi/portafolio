@@ -1,5 +1,6 @@
 <script lang="ts">
     import { fade } from 'svelte/transition';
+    import { setPendingCheckout } from '$lib/utils/checkoutReturn';
 
     interface Props {
         priceId: string;
@@ -44,6 +45,7 @@
                 showError(data.error || 'Something went wrong. Please try again.');
                 return;
             }
+            if (data.sessionId) setPendingCheckout(data.sessionId);
             window.location.href = data.url;
         } catch (e) {
             console.error('Checkout error:', e);

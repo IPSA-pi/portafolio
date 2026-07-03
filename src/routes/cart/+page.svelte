@@ -1,9 +1,9 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { page } from '$app/stores';
-    import { replaceState } from '$app/navigation';
     import { cartItems, cartTotal, removeFromCart } from '$lib/stores/cart';
     import { formatTitle } from '$lib/utils/formatTitle';
+    import { handleCheckoutReturn, setPendingCheckout } from '$lib/utils/checkoutReturn';
     import Seo from '$lib/components/Seo.svelte';
 
     type Availability = { sold: boolean; reserved: boolean; price_cents: number | null };
@@ -37,24 +37,10 @@
     }
 
     onMount(async () => {
-        const params = $page.url.searchParams;
-        if (params.get('canceled') === 'true' && params.get('session_id')) {
-            // The user changed their mind about paying, not about the items —
-            // release the reservations immediately, but keep the cart contents.
-            try {
-                await fetch('/api/checkout/cancel', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sessionId: params.get('session_id') }),
-                });
-            } catch (e) {
-                console.error('Error releasing canceled reservation:', e);
-            }
-            const url = new URL($page.url);
-            url.searchParams.delete('canceled');
-            url.searchParams.delete('session_id');
-            replaceState(url, {});
-        }
+        // Covers both the explicit ?canceled=true redirect AND a buyer who
+        // used Back/closed the tab without hitting that URL — the cart
+        // contents are kept either way, only the reservations are released.
+        await handleCheckoutReturn($page.url);
         await refreshAvailability();
     });
 
@@ -94,6 +80,7 @@
                 return;
             }
 
+            if (data.sessionId) setPendingCheckout(data.sessionId);
             window.location.href = data.url;
         } catch (e) {
             console.error('Cart checkout error:', e);

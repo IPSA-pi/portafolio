@@ -4,6 +4,7 @@
     import { replaceState } from "$app/navigation";
     import Seo from "$lib/components/Seo.svelte";
     import { clearCart } from "$lib/stores/cart";
+    import { clearPendingCheckout } from "$lib/utils/checkoutReturn";
 
     let { data } = $props();
     let notebooks = $derived(data.notebooks);
@@ -14,6 +15,8 @@
         if (params.get("success") === "true" && params.get("session_id")) {
             showSuccess = true;
             clearCart();
+            // Payment went through — nothing to release, just forget the marker.
+            clearPendingCheckout();
             const url = new URL($page.url);
             url.searchParams.delete("success");
             url.searchParams.delete("session_id");

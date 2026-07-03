@@ -127,7 +127,7 @@ export const POST = async ({ request, url }) => {
             throw stripeErr;
         }
 
-        return json({ url: session.url });
+        return json({ url: session.url, sessionId: session.id });
     } catch (e: any) {
         console.error('Checkout error:', e);
         return json({ error: 'Checkout is temporarily unavailable. Please try again.' }, { status: 500 });

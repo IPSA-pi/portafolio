@@ -1,11 +1,12 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { page } from "$app/stores";
-    import { invalidateAll, replaceState } from "$app/navigation";
+    import { invalidateAll } from "$app/navigation";
     import Gallery from "$lib/components/Gallery.svelte";
     import Seo from "$lib/components/Seo.svelte";
     import { NOTEBOOKS_BY_SLUG } from "$lib/notebooks";
     import { removeFromCart } from "$lib/stores/cart";
+    import { handleCheckoutReturn, clearPendingCheckout } from "$lib/utils/checkoutReturn";
 
     let { data } = $props();
 
@@ -14,27 +15,18 @@
 
     onMount(async () => {
         const params = $page.url.searchParams;
-        // The purchased drawing may also have been sitting in the cart —
-        // drop it there too so the cart doesn't try to sell it again.
-        if (params.get("success") === "true" && params.get("drawing")) {
-            removeFromCart(params.get("drawing")!);
+        if (params.get("success") === "true") {
+            // Payment went through — nothing to release, just forget the marker.
+            clearPendingCheckout();
+            // The purchased drawing may also have been sitting in the cart —
+            // drop it there too so the cart doesn't try to sell it again.
+            if (params.get("drawing")) removeFromCart(params.get("drawing")!);
         }
-        if (params.get("canceled") === "true" && params.get("session_id")) {
-            try {
-                await fetch("/api/checkout/cancel", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ sessionId: params.get("session_id") }),
-                });
-            } catch (e) {
-                console.error("Error releasing canceled reservation:", e);
-            }
-            await invalidateAll();
-            const url = new URL($page.url);
-            url.searchParams.delete("canceled");
-            url.searchParams.delete("session_id");
-            replaceState(url, {});
-        }
+
+        // Covers both the explicit ?canceled=true redirect AND a buyer who
+        // used Back/closed the tab without hitting that URL.
+        const released = await handleCheckoutReturn($page.url);
+        if (released) await invalidateAll();
     });
 </script>
 
