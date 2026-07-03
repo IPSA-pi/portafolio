@@ -77,11 +77,46 @@ The public read surface is separate:
 
 ## Stripe integration
 
-- `src/routes/api/checkout/+server.ts` — creates a Checkout session
+- `src/routes/api/checkout/+server.ts` — reserves 1–20 drawings atomically
+  in Supabase (all-or-nothing; rolls back on any failure — a taken slug, a
+  missing price, or Stripe session creation itself failing) and creates ONE
+  Checkout session covering all of them
+- `src/routes/api/checkout/cancel/+server.ts` — best-effort release for a
+  buyer who backs out of Checkout. Expires the Stripe session if still open,
+  then releases via the shared `releaseSessionReservations` helper (below)
+- `src/routes/api/checkout/session-status/+server.ts` — public
+  `{ paid, slugs }` lookup for a session id, used to verify payment before
+  showing a purchase-confirmed banner
+- `src/routes/api/drawings/status/+server.ts` — public sold/reserved/price
+  lookup for a slug list, used by the cart page to re-check availability
 - `src/routes/api/webhook/+server.ts` — handles `checkout.session.completed`
-- `client_reference_id` on the checkout session is the **drawing slug**
-  (individual piece, not notebook slug) — the webhook uses it to identify
-  which drawing was purchased
+  (only when `payment_status === 'paid'`), `async_payment_succeeded`,
+  `async_payment_failed`, and `expired`
+- `src/lib/server/reservations.ts` — `STALE_RESERVATION_MS` (35 min, the
+  single source of truth for "how old is a dead reservation") and
+  `releaseSessionReservations(session)`, shared by the webhook and the
+  cancel endpoint. Release is scoped to reservations that both (a) aren't
+  sold and (b) were taken out at or before the given session's creation
+  time — so a stale/replayed session id can never release a *different*,
+  newer buyer's live hold, and a paid session's reservation is never
+  released by the cancel endpoint
+- **Metadata contract:** `metadata.slugs` is the JSON-encoded array of every
+  slug in the session (what a cart checkout actually needs); `metadata.slug`
+  is kept as the first slug for backward compat with older sessions.
+  `src/lib/server/checkoutSlugs.ts`'s `getSlugsFromSession(session)` is the
+  one place that reads this — falls back to the legacy single-slug field if
+  `slugs` is missing or unparseable. `client_reference_id` is also just the
+  first slug, not the full cart
+- **Success/cancel URLs** differ by flow: a single drawing bought with
+  notebook context (the notebook page's Buy button) keeps
+  `/drawing/[notebook]?success=…` / `?canceled=…`; everything else (a
+  multi-item cart, or a single item with no notebook context) routes
+  through `/drawing?success=…` / `/cart?canceled=…`
+- **Orders table** (`scripts/schema.sql`, service-role only): one row per
+  sold drawing, written at webhook fulfillment alongside the sold-update and
+  the confirmation emails. Durable in a way the emails aren't — a Resend
+  failure doesn't lose the buyer's details. `amount_total` is per-drawing
+  (that row's price), not the session total
 
 ## Drawing data model
 
@@ -97,10 +132,25 @@ Two concepts that are easy to conflate:
 Drawing images are served from Supabase storage (not `static/`), with four
 size variants derived by suffix: original, `-sm.webp`, `-md.webp`, `-lg.webp`.
 
-Post-purchase flow: Stripe redirects to `/drawing/[notebook_slug]?session_id=...&success`.
-The page optimistically marks the drawing sold by retrieving the session from
-Stripe directly. The webhook does the authoritative DB write. These run in
-parallel — both are needed.
+Post-purchase flow, single-item (notebook page): Stripe redirects to
+`/drawing/[notebook_slug]?success=...&drawing=...&session_id=...`.
+`loadNotebook` optimistically marks the drawing sold by retrieving the
+session from Stripe directly and checking `payment_status === 'paid'`. The
+webhook does the authoritative DB write (sold flag, `orders` row, emails).
+These run in parallel — both are needed; the optimistic path is UI-only and
+never itself writes to the DB.
+
+Post-purchase flow, cart checkout: Stripe redirects to
+`/drawing?success=true&session_id=...`. That page calls
+`/api/checkout/session-status` to verify `payment_status === 'paid'` before
+showing the confirmation banner — unlike the notebook page, there's no
+server-rendered optimistic state to fall back on — then removes exactly the
+purchased slugs from the cart store (not the whole cart, which may hold
+items added since checkout started).
+
+Cart contents live client-side only, in `src/lib/stores/cart.ts`
+(localStorage, key `cart:v1`, capped at `MAX_CART_ITEMS` = 20 to match
+checkout's own limit). See `/cart` (`src/routes/cart/`) for the review page.
 
 ## Data-pipeline scripts (`scripts/`)
 
