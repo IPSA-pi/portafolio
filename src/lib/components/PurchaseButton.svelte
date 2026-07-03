@@ -30,12 +30,12 @@
             const response = await fetch('/api/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ priceId, slug, notebookSlug })
+                body: JSON.stringify({ slugs: [slug], notebookSlug })
             });
 
             const data = await response.json();
             if (response.status === 409) {
-                showError('Sorry, this drawing was just purchased by someone else.');
+                showError(data.error || 'Sorry, this drawing was just purchased by someone else.');
                 // Give the toast a moment to be read before the reload clears it.
                 setTimeout(() => window.location.reload(), 1500);
                 return;

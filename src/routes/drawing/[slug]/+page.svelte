@@ -5,6 +5,7 @@
     import Gallery from "$lib/components/Gallery.svelte";
     import Seo from "$lib/components/Seo.svelte";
     import { NOTEBOOKS_BY_SLUG } from "$lib/notebooks";
+    import { removeFromCart } from "$lib/stores/cart";
 
     let { data } = $props();
 
@@ -13,6 +14,11 @@
 
     onMount(async () => {
         const params = $page.url.searchParams;
+        // The purchased drawing may also have been sitting in the cart —
+        // drop it there too so the cart doesn't try to sell it again.
+        if (params.get("success") === "true" && params.get("drawing")) {
+            removeFromCart(params.get("drawing")!);
+        }
         if (params.get("canceled") === "true" && params.get("session_id")) {
             try {
                 await fetch("/api/checkout/cancel", {
