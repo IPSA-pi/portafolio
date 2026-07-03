@@ -127,6 +127,26 @@ async function fulfillOrder(session: any) {
         ?? session.shipping_details?.address;
     const amountTotal   = session.amount_total;
 
+    // Durable sale record. Independent of the emails below (which can fail
+    // to send) — an insert failure here must never throw, since the sale is
+    // already recorded on the drawing and a Stripe retry after sold=true
+    // would just re-enter fulfillOrder and no-op on the idempotency guard.
+    try {
+        await getSupabase()
+            .from('orders')
+            .insert({
+                drawing_slug: slug,
+                stripe_session_id: session.id,
+                payment_intent: session.payment_intent ?? null,
+                amount_total: amountTotal ?? null,
+                customer_name: customerName,
+                customer_email: customerEmail ?? null,
+                shipping_address: shippingAddress ?? null,
+            });
+    } catch (err) {
+        console.error(`Error inserting order record for ${slug}:`, err);
+    }
+
     // The DB write above is now committed, so `sold` is already true —
     // a Stripe retry would hit the idempotency guard and skip this
     // block entirely. That means a failed send here can't be fixed by

@@ -44,6 +44,18 @@ export type Release = {
     updated_at: string;
 };
 
+export type Order = {
+    id: string;
+    drawing_slug: string;
+    stripe_session_id: string;
+    payment_intent: string | null;
+    amount_total: number | null;
+    customer_name: string | null;
+    customer_email: string | null;
+    shipping_address: unknown | null;
+    created_at: string;
+};
+
 type Database = {
     public: {
         Tables: {
@@ -57,6 +69,12 @@ type Database = {
                 Row: Release;
                 Insert: Omit<Release, 'id' | 'created_at' | 'updated_at'> & Partial<Pick<Release, 'id' | 'created_at' | 'updated_at'>>;
                 Update: Partial<Omit<Release, 'id'>>;
+                Relationships: [];
+            };
+            orders: {
+                Row: Order;
+                Insert: Omit<Order, 'id' | 'created_at'> & Partial<Pick<Order, 'id' | 'created_at'>>;
+                Update: Partial<Omit<Order, 'id'>>;
                 Relationships: [];
             };
         };

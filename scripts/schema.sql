@@ -111,3 +111,44 @@ CREATE POLICY "public_read" ON releases
     FOR SELECT USING (true);
 
 -- All writes require the service role key (scraper + server actions). No policy needed.
+
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- ORDERS — one row per sold drawing, written at webhook fulfillment time.
+-- This is the durable record of a sale (Stripe session + buyer details),
+-- independent of the confirmation emails, which can fail to send.
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE TABLE orders (
+    id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    drawing_slug       TEXT        NOT NULL,
+    stripe_session_id  TEXT        UNIQUE NOT NULL,
+    payment_intent     TEXT,
+    amount_total       INT,
+    customer_name      TEXT,
+    customer_email     TEXT,
+    shipping_address   JSONB,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+
+-- No public policies — only the service role (webhook) may read or write.
+
+
+-- Migration (existing DBs):
+/*
+CREATE TABLE orders (
+    id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    drawing_slug       TEXT        NOT NULL,
+    stripe_session_id  TEXT        UNIQUE NOT NULL,
+    payment_intent     TEXT,
+    amount_total       INT,
+    customer_name      TEXT,
+    customer_email     TEXT,
+    shipping_address   JSONB,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+*/
