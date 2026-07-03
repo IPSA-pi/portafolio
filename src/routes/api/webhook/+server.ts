@@ -175,26 +175,31 @@ async function fulfillOrder(session: any) {
     // The DB write above is now committed, so these drawings are already
     // sold — a Stripe retry would hit the idempotency guard and skip this
     // block entirely. That means a failed send here can't be fixed by
-    // retrying; we log it (for manual follow-up) instead of throwing,
-    // so we don't return a false 500 for an already-recorded sale.
-    try {
-        if (customerEmail) {
-            await getResend().emails.send({
-                from:    'Ian Sebelius <no-reply@iansebelius.com>',
-                to:      customerEmail,
-                subject: soldSlugs.length > 1 ? `Your original drawings (${soldSlugs.length})` : `Your original drawing — ${soldSlugs[0]}`,
-                html:    buildCustomerEmail(customerName, soldSlugs),
-            });
-        }
+    // retrying; we log each failure (for manual follow-up) instead of
+    // throwing, so we don't return a false 500 for an already-recorded sale.
+    // Promise.allSettled (rather than sequential awaits) so a slow/failed
+    // customer email doesn't delay or block the artist notification.
+    const emailSends: Promise<unknown>[] = [];
+    if (customerEmail) {
+        emailSends.push(getResend().emails.send({
+            from:    'Ian Sebelius <no-reply@iansebelius.com>',
+            to:      customerEmail,
+            subject: soldSlugs.length > 1 ? `Your original drawings (${soldSlugs.length})` : `Your original drawing — ${soldSlugs[0]}`,
+            html:    buildCustomerEmail(customerName, soldSlugs),
+        }));
+    }
+    emailSends.push(getResend().emails.send({
+        from:    'Store <no-reply@iansebelius.com>',
+        to:      'sebeliusancira@gmail.com',
+        subject: soldSlugs.length > 1 ? `Sold: ${soldSlugs.length} drawings` : `Sold: ${soldSlugs[0]}`,
+        html:    artistNotificationEmail(soldSlugs, customerName, customerEmail ?? 'unknown', shippingAddress, amountTotal),
+    }));
 
-        await getResend().emails.send({
-            from:    'Store <no-reply@iansebelius.com>',
-            to:      'sebeliusancira@gmail.com',
-            subject: soldSlugs.length > 1 ? `Sold: ${soldSlugs.length} drawings` : `Sold: ${soldSlugs[0]}`,
-            html:    artistNotificationEmail(soldSlugs, customerName, customerEmail ?? 'unknown', shippingAddress, amountTotal),
-        });
-    } catch (err) {
-        console.error(`Error sending fulfillment emails for ${soldSlugs.join(', ')}:`, err);
+    const results = await Promise.allSettled(emailSends);
+    for (const result of results) {
+        if (result.status === 'rejected') {
+            console.error(`Error sending fulfillment email for ${soldSlugs.join(', ')}:`, result.reason);
+        }
     }
 }
 

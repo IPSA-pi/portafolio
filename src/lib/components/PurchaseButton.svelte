@@ -1,6 +1,7 @@
 <script lang="ts">
     import { fade } from 'svelte/transition';
     import { setPendingCheckout } from '$lib/utils/checkoutReturn';
+    import { formatPrice } from '$lib/utils/formatPrice';
 
     interface Props {
         priceId: string;
@@ -55,12 +56,7 @@
         }
     }
 
-    const formattedPrice = $derived(
-        new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD'
-        }).format(price / 100)
-    );
+    const formattedPrice = $derived(formatPrice(price));
 </script>
 
 {#if compact}

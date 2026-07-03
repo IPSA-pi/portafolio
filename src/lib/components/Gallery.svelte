@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { cartItems, addToCart, removeFromCart, MAX_CART_ITEMS } from '$lib/stores/cart';
 	import { formatTitle } from '$lib/utils/formatTitle';
+	import { formatPrice as formatPriceUtil } from '$lib/utils/formatPrice';
 
 	let { images = [], products = {}, notebookSlug = '' } = $props();
 
@@ -16,7 +17,7 @@
 	}
 
 	function formatPrice(cents: number): string {
-		return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+		return formatPriceUtil(cents, { compact: true });
 	}
 </script>
 

@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { getStripe } from '$lib/server/stripe';
 import { getSupabase } from '$lib/server/supabase';
+import { getSlugsFromSession } from '$lib/server/checkoutSlugs';
 import { seededShuffle } from '$lib/utils/shuffle';
 
 function variantUrl(storageUrl: string, variant: 'sm' | 'md' | 'lg'): string {
@@ -62,9 +63,12 @@ export async function loadNotebook(
         try {
             const session = await getStripe().checkout.sessions.retrieve(sessionId);
             if (session.payment_status === 'paid') {
-                const soldSlug = session.metadata?.slug;
-                if (soldSlug && products[soldSlug]) {
-                    products[soldSlug] = { ...products[soldSlug], sold: true, reserved: false };
+                // A cart session may cover several drawings, not just this
+                // notebook's — only the ones present in `products` apply here.
+                for (const soldSlug of getSlugsFromSession(session)) {
+                    if (products[soldSlug]) {
+                        products[soldSlug] = { ...products[soldSlug], sold: true, reserved: false };
+                    }
                 }
             }
         } catch (e) {

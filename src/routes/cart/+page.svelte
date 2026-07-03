@@ -3,6 +3,7 @@
     import { page } from '$app/stores';
     import { cartItems, cartTotal, removeFromCart, MAX_CART_ITEMS } from '$lib/stores/cart';
     import { formatTitle } from '$lib/utils/formatTitle';
+    import { formatPrice } from '$lib/utils/formatPrice';
     import { handleCheckoutReturn, setPendingCheckout } from '$lib/utils/checkoutReturn';
     import Seo from '$lib/components/Seo.svelte';
 
@@ -12,10 +13,6 @@
     let checkingAvailability = $state(false);
     let checkingOutLoading = $state(false);
     let checkoutError = $state<string | null>(null);
-
-    function formatPrice(cents: number): string {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
-    }
 
     async function refreshAvailability() {
         const slugs = $cartItems.map((i) => i.slug);

@@ -40,40 +40,47 @@ export const POST = async ({ request, url }) => {
         const isSingleItemFlow = drawingSlugs.length === 1 && !!notebookSlug;
 
         // Atomic reservation: only succeeds if not already sold, AND it's either
-        // not reserved or the reservation is stale. The UPDATE ... WHERE is
-        // race-safe: if two requests arrive at once, Postgres serializes them
-        // and re-checks the WHERE on the locked row, so exactly one gets a row
-        // back. STALE_RESERVATION_MS sits above Stripe's 30-min session expiry,
-        // so any reservation we take over is guaranteed to have a dead checkout
-        // session — never two live ones.
+        // not reserved or the reservation is stale. One set-based UPDATE ...
+        // WHERE covers every requested slug at once — Postgres locks and
+        // re-checks the WHERE on each matched row within the single statement,
+        // so a slug that fails the WHERE (already sold, or freshly reserved by
+        // someone else) simply isn't in the returned rows; the same per-row
+        // atomicity as doing it one slug at a time. STALE_RESERVATION_MS sits
+        // above Stripe's 30-min session expiry, so any reservation we take
+        // over is guaranteed to have a dead checkout session — never two live
+        // ones.
         const staleThreshold = new Date(Date.now() - STALE_RESERVATION_MS).toISOString();
 
+        const { data: reservedRows, error: reserveError } = await getSupabase()
+            .from('drawings')
+            .update({ reserved: true, reserved_at: new Date().toISOString() })
+            .in('slug', drawingSlugs)
+            .eq('sold', false)
+            .or(`reserved.eq.false,reserved_at.lt.${staleThreshold}`)
+            .select('slug, stripe_price_id');
+
+        if (reserveError) {
+            console.error('Error reserving drawings:', reserveError);
+            return json({ error: 'Checkout is temporarily unavailable. Please try again.' }, { status: 500 });
+        }
+
+        const priceBySlug = new Map((reservedRows ?? []).map((r) => [r.slug, r.stripe_price_id]));
         const reservedSlugs: string[] = []; // successfully reserved in this request — rolled back together on any failure
         const unavailable: string[] = [];
         const lineItems: { price: string; quantity: number }[] = [];
 
         for (const slug of drawingSlugs) {
-            const { data, error: dbError } = await getSupabase()
-                .from('drawings')
-                .update({ reserved: true, reserved_at: new Date().toISOString() })
-                .eq('slug', slug)
-                .eq('sold', false)
-                .or(`reserved.eq.false,reserved_at.lt.${staleThreshold}`)
-                .select('stripe_price_id')
-                .single();
-
-            if (dbError || !data) {
+            if (!priceBySlug.has(slug)) {
+                unavailable.push(slug); // WHERE excluded it: already sold, or reserved (fresh) by someone else
+                continue;
+            }
+            const priceId = priceBySlug.get(slug);
+            reservedSlugs.push(slug); // the UPDATE reserved it regardless of price — needs rollback either way
+            if (!priceId) {
                 unavailable.push(slug);
                 continue;
             }
-            if (!data.stripe_price_id) {
-                unavailable.push(slug);
-                reservedSlugs.push(slug); // reserved but not for sale — still needs rollback below
-                continue;
-            }
-
-            reservedSlugs.push(slug);
-            lineItems.push({ price: data.stripe_price_id, quantity: 1 });
+            lineItems.push({ price: priceId, quantity: 1 });
         }
 
         if (unavailable.length > 0) {
