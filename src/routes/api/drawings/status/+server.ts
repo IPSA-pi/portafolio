@@ -1,4 +1,5 @@
 import { getSupabase } from '$lib/server/supabase';
+import { STALE_RESERVATION_MS } from '$lib/server/reservations';
 import { json } from '@sveltejs/kit';
 
 // Public read of the same public gallery data (sold/reserved/price), scoped
@@ -20,7 +21,7 @@ export const GET = async ({ url }) => {
 
     const { data, error: dbError } = await getSupabase()
         .from('drawings')
-        .select('slug, sold, reserved, price_cents')
+        .select('slug, sold, reserved, reserved_at, price_cents')
         .in('slug', slugs);
 
     if (dbError) {
@@ -28,9 +29,15 @@ export const GET = async ({ url }) => {
         return json({ error: 'Failed to read drawing status' }, { status: 500 });
     }
 
+    // A reservation older than STALE_RESERVATION_MS is takeable by /api/checkout
+    // (see reservations.ts) — report it as effectively available here too, or a
+    // missed expired-webhook makes the cart page flag the item unavailable
+    // forever even though checkout would happily reserve it.
+    const staleThreshold = Date.now() - STALE_RESERVATION_MS;
     const result: Record<string, { sold: boolean; reserved: boolean; price_cents: number | null }> = {};
     for (const d of data ?? []) {
-        result[d.slug] = { sold: d.sold, reserved: d.reserved, price_cents: d.price_cents };
+        const effectiveReserved = d.reserved && !!d.reserved_at && new Date(d.reserved_at).getTime() >= staleThreshold;
+        result[d.slug] = { sold: d.sold, reserved: effectiveReserved, price_cents: d.price_cents };
     }
 
     return json(result);
