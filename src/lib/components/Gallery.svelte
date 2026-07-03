@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { cartItems, addToCart, removeFromCart } from '$lib/stores/cart';
 
 	let { images = [], products = {}, notebookSlug = '' } = $props();
 
@@ -21,10 +22,13 @@
 		{@const isSold = product?.sold}
 		{@const isReserved = product?.reserved}
 		{@const isForSale = product && !isSold && !isReserved}
-		<button
-			type="button"
+		{@const inCart = isForSale && $cartItems.some((i) => i.slug === image.slug)}
+		<div
+			role="button"
+			tabindex="0"
 			class="relative cursor-pointer overflow-hidden w-full p-0 border-0 block aspect-[3/5] bg-zinc-200 dark:bg-zinc-800"
 			onclick={() => goto(`/drawing/${notebookSlug}/${index + 1}`)}
+			onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goto(`/drawing/${notebookSlug}/${index + 1}`); } }}
 			aria-label="View {formatTitle(image.slug)} in fullscreen"
 		>
 			<img
@@ -49,11 +53,20 @@
 			{/if}
 			{#if isForSale}
 				<div class="absolute bottom-2 right-2">
-					<span class="bg-amber-700/80 text-white px-2 py-1 rounded text-xs font-semibold backdrop-blur-sm">
-						{formatPrice(product.price)}
-					</span>
+					<button
+						type="button"
+						onclick={(e) => {
+							e.stopPropagation();
+							if (inCart) removeFromCart(image.slug);
+							else addToCart({ slug: image.slug, notebook: image.notebook ?? notebookSlug, price: product.price, image: image.sm });
+						}}
+						class="bg-amber-700/80 text-white px-2 py-1 rounded text-xs font-semibold backdrop-blur-sm hover:bg-amber-700 transition-colors"
+						aria-label={inCart ? `Remove ${formatTitle(image.slug)} from cart` : `Add ${formatTitle(image.slug)} to cart — ${formatPrice(product.price)}`}
+					>
+						{inCart ? '✓' : `+ ${formatPrice(product.price)}`}
+					</button>
 				</div>
 			{/if}
-		</button>
+		</div>
 	{/each}
 </div>

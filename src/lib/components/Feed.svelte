@@ -2,6 +2,7 @@
     import { goto, replaceState } from '$app/navigation';
     import { untrack } from 'svelte';
     import PurchaseButton from './PurchaseButton.svelte';
+    import { cartItems, cartCount, addToCart, removeFromCart } from '$lib/stores/cart';
 
     interface Props {
         images: { original: string; sm: string; md: string; lg: string; slug: string; notebook?: string }[];
@@ -42,6 +43,13 @@
     let currentImage = $derived(images[currentIndex]);
     let currentProduct = $derived(currentImage ? products[currentImage.slug] : undefined);
     let isPurchasable = $derived(!!currentProduct && !currentProduct.sold && !currentProduct.reserved);
+    let inCart = $derived(!!currentImage && $cartItems.some((i) => i.slug === currentImage.slug));
+
+    function toggleCart() {
+        if (!currentImage || !currentProduct) return;
+        if (inCart) removeFromCart(currentImage.slug);
+        else addToCart({ slug: currentImage.slug, notebook: currentImage.notebook ?? notebookSlug, price: currentProduct.price, image: currentImage.sm });
+    }
 
     // Floating controls auto-hide after a short idle so the artwork is unobscured;
     // any pointer movement or tap brings them back. Slides with a purchasable
@@ -173,6 +181,21 @@
     </svg>
 </button>
 
+<!-- Floating cart badge — the nav (and its own cart icon) is hidden on feed
+     routes, so lightbox users need another way to see/reach their cart. -->
+{#if $cartCount > 0}
+    <a
+        href="/cart"
+        class="fixed top-4 left-4 z-50 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-2 text-white backdrop-blur-sm shadow-lg transition hover:bg-black/80"
+        aria-label="View cart ({$cartCount} items)"
+    >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.836l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 1.994-4.693 2.602-7.152.084-.34-.16-.68-.508-.68H5.106M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+        </svg>
+        <span class="text-sm font-semibold">{$cartCount}</span>
+    </a>
+{/if}
+
 <!-- Scroll feed: vertical for the all-drawings feed, horizontal for a notebook lightbox -->
 <div
     bind:this={container}
@@ -278,16 +301,26 @@
         {#if isPurchasable}
             <p class="text-white/50 text-[10px] tracking-wide select-none pointer-events-none">Free worldwide shipping</p>
         {/if}
-        {#if currentImage && currentProduct}
-            <PurchaseButton
-                priceId={currentProduct.priceId}
-                price={currentProduct.price}
-                slug={currentImage.slug}
-                notebookSlug={currentImage.notebook ?? notebookSlug}
-                sold={currentProduct.sold}
-                reserved={currentProduct.reserved}
-                compact
-            />
-        {/if}
+        <div class="flex items-center gap-2">
+            {#if isPurchasable}
+                <button
+                    onclick={toggleCart}
+                    class="rounded-full px-3 py-1.5 text-xs font-semibold transition-all active:scale-95 {inCart ? 'bg-white/20 text-white' : 'bg-white/10 text-white hover:bg-white/20'} backdrop-blur-sm"
+                >
+                    {inCart ? 'In cart ✓' : 'Add to cart'}
+                </button>
+            {/if}
+            {#if currentImage && currentProduct}
+                <PurchaseButton
+                    priceId={currentProduct.priceId}
+                    price={currentProduct.price}
+                    slug={currentImage.slug}
+                    notebookSlug={currentImage.notebook ?? notebookSlug}
+                    sold={currentProduct.sold}
+                    reserved={currentProduct.reserved}
+                    compact
+                />
+            {/if}
+        </div>
     </div>
 </div>

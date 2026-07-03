@@ -4,6 +4,7 @@
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import { page } from "$app/stores";
   import { isFullscreen } from "$lib/stores/fullscreen";
+  import { cartCount } from "$lib/stores/cart";
 
   interface Props {
     children?: import("svelte").Snippet;
@@ -105,8 +106,20 @@
         {/if}
       </div>
 
-      <!-- Right side: theme toggle + hamburger -->
+      <!-- Right side: cart + theme toggle + hamburger -->
       <div class="flex items-center gap-3">
+        {#if $cartCount > 0}
+          <a
+            href="/cart"
+            class="relative p-2 rounded-md text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent transition-colors"
+            aria-label="View cart ({$cartCount} items)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.836l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 1.994-4.693 2.602-7.152.084-.34-.16-.68-.508-.68H5.106M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+            </svg>
+            <span class="absolute top-0 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">{$cartCount}</span>
+          </a>
+        {/if}
         <ThemeToggle />
 
         <!-- Hamburger: mobile-only on the home page (inline links cover desktop
