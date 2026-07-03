@@ -38,8 +38,8 @@
     { href: '/video', label: 'Video' },
     { href: '/learn', label: 'Learn' },
     { href: '/new-music', label: 'New Music' },
-    { href: '', label: 'Photography' },
-    { href: '', label: 'Web Art' },
+    { href: '', label: 'Photography (soon)' },
+    { href: '', label: 'Web Art (soon)' },
     // Owner-only hub (behind Cloudflare Access); only listed for the owner.
     ...(data?.isAdmin ? [{ href: '/admin', label: 'Admin' }] : []),
   ]);
@@ -109,9 +109,11 @@
       <div class="flex items-center gap-3">
         <ThemeToggle />
 
-        <!-- Hamburger (portrait / mobile only) -->
+        <!-- Hamburger: mobile-only on the home page (inline links cover desktop
+             there); always available on subpages, since those show breadcrumbs
+             instead of the section links and have no other way to navigate. -->
         <button
-          class="sm:hidden p-2 rounded-md text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent transition-colors"
+          class="p-2 rounded-md text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent transition-colors {segments.length === 0 ? 'sm:hidden' : ''}"
           onclick={() => menuOpen = !menuOpen}
           aria-label="Toggle menu"
         >
@@ -129,9 +131,11 @@
     </div>
   </div>
 
-  <!-- Mobile menu -->
+  <!-- Dropdown menu: full-bleed under the home page's inline links (mobile
+       only there); on subpages (where the hamburger shows at all breakpoints)
+       it's capped and right-aligned so it doesn't stretch full-bleed on desktop. -->
   {#if menuOpen}
-    <div class="sm:hidden absolute top-16 left-0 right-0 border-t border-black/10 dark:border-white/10 bg-white dark:bg-black shadow-lg">
+    <div class="absolute top-16 border-t border-black/10 dark:border-white/10 bg-white dark:bg-black shadow-lg {segments.length === 0 ? 'sm:hidden left-0 right-0' : 'left-0 right-0 sm:left-auto sm:right-4 sm:w-64 sm:rounded-lg sm:border sm:border-black/10 sm:dark:border-white/10'}">
       {#each navLinks as link}
         {#if link.href}
           <a
