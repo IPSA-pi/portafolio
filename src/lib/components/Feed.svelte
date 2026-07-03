@@ -35,18 +35,22 @@
         `transform: scale(${zoom}); transform-origin: ${zoomOrigin.x}% ${zoomOrigin.y}%; cursor: ${canDblZoom ? (zoom === 1 ? 'zoom-in' : 'zoom-out') : 'default'};`
     );
 
+    let currentImage = $derived(images[currentIndex]);
+    let currentProduct = $derived(currentImage ? products[currentImage.slug] : undefined);
+    let isPurchasable = $derived(!!currentProduct && !currentProduct.sold && !currentProduct.reserved);
+
     // Floating controls auto-hide after a short idle so the artwork is unobscured;
-    // any pointer movement or tap brings them back.
+    // any pointer movement or tap brings them back. Slides with a purchasable
+    // drawing keep the bar visible so the buy control is never lost mid-browse.
     let controlsVisible = $state(true);
     let hideTimer: ReturnType<typeof setTimeout>;
     function showControls() {
         controlsVisible = true;
         clearTimeout(hideTimer);
-        hideTimer = setTimeout(() => { controlsVisible = false; }, 4500);
+        hideTimer = setTimeout(() => {
+            if (!isPurchasable) controlsVisible = false;
+        }, 4500);
     }
-
-    let currentImage = $derived(images[currentIndex]);
-    let currentProduct = $derived(currentImage ? products[currentImage.slug] : undefined);
 
     function formatTitle(slug: string): string {
         const parts = slug.split('_');
@@ -263,7 +267,10 @@
     {/if}
 
     <!-- Buy (or width-reserving spacer so the title stays centred) -->
-    <div class="flex-none flex justify-end" style="min-width: 2.75rem;">
+    <div class="flex-none flex flex-col items-end gap-1" style="min-width: 2.75rem;">
+        {#if isPurchasable}
+            <p class="text-white/50 text-[10px] tracking-wide select-none pointer-events-none">Free worldwide shipping</p>
+        {/if}
         {#if currentImage && currentProduct}
             <PurchaseButton
                 priceId={currentProduct.priceId}
