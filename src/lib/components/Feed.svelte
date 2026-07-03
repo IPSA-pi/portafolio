@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { goto } from '$app/navigation';
+    import { goto, replaceState } from '$app/navigation';
     import { untrack } from 'svelte';
     import PurchaseButton from './PurchaseButton.svelte';
 
@@ -29,6 +29,10 @@
     // instead. Deliberately simple: no panning — click to inspect detail, click
     // again to reset. Resets automatically on navigation so a new slide starts 1×.
     let canDblZoom = $state(false);
+    // Only fetch the lg (1920w) variant on viewports large enough to benefit,
+    // or once the current slide is zoomed in — small screens get the md
+    // variant only, so every slide isn't downloaded twice.
+    let largeViewport = $state(false);
     let zoom = $state(1);
     let zoomOrigin = $state({ x: 50, y: 50 });
     let zoomStyle = $derived(
@@ -116,6 +120,7 @@
         // A fine, hovering pointer (mouse/trackpad) gets click-to-zoom; touch
         // devices fall back to the browser's native pinch zoom.
         canDblZoom = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+        largeViewport = window.matchMedia('(min-width: 1024px)').matches;
         untrack(() => scrollToIndex(startIndex, 'instant'));
         untrack(showControls);
         if (!vertical) container.addEventListener('wheel', handleWheel, { passive: false });
@@ -129,7 +134,7 @@
                         if (i !== currentIndex) zoom = 1; // new slide always starts at 1×
                         currentIndex = i;
                         if (mode === 'notebook') {
-                            history.replaceState(null, '', `/drawing/${notebookSlug}/${i + 1}`);
+                            replaceState(`/drawing/${notebookSlug}/${i + 1}`, {});
                         }
                     }
                 }
@@ -214,15 +219,17 @@
                             loading={Math.abs(i - startIndex) <= 1 ? 'eager' : 'lazy'}
                             onload={() => { mdLoaded[i] = true; }}
                         />
-                        <img
-                            src={image.lg}
-                            alt=""
-                            aria-hidden="true"
-                            class="absolute inset-0 w-full h-full object-contain select-none opacity-0 transition-opacity duration-300"
-                            draggable="false"
-                            loading={Math.abs(i - startIndex) <= 1 ? 'eager' : 'lazy'}
-                            onload={(e) => (e.currentTarget as HTMLImageElement).classList.replace('opacity-0', 'opacity-100')}
-                        />
+                        {#if largeViewport || (i === currentIndex && zoom > 1)}
+                            <img
+                                src={image.lg}
+                                alt=""
+                                aria-hidden="true"
+                                class="absolute inset-0 w-full h-full object-contain select-none opacity-0 transition-opacity duration-300"
+                                draggable="false"
+                                loading={Math.abs(i - startIndex) <= 1 ? 'eager' : 'lazy'}
+                                onload={(e) => (e.currentTarget as HTMLImageElement).classList.replace('opacity-0', 'opacity-100')}
+                            />
+                        {/if}
                     </div>
                 </div>
             </div>
