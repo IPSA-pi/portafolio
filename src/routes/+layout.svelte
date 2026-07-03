@@ -47,8 +47,12 @@
 
 <!-- Mobile menu outside-click backdrop -->
 {#if menuOpen}
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="fixed inset-0 z-40" onclick={() => menuOpen = false}></div>
+  <button
+    type="button"
+    aria-label="Close menu"
+    class="fixed inset-0 z-40 appearance-none bg-transparent border-0 p-0 cursor-default"
+    onclick={() => menuOpen = false}
+  ></button>
 {/if}
 
 <!-- Persistent background video -->

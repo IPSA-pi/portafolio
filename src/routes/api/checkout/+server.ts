@@ -49,7 +49,10 @@ export const POST = async ({ request, url }) => {
             metadata:             { slug, notebookSlug },
             client_reference_id:  slug,
             shipping_address_collection: {
-                allowed_countries: ['US', 'CA', 'GB', 'FR', 'DE', 'IT', 'ES', 'MX'],
+                allowed_countries: [
+                    'US', 'CA', 'GB', 'FR', 'DE', 'IT', 'ES', 'MX',
+                    'JP', 'AR', 'BR', 'CL', 'CO', 'EC', 'PE', 'PY', 'UY', 'BO',
+                ],
             },
             expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
         });

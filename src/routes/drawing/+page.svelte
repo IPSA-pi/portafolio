@@ -1,7 +1,7 @@
 <script lang="ts">
     import Seo from "$lib/components/Seo.svelte";
     let { data } = $props();
-    const { notebooks } = data;
+    let notebooks = $derived(data.notebooks);
 </script>
 
 <Seo

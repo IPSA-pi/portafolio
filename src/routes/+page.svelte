@@ -22,8 +22,8 @@
   let range        = $state<Range>('full');
   let settingsOpen = $state(false);
   let isPortrait   = $state(true);
-  let clockEl: HTMLElement;
-  let settingsEl: HTMLElement;
+  let clockEl: HTMLElement | undefined = $state();
+  let settingsEl: HTMLElement | undefined = $state();
 
   onMount(() => {
     document.body.style.overflow = 'hidden';
@@ -112,11 +112,16 @@
 
 <div class="{$isFullscreen ? 'h-screen' : 'h-[calc(100vh-4rem)]'} flex flex-col justify-center items-center overflow-hidden">
 
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div bind:this={clockEl} onclick={() => settingsOpen = !settingsOpen} class="cursor-pointer portrait:scale-[2] portrait:my-16">
+  <button
+    type="button"
+    bind:this={clockEl}
+    onclick={() => settingsOpen = !settingsOpen}
+    aria-label="Toggle clock settings"
+    class="appearance-none bg-transparent border-0 p-0 cursor-pointer portrait:scale-[2] portrait:my-16"
+  >
     <BinaryClock {msPrecision} {mode} blendMode="normal" showBg={false}
       colorOn={colorOnRgba} colorOff={colorOffRgba} {squareSize} {glowSize} {orientation} {range} />
-  </div>
+  </button>
 
 </div>
 

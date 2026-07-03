@@ -102,31 +102,49 @@ export const POST = async ({ request }) => {
         const slug = session.metadata?.slug;
 
         if (slug) {
+            // Idempotency guard: skip if already sold. Not wrapped with the
+            // email sends below — a DB failure here must throw so Stripe
+            // retries, but once `sold` is true we never want a retry to
+            // re-enter this block (see email try/catch below for why).
+            const { data: drawing, error: readError } = await getSupabase()
+                .from('drawings')
+                .select('sold')
+                .eq('slug', slug)
+                .single();
+
+            if (readError) {
+                console.error('Error reading drawing for fulfillment:', readError);
+                throw error(500, 'Failed to read drawing state');
+            }
+
+            if (drawing?.sold) {
+                console.log(`Drawing ${slug} already sold, skipping.`);
+                return json({ received: true });
+            }
+
+            const { error: updateError } = await getSupabase()
+                .from('drawings')
+                .update({ sold: true, reserved: false, reserved_at: null })
+                .eq('slug', slug);
+
+            if (updateError) {
+                console.error('Error marking drawing sold:', updateError);
+                throw error(500, 'Failed to record sale');
+            }
+
+            console.log(`Drawing ${slug} marked as sold.`);
+
+            const customerEmail = session.customer_details?.email;
+            const customerName  = session.customer_details?.name || 'there';
+            const shippingAddress = session.shipping_details?.address;
+            const amountTotal   = session.amount_total;
+
+            // The DB write above is now committed, so `sold` is already true —
+            // a Stripe retry would hit the idempotency guard and skip this
+            // block entirely. That means a failed send here can't be fixed by
+            // retrying; we log it (for manual follow-up) instead of throwing,
+            // so we don't return a false 500 for an already-recorded sale.
             try {
-                // Idempotency guard: skip if already sold
-                const { data: drawing } = await getSupabase()
-                    .from('drawings')
-                    .select('sold')
-                    .eq('slug', slug)
-                    .single();
-
-                if (drawing?.sold) {
-                    console.log(`Drawing ${slug} already sold, skipping.`);
-                    return json({ received: true });
-                }
-
-                await getSupabase()
-                    .from('drawings')
-                    .update({ sold: true, reserved: false, reserved_at: null })
-                    .eq('slug', slug);
-
-                console.log(`Drawing ${slug} marked as sold.`);
-
-                const customerEmail = session.customer_details?.email;
-                const customerName  = session.customer_details?.name || 'there';
-                const shippingAddress = session.shipping_details?.address;
-                const amountTotal   = session.amount_total;
-
                 if (customerEmail) {
                     await getResend().emails.send({
                         from:    'Ian Sebelius <no-reply@iansebelius.com>',
@@ -140,11 +158,10 @@ export const POST = async ({ request }) => {
                     from:    'Store <no-reply@iansebelius.com>',
                     to:      'sebeliusancira@gmail.com',
                     subject: `Sold: ${slug}`,
-                    html:    artistNotificationEmail(slug, customerName, customerEmail, shippingAddress, amountTotal),
+                    html:    artistNotificationEmail(slug, customerName, customerEmail ?? 'unknown', shippingAddress, amountTotal),
                 });
-
             } catch (err) {
-                console.error('Error in post-payment fulfillment:', err);
+                console.error(`Error sending fulfillment emails for ${slug}:`, err);
             }
         }
     }

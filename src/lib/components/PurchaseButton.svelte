@@ -12,6 +12,14 @@
 
     let { priceId, price, slug, notebookSlug, sold, compact = false }: Props = $props();
     let loading = $state(false);
+    let errorMessage = $state<string | null>(null);
+    let errorTimeout: ReturnType<typeof setTimeout> | undefined;
+
+    function showError(message: string) {
+        errorMessage = message;
+        clearTimeout(errorTimeout);
+        errorTimeout = setTimeout(() => (errorMessage = null), 4000);
+    }
 
     async function handleCheckout() {
         if (sold || loading) return;
@@ -26,8 +34,9 @@
 
             const data = await response.json();
             if (response.status === 409) {
-                alert('Sorry, this drawing was just purchased by someone else.');
-                window.location.reload();
+                showError('Sorry, this drawing was just purchased by someone else.');
+                // Give the toast a moment to be read before the reload clears it.
+                setTimeout(() => window.location.reload(), 1500);
                 return;
             }
             if (data.url) {
@@ -35,7 +44,7 @@
             }
         } catch (e) {
             console.error('Checkout error:', e);
-            alert('Something went wrong. Please try again later.');
+            showError('Something went wrong. Please try again later.');
         } finally {
             loading = false;
         }
@@ -96,5 +105,14 @@
             </button>
             <p class="text-white/60 text-xs">Free Worldwide Shipping</p>
         {/if}
+    </div>
+{/if}
+
+{#if errorMessage}
+    <div
+        transition:fade={{ duration: 150 }}
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-black text-white text-sm px-5 py-3 rounded-full shadow-lg border border-white/10 max-w-[90vw] text-center"
+    >
+        {errorMessage}
     </div>
 {/if}

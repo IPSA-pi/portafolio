@@ -11,6 +11,7 @@
     let isAdmin = $derived(Boolean(data.isAdmin));
 
     // Local mutable copy so status changes update the UI optimistically.
+    // svelte-ignore state_referenced_locally
     let releases = $state<Release[]>(data.releases);
 
     let statusFilter = $state<'all' | ReleaseStatus>('all');
