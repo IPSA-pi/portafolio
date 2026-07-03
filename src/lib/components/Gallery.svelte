@@ -22,7 +22,10 @@
 			tabindex="0"
 			class="relative cursor-pointer overflow-hidden w-full p-0 border-0 block aspect-[3/5] bg-zinc-200 dark:bg-zinc-800"
 			onclick={() => goto(`/drawing/${notebookSlug}/${index + 1}`)}
-			onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goto(`/drawing/${notebookSlug}/${index + 1}`); } }}
+			onkeydown={(e) => {
+				if (e.target !== e.currentTarget) return; // let the nested add-to-cart button handle its own keydowns
+				if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goto(`/drawing/${notebookSlug}/${index + 1}`); }
+			}}
 			aria-label="View {formatTitle(image.slug)} in fullscreen"
 		>
 			<img
