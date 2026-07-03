@@ -1,15 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { cartItems, addToCart, removeFromCart } from '$lib/stores/cart';
+	import { formatTitle } from '$lib/utils/formatTitle';
 
 	let { images = [], products = {}, notebookSlug = '' } = $props();
-
-	function formatTitle(slug: string): string {
-		const parts = slug.split('_');
-		const num = parts[parts.length - 1];
-		const notebook = parts.slice(0, -1).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
-		return `${notebook} — ${num}`;
-	}
 
 	function formatPrice(cents: number): string {
 		return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });

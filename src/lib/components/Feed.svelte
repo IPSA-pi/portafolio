@@ -3,6 +3,7 @@
     import { untrack } from 'svelte';
     import PurchaseButton from './PurchaseButton.svelte';
     import { cartItems, cartCount, addToCart, removeFromCart } from '$lib/stores/cart';
+    import { formatTitle } from '$lib/utils/formatTitle';
 
     interface Props {
         images: { original: string; sm: string; md: string; lg: string; slug: string; notebook?: string }[];
@@ -62,13 +63,6 @@
         hideTimer = setTimeout(() => {
             if (!isPurchasable) controlsVisible = false;
         }, 4500);
-    }
-
-    function formatTitle(slug: string): string {
-        const parts = slug.split('_');
-        const num = parts[parts.length - 1];
-        const notebook = parts.slice(0, -1).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
-        return `${notebook} — ${num}`;
     }
 
     function scrollToIndex(i: number, behavior: ScrollBehavior = 'smooth') {
