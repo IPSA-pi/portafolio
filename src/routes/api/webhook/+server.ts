@@ -118,7 +118,7 @@ async function fulfillOrder(session: any) {
         .update({ sold: true, reserved: false, reserved_at: null })
         .in('slug', slugs)
         .eq('sold', false)
-        .select('slug');
+        .select('slug, price_cents');
 
     if (updateError) {
         console.error('Error marking drawings sold:', updateError);
@@ -146,20 +146,30 @@ async function fulfillOrder(session: any) {
     // throw, since the sale is already recorded on the drawings and a
     // Stripe retry after sold=true would just re-enter fulfillOrder and
     // no-op on the idempotency guard above.
-    try {
-        await getSupabase()
-            .from('orders')
-            .insert(soldSlugs.map((slug) => ({
-                drawing_slug: slug,
-                stripe_session_id: session.id,
-                payment_intent: session.payment_intent ?? null,
-                amount_total: amountTotal ?? null,
-                customer_name: customerName,
-                customer_email: customerEmail ?? null,
-                shipping_address: shippingAddress ?? null,
-            })));
-    } catch (err) {
-        console.error(`Error inserting order records for ${soldSlugs.join(', ')}:`, err);
+    //
+    // amount_total is per-drawing (that row's price_cents), not the whole
+    // session's total — writing the session total on every row would
+    // overcount revenue N times for an N-item cart. Free shipping and no
+    // discounts today, so per-item price is the honest allocation.
+    const { error: insertError } = await getSupabase()
+        .from('orders')
+        .insert(updated.map(({ slug, price_cents }) => ({
+            drawing_slug: slug,
+            stripe_session_id: session.id,
+            payment_intent: session.payment_intent ?? null,
+            amount_total: price_cents ?? null,
+            customer_name: customerName,
+            customer_email: customerEmail ?? null,
+            shipping_address: shippingAddress ?? null,
+        })));
+
+    // supabase-js does not throw on a DB/PostgREST error — it comes back on
+    // the result object — so this must be checked explicitly or a failure
+    // here is silently swallowed (which is exactly what was happening: the
+    // live DB doesn't have the orders table yet, so every insert has been
+    // failing with zero log output).
+    if (insertError) {
+        console.error(`Error inserting order records for ${soldSlugs.join(', ')}:`, insertError);
     }
 
     // The DB write above is now committed, so these drawings are already

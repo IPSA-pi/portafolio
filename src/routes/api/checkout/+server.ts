@@ -71,10 +71,15 @@ export const POST = async ({ request, url }) => {
         if (unavailable.length > 0) {
             // All-or-nothing: roll back every reservation this request took.
             if (reservedSlugs.length > 0) {
-                await getSupabase()
+                const { error: rollbackError } = await getSupabase()
                     .from('drawings')
                     .update({ reserved: false, reserved_at: null })
                     .in('slug', reservedSlugs);
+                // supabase-js does not throw on a DB error — check explicitly
+                // so a failed rollback doesn't silently strand a reservation.
+                if (rollbackError) {
+                    console.error('Error rolling back reservations after unavailable slugs:', rollbackError);
+                }
             }
             return json({ error: 'Some drawings are no longer available', unavailable }, { status: 409 });
         }
@@ -112,10 +117,13 @@ export const POST = async ({ request, url }) => {
         } catch (stripeErr) {
             // Roll back every reservation — Stripe session creation failed, don't
             // leave the drawings stuck as reserved with nobody in checkout.
-            await getSupabase()
+            const { error: rollbackError } = await getSupabase()
                 .from('drawings')
                 .update({ reserved: false, reserved_at: null })
                 .in('slug', drawingSlugs);
+            if (rollbackError) {
+                console.error('Error rolling back reservations after Stripe failure:', rollbackError);
+            }
             throw stripeErr;
         }
 

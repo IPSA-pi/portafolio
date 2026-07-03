@@ -122,6 +122,12 @@ CREATE POLICY "public_read" ON releases
 -- drawings, so stripe_session_id is not unique by itself — the uniqueness
 -- (and idempotency guard against double-inserting on a webhook retry) is on
 -- the (stripe_session_id, drawing_slug) pair instead.
+--
+-- amount_total is per-drawing (that row's price_cents at sale time), NOT the
+-- Stripe session's total — a session total written on every row of an N-item
+-- cart would overcount revenue N times if you sum this column. Free shipping
+-- and no discounts today, so per-item price is the honest allocation; revisit
+-- if that ever changes.
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE TABLE orders (
