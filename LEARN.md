@@ -791,13 +791,18 @@ export function formatPrice(cents: number, options?: { compact?: boolean }): str
     if (options?.compact) {
         return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     }
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+    return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(cents / 100);
 }
 ```
 
 One function, one place to fix a real bug in the formatting logic later, but the call site still
 chooses which *style* it wants — `formatPrice(price)` for a full-width buy button,
 `formatPrice(price, { compact: true })` for a cramped grid badge.
+
+(The prices themselves are all **CAD** now — the site later standardized its currency, and having
+one `formatPrice` meant that switch touched a single line here instead of the four copies it would
+have before. The compact branch keeps `en-US` purely for its digit grouping; it prints a bare `$`
+and no currency code, so the locale there is cosmetic.)
 
 > Concept: **duplication isn't automatically a code smell** — sometimes near-identical code encodes
 > a real difference in requirements (here: available layout width) that happens to look like an

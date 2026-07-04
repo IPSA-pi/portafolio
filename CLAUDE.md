@@ -118,6 +118,20 @@ The public read surface is separate:
   failure doesn't lose the buyer's details. `amount_total` is per-drawing
   (that row's price), not the session total
 
+## Currency
+
+All prices are **CAD** (owner decision — never mix currencies across
+`stripe_price_id`s, or a mixed-currency cart 500s at Stripe session
+creation). Three places encode this and must stay in sync:
+
+- `src/lib/utils/formatPrice.ts` — the full (non-compact) format uses
+  `Intl.NumberFormat('en-CA', { currency: 'CAD' })`. The compact badge
+  variant is `'$' + toLocaleString('en-US', …)` — `en-US` there is only
+  digit grouping (no currency), so it's fine to leave.
+- `src/routes/api/webhook/+server.ts` — the confirmation email formats the
+  amount with `en-CA` / `CAD`.
+- `scripts/set-price.js` — creates Stripe prices with `currency: 'cad'`.
+
 ## Drawing data model
 
 Two concepts that are easy to conflate:
