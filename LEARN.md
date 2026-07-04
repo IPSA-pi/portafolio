@@ -20,10 +20,11 @@ It's written to grow as the project grows, and to eventually become the source f
 4. [Svelte 5 features, with examples from this site](#svelte-5-features-with-examples-from-this-site)
 5. [SvelteKit concepts: routing, loading, server vs client](#sveltekit-concepts)
 6. [Stripe + Supabase: how the shop works](#stripe-supabase-how-the-shop-works)
-7. [Interesting design decisions worth understanding](#interesting-design-decisions)
-8. [Auth and cookies: how the owner gate works](#auth-and-cookies-how-the-owner-gate-works)
-9. [Glossary](#glossary)
-10. [Where to go next](#where-to-go-next)
+7. [Building the cart: troubles along the way](#building-the-cart-troubles-along-the-way)
+8. [Interesting design decisions worth understanding](#interesting-design-decisions)
+9. [Auth and cookies: how the owner gate works](#auth-and-cookies-how-the-owner-gate-works)
+10. [Glossary](#glossary)
+11. [Where to go next](#where-to-go-next)
 
 ---
 
@@ -74,9 +75,13 @@ keeps secrets safe while still rendering dynamic pages.
 | Path | Role |
 |------|------|
 | `src/routes/` | Each folder is a URL. Special filenames have special meaning (see below). |
-| `src/lib/components/` | Reusable UI pieces: `Feed`, `PurchaseButton`, `ThemeToggle`, `BinaryClock`. |
-| `src/lib/server/` | Server-only modules. The `server/` name makes SvelteKit guarantee they never ship to the browser. |
-| `src/lib/stores/` | App-wide shared state (`theme`, `fullscreen`). |
+| `src/routes/cart/` | The client-rendered cart review page (`+page.svelte`) — no server data of its own; it reads `src/lib/stores/cart.ts`. |
+| `src/routes/api/checkout/`, `.../cancel/`, `.../session-status/` | Checkout session creation, best-effort reservation release, and public payment-status lookup — see [Stripe + Supabase](#stripe-supabase-how-the-shop-works). |
+| `src/routes/api/drawings/status/` | Public sold/reserved/price lookup for a slug list — how the cart page re-checks availability before checkout. |
+| `src/lib/components/` | Reusable UI pieces: `Feed`, `Gallery`, `PurchaseButton`, `ThemeToggle`, `BinaryClock`. |
+| `src/lib/server/` | Server-only modules. The `server/` name makes SvelteKit guarantee they never ship to the browser. Includes `reservations.ts` (the one place that releases a Stripe session's reservations) and `checkoutSlugs.ts` (the one place that reads which drawings a session covers). |
+| `src/lib/stores/` | App-wide shared state (`theme`, `fullscreen`, `cart`). |
+| `src/lib/utils/` | Small, pure, framework-agnostic helpers shared across components: `formatTitle`, `formatPrice`, `checkoutReturn` (the Stripe-return-detection helper used by both the cart page and the notebook page). |
 | `src/hooks.server.ts` | Runs on every request before pages — sets the session seed. |
 | `scripts/` | Node tooling to process/upload images and seed the database. |
 
@@ -141,14 +146,16 @@ A value calculated *from* other reactive values; it recomputes automatically whe
 
 ```ts
 // src/lib/components/PurchaseButton.svelte — money formatting follows `price`
-const formattedPrice = $derived(
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
-        .format(price / 100)
-);
+const formattedPrice = $derived(formatPrice(price));
 
 // src/routes/+layout.svelte — breadcrumbs follow the URL
 let segments = $derived($page.url.pathname.split('/').filter(Boolean));
 ```
+
+(`formatPrice` itself lives in `src/lib/utils/formatPrice.ts` — it used to be
+copy-pasted inline in four different places with two subtly different
+outputs; see [Building the cart](#building-the-cart-troubles-along-the-way)
+for that story.)
 
 > Concept: **derived/computed state**. Instead of manually keeping two variables in sync, you
 > express one *as a function of* the other. Fewer bugs, less bookkeeping.
@@ -259,7 +266,13 @@ before rendering. It fetches data and hands the page a ready-made object:
 // src/routes/drawing/[slug]/[index]/+page.server.ts
 export async function load({ params, locals }) {
     const data = await loadNotebook(params.slug, locals.sessionSeed);
-    return { ...data, index: Number(params.index) };
+
+    const index = Number(params.index);
+    if (!Number.isInteger(index) || index < 1 || index > data.images.length) {
+        throw redirect(302, `/drawing/${params.slug}/1`);   // bad/out-of-range index -> slide 1
+    }
+
+    return { ...data, index };
 }
 ```
 
@@ -304,9 +317,10 @@ calls checkout with `fetch`, gets back a Stripe URL, and redirects the browser t
 ## Stripe + Supabase: how the shop works
 
 Stripe and Supabase each own a different part of the sale. Supabase is the **source of truth for
-availability**; Stripe is the **source of truth for money**. The `slug` (e.g. `negro_2_09`) is the
-only link between them — it travels through Stripe's session metadata so the webhook knows which
-database row to update.
+availability**; Stripe is the **source of truth for money**. The **slugs** of the drawings in a
+cart (e.g. `negro_2_09`) are the only link between them — they travel through Stripe's session
+metadata so the webhook knows which database rows to update, whether that's one drawing bought
+straight from a notebook page or several bought together from the cart.
 
 ### Data model
 
@@ -319,45 +333,141 @@ Each drawing has one row in the Supabase `drawings` table:
 | `stripe_price_id` | The active Stripe Price (the amount the buyer pays). |
 | `price_cents` | Mirror of the Stripe price — used to display the price without calling Stripe. |
 | `sold` | `true` once payment is confirmed. Permanent. |
-| `reserved` | `true` while a checkout session is active (≤ 30 min). Temporary. |
+| `reserved` | `true` while a checkout session is active (≤ 30 min, see below). Temporary. |
 | `reserved_at` | Timestamp of the reservation, used to detect stale locks. |
 
 Images are stored in Supabase Storage (bucket: `drawings`) with four variants per drawing:
 `negro_2_09.webp`, `negro_2_09-sm.webp`, `negro_2_09-md.webp`, `negro_2_09-lg.webp`.
 
+A second table, `orders`, is the durable record of a sale — written by the webhook once payment is
+confirmed, independent of whether the confirmation emails succeed:
+
+| Column | Role |
+|--------|------|
+| `drawing_slug` | Which drawing this row is for — one row per sold drawing. |
+| `stripe_session_id` | The checkout session the sale belongs to. A cart sale produces several `orders` rows sharing the same session id, so this column is **not** unique by itself — the uniqueness (and the guard against inserting the same row twice if a webhook retries) is on `(stripe_session_id, drawing_slug)` together. |
+| `payment_intent`, `amount_total`, `customer_name`, `customer_email`, `shipping_address` | Buyer/payment details captured at fulfillment time. `amount_total` here is *per drawing* (that row's own price), not the whole session's total — summing it across a multi-item order gives the right answer; writing the session total on every row would not. |
+
+> Concept: **normalization**. `drawings` answers "is this available and for how much"; `orders`
+> answers "what actually got sold and to whom." Splitting them means a slow/failed confirmation
+> email never risks losing the fact that a sale happened.
+
+### The cart itself lives in the browser
+
+Unlike `drawings`/`orders`, the **cart is not a database table at all** — it's a Svelte
+`writable` store (`src/lib/stores/cart.ts`) persisted to `localStorage` under the key `cart:v1`,
+following the same pattern as the `theme` store covered earlier (SSR-safe read via a `browser`
+check, write-through on every change):
+
+```ts
+// src/lib/stores/cart.ts (abridged)
+export const cartItems = writable<CartItem[]>(getInitialItems());
+
+cartItems.subscribe((items) => {
+    if (!browser) return;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); }
+    catch { /* storage unavailable (private mode, quota) — in-memory only */ }
+});
+```
+
+Each item is a **display snapshot** — `{ slug, notebook, price, image }` — not a source of truth.
+The server never trusts the price a cart item claims to have; `/api/checkout` always re-reads
+`stripe_price_id` from Supabase before creating a Stripe session. This matters: a client-side
+store is trivially editable in the browser's dev tools, so nothing security- or money-relevant can
+depend on what it contains — it's a convenience cache of what the *server* already told the
+browser, re-verified at the moment it matters.
+
+> Concept: **never trust the client**. Anything that affects money or access must be re-derived or
+> re-checked server-side, no matter how carefully the client-side copy was built.
+
 ### Purchase flow
 
+A single click on "Buy" and a cart checkout both go through the *same* endpoint —
+`/api/checkout` accepts `{ slugs: string[] }` (1 to 20 drawings), reserves every one of them
+atomically, and creates **one** Stripe Checkout session covering all of them:
+
 ```
-User clicks Buy
+User clicks Buy (one drawing) or Checkout (a cart of N drawings)
       │
       ▼
-POST /api/checkout
-  Supabase: UPDATE drawings SET reserved=true, reserved_at=now()
-            WHERE slug=? AND sold=false
+POST /api/checkout   { slugs: [...] }
+  Supabase: one set-based UPDATE, not N round trips —
+            UPDATE drawings SET reserved=true, reserved_at=now()
+            WHERE slug IN (...) AND sold=false
             AND (reserved=false OR reserved_at < 35 minutes ago)
-  → If 0 rows updated: drawing is taken → return 409
-  → If 1 row updated: read stripe_price_id from that row
-  Stripe: checkout.sessions.create({ price: stripe_price_id, metadata: { slug } })
-  → Return the Stripe-hosted checkout URL to the browser
+            RETURNING slug, stripe_price_id
+  → Any requested slug NOT in the returned rows is unavailable.
+    If ANY slug is unavailable: roll back every reservation this
+    request just took, return 409 { error, unavailable: [...] } —
+    all-or-nothing, so a cart never partially checks out.
+  Stripe: checkout.sessions.create({
+            line_items: [one per drawing],
+            metadata: { slug: firstSlug, slugs: JSON.stringify(allSlugs) }
+          })
+  → Return the Stripe-hosted checkout URL (+ session id) to the browser
       │
       ▼
 User pays on Stripe's page (30-min session window)
       │
       ├─ Payment succeeds ──────────────────────────────────────────────────────┐
       │                                                                         ▼
-      │                                                         POST /api/webhook
-      │                                                           (checkout.session.completed)
-      │                                                         Verify Stripe signature
-      │                                                         Supabase: sold=true, reserved=false
-      │                                                         Resend: email to buyer + artist
+      │                                                    POST /api/webhook
+      │                                                      (checkout.session.completed,
+      │                                                       only if payment_status === 'paid';
+      │                                                       async_payment_succeeded also fulfills —
+      │                                                       delayed methods like OXXO/bank transfer
+      │                                                       settle later than the redirect)
+      │                                                    Verify Stripe signature
+      │                                                    Supabase: one conditional UPDATE ... WHERE
+      │                                                      sold=false RETURNING slug — only the
+      │                                                      rows actually flipped get fulfilled
+      │                                                      (idempotent against webhook retries)
+      │                                                    orders: one row per sold drawing
+      │                                                    Resend: one combined email to the buyer
+      │                                                      listing every drawing, one to the artist
       │
-      └─ Session expires (user abandons) ──────────────────────────────────────┐
+      └─ Buyer backs out (expired / async_payment_failed / explicit cancel / no
+         cancel URL at all — Back button, closed tab) ────────────────────────┐
                                                                                ▼
-                                                               POST /api/webhook
-                                                                 (checkout.session.expired)
-                                                               Supabase: reserved=false
-                                                               → Drawing is available again
+                                                          Reservation released via ONE shared
+                                                          helper (releaseSessionReservations,
+                                                          src/lib/server/reservations.ts) — used
+                                                          by the webhook AND the cancel endpoint,
+                                                          so there is exactly one release
+                                                          implementation to reason about.
 ```
+
+The session's `metadata.slugs` is a JSON-encoded array of every slug it covers; `metadata.slug`
+is kept as just the first slug, for backward compatibility with sessions created before carts
+existed. `src/lib/server/checkoutSlugs.ts`'s `getSlugsFromSession(session)` is the *one* place
+that reads this — every other file that needs "which drawings does this session cover" calls it,
+rather than re-deriving the fallback logic itself.
+
+> Concept: **a single source of truth for a derived fact**. Three different call sites (the
+> webhook, the cancel endpoint, the optimistic notebook-page check) all need "which slugs does
+> this session cover." Writing that logic once and importing it everywhere means a future format
+> change (or bug fix) only has to happen in one place.
+
+### Verifying payment before trusting the browser
+
+After Stripe redirects back, the URL alone (`?success=true&session_id=...`) is not proof of
+payment — it's just a string the browser sent, and delayed payment methods redirect here with
+`payment_status: 'unpaid'` too. Two different pages verify this two different ways, matched to
+what each already has available:
+
+- The **notebook page** (single-item purchase) re-retrieves the session from Stripe server-side
+  in its `load` function and only treats a drawing as sold if `payment_status === 'paid'` —
+  it already talks to Stripe for other reasons, so this is "free."
+- The **cart's success landing** has no server load of its own (the cart lives client-side), so it
+  calls a small public endpoint, `GET /api/checkout/session-status?session_id=...`, which returns
+  just `{ paid, slugs }` — enough to decide whether to show the confirmation banner and *which*
+  cart items to remove (`removeFromCart` per slug, never a blanket `clearCart()` — the cart may
+  hold items added after checkout started, which were never part of this purchase).
+
+> Concept: **don't conflate "the browser is telling me this" with "this is true."** A query
+> parameter is user-controlled input the moment it's in a URL; anything that changes what the UI
+> promises the user (like "your payment succeeded") has to be re-verified against the actual
+> source of truth, not read off the request.
 
 ### Setting prices
 
@@ -377,15 +487,323 @@ old one in Stripe if Supabase fails to update (so you never accumulate orphaned 
 
 ### Key safety properties
 
-- **Atomic reservation** — the `UPDATE ... WHERE` is a single Postgres operation. If two users click
-  Buy at the same instant, Postgres serializes them: exactly one succeeds, the other gets a 409.
-- **Stale reservation cleanup** — the 35-minute threshold (slightly above Stripe's 30-minute session
-  expiry) means a reservation whose checkout session has definitely expired can be taken over. A
-  `pg_cron` job also sweeps stale reservations every 10 minutes (see `schema.sql`).
-- **Webhook idempotency** — the webhook checks `sold` before updating, so duplicate event deliveries
-  from Stripe are harmless.
+- **Atomic reservation, set-based** — one `UPDATE ... WHERE slug IN (...)` reserves every
+  available drawing in a cart in a single Postgres statement; Postgres locks and re-checks the
+  `WHERE` per matched row, so two overlapping requests still can't both reserve the same drawing —
+  exactly the same guarantee as reserving one row at a time, just fewer round trips.
+- **All-or-nothing carts** — if any slug in the request is unavailable, every reservation that
+  request *did* take is rolled back before returning. A cart either checks out completely or not
+  at all; it never silently drops the sold-out item and charges for the rest.
+- **Ownership-scoped release** — `releaseSessionReservations` only releases a reservation that (a)
+  isn't sold and (b) was taken out at or before the session it's given was created. Without (b), a
+  stale or replayed session id could release a *different*, newer buyer's still-live hold on the
+  same drawing — see [Building the cart](#building-the-cart-troubles-along-the-way) for how that
+  bug actually happened here.
+- **Never release a paid reservation** — the cancel endpoint additionally refuses to act on a
+  session whose `payment_status` is `'paid'`; the webhook (or a fulfillment race) owns that outcome.
+- **Stale reservation cleanup** — `STALE_RESERVATION_MS` (35 minutes, defined once in
+  `src/lib/server/reservations.ts` and imported everywhere else that needs it) sits just above
+  Stripe's 30-minute session expiry, so a reservation whose checkout session has definitely expired
+  can be taken over by someone else. A `pg_cron` job also sweeps stale reservations every 10
+  minutes (see `schema.sql`) as a backstop for a missed webhook.
+- **Webhook idempotency** — fulfillment is a single conditional `UPDATE ... WHERE sold=false
+  RETURNING slug`; only the rows that statement actually flips get emailed and recorded, so
+  duplicate event deliveries from Stripe (which Stripe's own docs say to expect) are harmless.
 - **Signature verification** — every webhook request is verified with `STRIPE_WEBHOOK_SECRET` before
   any database write, preventing spoofed payment notifications.
+- **Server-side re-derivation, not client trust** — cart prices are display-only; the server always
+  re-reads `stripe_price_id` from Supabase, dedupes and caps the requested slug list, and validates
+  every input before it touches the database or Stripe.
+
+---
+
+## Building the cart: troubles along the way
+
+The single-item checkout in the previous section shipped first and looked solid. Turning it into a
+real multi-item cart — and then reviewing that work with fresh eyes — surfaced a series of bugs
+that are worth walking through individually, because each one is really a general lesson wearing a
+Stripe/Supabase costume. This chapter is that walkthrough.
+
+### Collapsing two different states into one boolean
+
+The very first version of "is this drawing available" was:
+
+```ts
+sold: d.sold || d.reserved
+```
+
+That reads fine until you notice what it *means*: a drawing someone merely clicked "Buy" on —
+maybe seconds ago, maybe abandoned — displays identically to one that's actually, permanently
+gone. Worse, a buyer who clicked Buy and then hit **Back** on Stripe's page came home to see their
+*own* drawing marked "Sold," with no way to retry for up to 35 minutes (the reservation's own
+release-if-abandoned window).
+
+The fix was to stop collapsing the two facts and carry them separately:
+
+```ts
+sold:     d.sold,
+reserved: d.reserved && !d.sold,
+```
+
+`sold` is permanent; `reserved` is temporary and can be undone. Once they're separate booleans,
+the UI can tell a genuinely-gone drawing ("Sold," a hard stop) from a temporarily-held one ("On
+hold — check back soon," with a path back to buying it).
+
+> Concept: **state modeling**. `X || Y` is tempting whenever two conditions currently produce the
+> same *visible* effect, but if they have different *meanings* — one reversible, one not — squashing
+> them into one boolean throws away information the rest of the program (and the user) needs later.
+> This is the same idea as not using a single `status: boolean` for something that actually has
+> three states (`available` / `held` / `gone`).
+
+### A library that doesn't throw the way you'd expect
+
+Several places in this codebase call Supabase like this:
+
+```ts
+try {
+    await getSupabase().from('orders').insert(rows);
+} catch (err) {
+    console.error('Error inserting order records:', err);
+}
+```
+
+This looks like defensive error handling. It is — for *network* failures. But `supabase-js`
+doesn't throw for a failed database operation (a missing table, a constraint violation, a bad
+column); it **resolves successfully** with the problem described in the result object's `error`
+field. The `try/catch` above can never catch that, because nothing throws. The `orders` table
+didn't exist yet on the live database when this shipped, so every single insert was silently
+failing — no error, no log line, nothing — for as long as it went unnoticed.
+
+The fix is to always destructure and check the result, regardless of whether you also keep a
+`try/catch` for genuine exceptions:
+
+```ts
+const { error: insertError } = await getSupabase().from('orders').insert(rows);
+if (insertError) {
+    console.error('Error inserting order records:', insertError);
+}
+```
+
+> Concept: **know your dependency's actual failure contract, not the one you'd assume.** Not every
+> library signals failure the same way (`throw`, a result-object error field, a rejected promise, a
+> callback's first argument, a magic sentinel return value…). Skimming the docs for "what does
+> success look like" is only half the job — you also have to check "what does *failure* look like,
+> specifically, for this call."
+
+### The replay bug: releasing someone else's reservation
+
+This is the sharpest bug in the batch, so it's worth reading slowly. The endpoint that lets a
+buyer cancel out of Stripe Checkout released a reservation like this:
+
+```ts
+// ⚠️ the version with the bug
+await getSupabase()
+    .from('drawings')
+    .update({ reserved: false, reserved_at: null })
+    .eq('slug', slug)
+    .eq('sold', false);
+```
+
+That looks safe: it only touches *this* drawing, and only if it's not sold. But it says nothing
+about *whose* reservation it's releasing. Walk through this sequence:
+
+1. Buyer **A** starts checkout on a drawing. It's reserved, `reserved_at = 10:00:00`.
+2. A abandons the tab. Nothing calls the cancel endpoint yet — the session id is just sitting in
+   the URL, unused, because A never clicked anything.
+3. Buyer **B** starts checkout on the *same* drawing later — legitimately, because A's session is
+   dead and the drawing is fair game again. B's reservation is `reserved_at = 10:40:00`.
+4. Someone (or something) replays A's old cancel request — a retried request, a re-opened old tab,
+   or in principle an attacker who simply captured A's URL.
+5. The query above runs: `slug = X AND sold = false`. It matches the row — the *current* row,
+   whatever its `reserved_at` is now — and releases it. **B's live reservation, mid-payment, just
+   got wiped**, and a third buyer could now buy the same one-of-a-kind drawing out from under B.
+
+The missing piece is an **ownership check**: don't just ask "is this drawing reserved," ask "is
+this drawing reserved *by the session I was actually given*":
+
+```ts
+// the fix — src/lib/server/reservations.ts
+const sessionCreatedAt = new Date((session.created + 5) * 1000).toISOString();
+await getSupabase()
+    .from('drawings')
+    .update({ reserved: false, reserved_at: null })
+    .in('slug', slugs)
+    .eq('sold', false)
+    .lte('reserved_at', sessionCreatedAt);   // ← only release a hold at least as old as this session
+```
+
+If the reservation currently on the row is *newer* than the session doing the releasing, it can't
+possibly be that session's own reservation — so leave it alone. A stale/replayed cancel request
+becomes a safe no-op instead of a way to steal someone else's hold. (A second, related check —
+never release a reservation backing a session that's already `paid` — closes the same door from a
+slightly different angle: don't let a slow network race undo a successful payment either.)
+
+This was verified, not just reasoned about: reserve as A, release A, reserve the same drawing as
+B, then replay A's *original* cancel call against B's now-live reservation — B's hold survived,
+confirming the fix actually blocks the exploit rather than just looking like it does on paper.
+
+> Concept: **TOCTOU (time-of-check to time-of-use) and replay attacks**. Checking "is this thing in
+> the state I expect" and then acting on it are two separate moments; if anything (a network retry,
+> another user, an attacker) can act in between, your check is stale by the time you use it. The fix
+> is almost always the same shape: bind the check to *something specific to the request being
+> honored* (here: "only if the hold is at least as old as *this* session"), not just to the current
+> state of the world.
+
+### Trusting a URL to mean "you paid"
+
+`/drawing?success=true&session_id=...` used to show "Thank you for your purchase!" and clear the
+entire cart the instant those two params were present — no server round trip at all. Two ways that
+goes wrong:
+
+- **Delayed payment methods.** Stripe redirects to the success URL as soon as checkout is
+  *submitted*, not necessarily once money has actually moved — a bank transfer or OXXO voucher can
+  report `payment_status: 'unpaid'` at that exact moment and only settle minutes or hours later.
+  The banner claimed a sale that hadn't happened yet.
+- **It's just a string.** Nothing stops a browser from typing `?success=true&session_id=anything`
+  into the address bar directly. The server was trusting user-supplied input to decide what to tell
+  the user.
+
+The fix adds one server round trip before the banner renders: a narrow endpoint that returns only
+`{ paid, slugs }` for a given session id, and the page shows the confirmation *only* if `paid` is
+true — otherwise a neutral "your payment is processing" notice, and the cart is left untouched
+either way until it's earned.
+
+> Concept: this is the same **client vs. server trust boundary** from the "secrets never reach the
+> browser" section, applied to a different kind of secret: not "don't leak data to the client," but
+> "don't let the client tell you what happened — go check."
+
+### An event handler that ate its child's keyboard input
+
+The cart's "add to cart" button lives *inside* a clickable gallery tile — click the tile, open the
+lightbox; click the button, add to cart, `stopPropagation()` stops it from also opening the
+lightbox. That works fine with a mouse. With a keyboard, it didn't:
+
+```ts
+// the tile wrapper's keydown handler
+onkeydown={(e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        goto(`/drawing/${notebookSlug}/${index + 1}`);
+    }
+}}
+```
+
+A keydown on the *button* still **bubbles up** through the DOM to this handler on the wrapper —
+`stopPropagation` was only ever wired to the button's `click`, not its `keydown`. Tab to the price
+button, press Enter, and this outer handler fires first, calling `preventDefault()` and navigating
+away before the button ever gets to activate itself. A mouse click never has this problem because
+there's nothing to bubble through in the same way for `click` (the button's own handler already
+stops it) — the bug only exists for the *keyboard* path, which is exactly the kind of thing that's
+invisible if you only ever test with a mouse.
+
+The fix checks *where the event actually started*, not just what key was pressed:
+
+```ts
+onkeydown={(e) => {
+    if (e.target !== e.currentTarget) return;   // let the nested button handle its own keydowns
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goto(/* … */); }
+}}
+```
+
+> Concept: **event bubbling**, and why keyboard accessibility needs its own testing pass. `target`
+> is where an event actually originated; `currentTarget` is whichever element's handler is
+> currently running. They're only equal when the event started right there — any other bubbled
+> event has a `target` somewhere further down the tree. Mouse and keyboard interactions don't always
+> traverse the DOM the same way, so "it works when I click it" doesn't prove "it works when I tab to
+> it and press Enter."
+
+### A loop that raced against itself
+
+Reserving a cart's drawings one at a time, in a loop, seemed like the obvious way to reuse the
+existing single-item logic:
+
+```ts
+for (const slug of drawingSlugs) {
+    await getSupabase().from('drawings')
+        .update({ reserved: true, reserved_at: now })
+        .eq('slug', slug).eq('sold', false)
+        .or(`reserved.eq.false,reserved_at.lt.${staleThreshold}`);
+    // ...
+}
+```
+
+Send a body with a duplicate slug — `{ slugs: ['x', 'x'] }`, whether by an honest bug in a client
+or a hand-crafted request — and the *second* iteration's `WHERE` clause matches nothing: the first
+iteration just set `reserved = true, reserved_at = now()` on that row, so `reserved.eq.false` is
+now false and `reserved_at.lt.staleThreshold` is false too (it's brand new, not stale). The request
+fails with "no longer available" for an item that is, in fact, sitting right there available.
+
+The immediate fix is to dedupe before doing anything else — `[...new Set(slugs)]` — so a request
+never gets to race against its own earlier iteration. But this bug is also *why* the loop was later
+replaced with a single set-based `UPDATE ... WHERE slug IN (...)` (see [Key safety
+properties](#key-safety-properties) above): one statement reserving N rows at once
+can't race against itself the way N sequential statements can, because there's no "first iteration"
+to have already changed the state the second one checks.
+
+> Concept: **a request can conflict with itself**, not just with other concurrent requests. It's
+> easy to design for "what if two users hit this at the same time" and forget "what if this one
+> request's own steps interfere with each other." Deduping input and preferring one atomic
+> operation over N sequential ones are two different fixes for the same underlying shape of bug.
+
+### Designing for the user who doesn't follow the happy path
+
+The cancel flow was built around one specific URL: Stripe's `cancel_url`, which fires when a buyer
+clicks the "back to site" link *inside* Stripe Checkout. That covers the buyer who cancels the way
+the UI suggests. It does nothing for the buyer who just presses the browser's own **Back** button,
+or closes the tab — both perfectly normal things to do that never touch `cancel_url` at all. Their
+reservation just sits there, "held," until the 35-minute staleness window quietly lets it go.
+
+The fix accepts that the intended flow won't always happen, and adds a fallback that doesn't depend
+on it: right before redirecting to Stripe, the browser stashes the session id in `sessionStorage`.
+Landing back on the cart or notebook page then checks *either* signal — the explicit
+`?canceled=true` URL, or a leftover `sessionStorage` marker — and releases the hold either way. It's
+safe to call unconditionally, even when there's nothing to release, because the ownership and
+payment guards from the earlier bug make a spurious call a no-op rather than a risk.
+
+> Concept: **don't design for only the path you drew in the diagram.** Real users (and real
+> browsers) will always find the exit you didn't wire up — closing a tab, using Back, following a
+> bookmark, losing network mid-flow. Anywhere a flow depends on the user reaching a specific URL to
+> "complete" it, ask what happens if they never do — and prefer a fallback that's *safe to run even
+> when unnecessary* over trying to catch every possible way of leaving.
+
+### Not every duplicate is a mistake — but check before you assume that
+
+A price-formatting helper existed, copy-pasted, in four places by the time the cart shipped. Three
+of them agreed: `new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })`, producing
+`"$150.00"`. The fourth — the gallery's grid price badge — deliberately overrode it:
+
+```ts
+'$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+```
+
+producing `"$150"` instead. The instinct when you spot four copies of "the same" function is to
+extract one and delete the rest. Doing that blindly here would have made every grid badge
+noticeably wider ("$150.00" instead of "$150") in a tiny fixed-size pill where the extra four
+characters visibly crowd the layout — a real, if small, regression, and one a diff/type-checker
+would never catch, because both versions type-check and both "work."
+
+The actual fix extracted the shared logic but kept the *behavioral* difference explicit and
+intentional instead of accidental:
+
+```ts
+// src/lib/utils/formatPrice.ts
+export function formatPrice(cents: number, options?: { compact?: boolean }): string {
+    if (options?.compact) {
+        return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    }
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+}
+```
+
+One function, one place to fix a real bug in the formatting logic later, but the call site still
+chooses which *style* it wants — `formatPrice(price)` for a full-width buy button,
+`formatPrice(price, { compact: true })` for a cramped grid badge.
+
+> Concept: **duplication isn't automatically a code smell** — sometimes near-identical code encodes
+> a real difference in requirements (here: available layout width) that happens to look like an
+> oversight. Before collapsing four copies into one, check whether they actually behave the same;
+> if they don't, the right refactor preserves *both* behaviors behind one shared implementation,
+> rather than silently picking one and calling it cleanup.
 
 ---
 
@@ -415,10 +833,16 @@ The browser only ever sees the harmless rendered result.
 ### Guarding a one-of-a-kind purchase
 
 Because each original can only be sold once, the checkout flow has to handle two people trying to
-buy the same piece. `PurchaseButton` watches for a `409 Conflict` response ("someone bought it
-first"), and the data layer treats an item as unavailable if it's either `sold` **or** `reserved`.
+buy the same piece — or, for a cart, several people each trying to buy *some overlapping subset* of
+several pieces. Both `PurchaseButton` and the cart page watch for a `409 Conflict` response
+("someone bought it first"); the cart page additionally reads the `unavailable` slug list the
+server sends back and flags exactly those items, rather than treating the whole cart as failed.
+`sold` and `reserved` are tracked as two distinct facts (see [Building the
+cart](#building-the-cart-troubles-along-the-way) for the bug that came from conflating them), and a
+reservation is all a checkout attempt ever gets — sold is permanent and only the webhook sets it.
 
-> Concept: **race conditions and concurrency** — what happens when two users act at the same time.
+> Concept: **race conditions and concurrency** — what happens when two users (or one user's own
+> request, see the self-conflicting-loop story above) act at the same time.
 
 ---
 
@@ -614,6 +1038,11 @@ control.)
 | **Public-key signature** | A signature made with a private key and checked with the matching public key — anyone can verify, only the holder can sign. |
 | **CSRF** | Cross-Site Request Forgery — another site tricking your browser into sending an authenticated request; blunted by `SameSite` cookies. |
 | **Security through obscurity** | Relying on attackers not knowing how a system works, rather than on real secrets — an anti-pattern (see Kerckhoffs's principle). |
+| **Idempotency** | Doing something twice has the same effect as doing it once — e.g. a webhook retry that re-checks `sold` before writing, so a duplicate delivery is harmless. |
+| **TOCTOU** | Time-Of-Check-To-Time-Of-Use — a bug where the world can change between checking a condition and acting on it; the fix is usually to bind the action to something specific about the request, not just the current state. |
+| **Replay attack** | Reusing a previously-valid message/request (a session id, a token) after the situation it was valid for has changed. |
+| **Event bubbling** | A DOM event fired on a nested element also triggers handlers on its ancestors, in order, unless something calls `stopPropagation()`. |
+| **`target` vs `currentTarget`** | On a DOM event, `target` is where it actually originated; `currentTarget` is whichever element's handler is currently running. They differ whenever the event bubbled up from a descendant. |
 
 ---
 
@@ -621,7 +1050,7 @@ control.)
 
 - **Official Svelte 5 tutorial:** https://svelte.dev/tutorial — the interactive runes tutorial is the fastest way to internalize this file.
 - **SvelteKit docs:** https://svelte.dev/docs/kit — routing, loading, hooks.
-- **Try it in this repo:** pick one component and trace it end to end. `PurchaseButton.svelte` is a great first read (small, uses props + state + derived + a fetch call).
+- **Try it in this repo:** pick one component and trace it end to end. `PurchaseButton.svelte` is a great first read (small, uses props + state + derived + a fetch call). For the ecommerce side specifically, `src/lib/server/reservations.ts` is short, does one job, and is the file the [replay-bug story](#building-the-cart-troubles-along-the-way) is about — a good next read once `PurchaseButton` makes sense.
 
 ---
 
