@@ -105,7 +105,7 @@ for (const drawing of toPrice) {
         const price = await stripe.prices.create({
             product:     productId,
             unit_amount: priceCents,
-            currency:    'usd',
+            currency:    'cad',
         });
 
         // Update Supabase before setting the default price on the product.

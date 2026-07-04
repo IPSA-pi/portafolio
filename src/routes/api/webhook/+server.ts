@@ -61,7 +61,7 @@ function buildCustomerEmail(customerName: string, slugs: string[]) {
 }
 
 function artistNotificationEmail(slugs: string[], customerName: string, customerEmail: string, address: any, amountTotal: number) {
-    const formattedAmount = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amountTotal / 100);
+    const formattedAmount = new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(amountTotal / 100);
     const formattedAddress = escapeHtml(
         address
             ? [address.line1, address.line2, address.city, address.state, address.postal_code, address.country].filter(Boolean).join(', ')

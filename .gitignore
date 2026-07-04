@@ -34,3 +34,6 @@ vite.config.ts.timestamp-*
 # Local tooling / scratch
 .claude.md
 /agy_artifacts
+
+# Local task queue for agent sessions
+/TASKS.md
