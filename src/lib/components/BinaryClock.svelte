@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { toBits } from '$lib/utils/toBits';
 
   type MsPrecision = 'ms' | 'cs' | 'ds' | 'none';
   type DisplayMode  = 'binary' | 'digits' | 'circle' | 'bars';
@@ -101,10 +102,6 @@
       : [{ value: d.getHours(), bits: 5 }, { value: d.getMinutes(), bits: 6 }, { value: d.getSeconds(), bits: 6 }];
     const base = r === 'date' ? datePart : r === 'time' ? timePart : [...datePart, ...timePart];
     return [...base, ...msCols(d, p, dig)];
-  }
-
-  function toBits(value: number, bits: number): boolean[] {
-    return Array.from({ length: bits }, (_, i) => Boolean((value >> (bits - 1 - i)) & 1));
   }
 
   // ── Orientation classes ────────────────────────────────────────────────────

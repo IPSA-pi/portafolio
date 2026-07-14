@@ -1,42 +1,32 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte';
+  import { onMount } from 'svelte';
   import { fly } from 'svelte/transition';
-  import BinaryClock from '$lib/components/BinaryClock.svelte';
+  import BinaryText from '$lib/components/BinaryText.svelte';
   import Seo from '$lib/components/Seo.svelte';
   import { isFullscreen } from '$lib/stores/fullscreen';
   import { hexToRgba } from '$lib/utils/hexToRgba';
 
-  type MsPrecision = 'ms' | 'cs' | 'ds' | 'none';
-  type DisplayMode = 'binary' | 'digits' | 'circle' | 'bars';
-  type Orientation = 'auto' | 'horizontal' | 'vertical';
-  type Range       = 'full' | 'time' | 'date';
-
-  let msPrecision  = $state<MsPrecision>('none');
-  let mode         = $state<DisplayMode>('binary');
+  let text         = $state('');
   let colorOn      = $state('#ffffff');
   let alphaOn      = $state(100);
   let colorOff     = $state('#000000');
   let alphaOff     = $state(100);
-  let squareSize   = $state(20);
+  let squareSize   = $state(16);
   let glowSize     = $state(8);
-  let orientation  = $state<Orientation>('auto');
-  let range        = $state<Range>('full');
   let settingsOpen = $state(false);
   let isPortrait   = $state(true);
-  let clockEl: HTMLElement | undefined = $state();
+  let inputEl: HTMLInputElement | undefined = $state();
+  let displayEl: HTMLElement | undefined = $state();
   let settingsEl: HTMLElement | undefined = $state();
+  let gearEl: HTMLElement | undefined = $state();
 
   onMount(() => {
-    document.body.style.overflow = 'hidden';
     const mq = window.matchMedia('(orientation: portrait)');
     isPortrait = mq.matches;
-    fitToScreen();
     const orientHandler = (e: MediaQueryListEvent) => { isPortrait = e.matches; };
     mq.addEventListener('change', orientHandler);
-    return () => {
-      document.body.style.overflow = '';
-      mq.removeEventListener('change', orientHandler);
-    };
+    inputEl?.focus();
+    return () => mq.removeEventListener('change', orientHandler);
   });
 
   function toggleFullscreen() {
@@ -46,33 +36,6 @@
       settingsOpen = false;
       document.documentElement.requestFullscreen();
     }
-  }
-
-
-  $effect(() => {
-    mode;
-    range;
-    isPortrait;
-    $isFullscreen;
-    settingsOpen;
-    const raf = requestAnimationFrame(() => untrack(fitToScreen));
-    return () => cancelAnimationFrame(raf);
-  });
-
-  function fitToScreen() {
-    if (!clockEl) return;
-    const rect = clockEl.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
-    const PADDING = 32;
-    const availW = $isFullscreen
-      ? window.innerWidth  - PADDING * 2
-      : window.innerWidth  - (isPortrait ? 0 : (settingsOpen ? 288 : 0)) - PADDING * 2;
-    const availH = $isFullscreen
-      ? window.innerHeight - PADDING * 2
-      : window.innerHeight - (isPortrait ? 0 : 64)  - PADDING * 2;
-    const ratio = Math.min(availW / rect.width, availH / rect.height);
-    const newSize = Math.round((squareSize * ratio) / SIZE_STEP) * SIZE_STEP;
-    squareSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, newSize));
   }
 
   function resetColors() {
@@ -93,36 +56,57 @@
   const MIN_SIZE = 8;
   const MAX_SIZE = 48;
   const SIZE_STEP = 4;
-
-  const precisionOptions: { value: MsPrecision; label: string }[] = [
-    { value: 'none', label: 'none' },
-    { value: 'ds',   label: 'ds'   },
-    { value: 'cs',   label: 'cs'   },
-    { value: 'ms',   label: 'ms'   },
-  ];
 </script>
 
-<Seo path="/" description="Personal portfolio of Ian Sebelius — original drawings, video, and web art." />
+<Seo title="Text2Binary" path="/text2binary"
+  description="Type text and watch it render live as binary — each character becomes a row of UTF-8 bits." />
 
-<div class="{$isFullscreen ? 'h-screen' : 'h-[calc(100vh-4rem)]'} flex flex-col justify-center items-center overflow-hidden">
+<div class="{$isFullscreen ? 'min-h-screen' : 'min-h-[calc(100vh-4rem)]'} flex flex-col items-center gap-8 py-10 px-4">
 
-  <button
-    type="button"
-    bind:this={clockEl}
-    onclick={() => settingsOpen = !settingsOpen}
-    aria-label="Toggle clock settings"
-    class="appearance-none bg-transparent border-0 p-0 cursor-pointer portrait:scale-[2] portrait:my-16"
-  >
-    <BinaryClock {msPrecision} {mode} blendMode="normal" showBg={false}
-      colorOn={colorOnRgba} colorOff={colorOffRgba} {squareSize} {glowSize} {orientation} {range} />
-  </button>
+  <div class="w-full max-w-md flex items-center gap-2">
+    <label for="t2b-input" class="sr-only">Text to convert to binary</label>
+    <input
+      id="t2b-input"
+      bind:this={inputEl}
+      bind:value={text}
+      type="text"
+      placeholder="type something…"
+      autocomplete="off"
+      spellcheck="false"
+      class="flex-1 bg-black/60 text-white font-mono text-sm px-3 py-2 border border-white/20 focus:border-white/60 focus:outline-none placeholder:text-white/25"
+    />
+    <button
+      bind:this={gearEl}
+      onclick={() => settingsOpen = !settingsOpen}
+      title="Display settings"
+      class="px-2 py-2 text-white/40 hover:text-white border border-white/20 hover:border-white/50 transition-colors"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+      </svg>
+    </button>
+  </div>
+
+  {#if text}
+    <button
+      type="button"
+      bind:this={displayEl}
+      onclick={() => settingsOpen = !settingsOpen}
+      aria-label="Toggle display settings"
+      class="appearance-none bg-transparent border-0 p-0 cursor-pointer"
+    >
+      <BinaryText {text} colorOn={colorOnRgba} colorOff={colorOffRgba} {squareSize} {glowSize} />
+    </button>
+  {:else}
+    <p class="text-xs font-mono text-white/25">each character becomes a row of 8 bits (utf-8)</p>
+  {/if}
 
 </div>
 
 <svelte:window onclick={(e) => {
   if (!$isFullscreen || !settingsOpen) return;
   const t = e.target as Node;
-  if (settingsEl?.contains(t) || clockEl?.contains(t)) return;
+  if (settingsEl?.contains(t) || displayEl?.contains(t) || gearEl?.contains(t)) return;
   settingsOpen = false;
 }} />
 
@@ -144,39 +128,6 @@
 
     <div class="p-5 flex flex-col gap-4">
       <div class="grid grid-cols-[auto_1fr] gap-x-5 gap-y-3 items-center">
-
-        <!-- Mode -->
-        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">mode</span>
-        <select bind:value={mode} class="bg-black text-white text-xs font-mono px-2 py-1 border border-white/20 focus:border-white/50 focus:outline-none cursor-pointer">
-          <option value="binary">binary</option>
-          <option value="digits">digits</option>
-          <option value="circle">circle</option>
-          <option value="bars">bars</option>
-        </select>
-
-        <!-- Last column -->
-        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">last col</span>
-        <select bind:value={msPrecision} class="bg-black text-white text-xs font-mono px-2 py-1 border border-white/20 focus:border-white/50 focus:outline-none cursor-pointer">
-          {#each precisionOptions as opt}
-            <option value={opt.value}>{opt.label}</option>
-          {/each}
-        </select>
-
-        <!-- Range -->
-        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">range</span>
-        <select bind:value={range} class="bg-black text-white text-xs font-mono px-2 py-1 border border-white/20 focus:border-white/50 focus:outline-none cursor-pointer">
-          <option value="full">ymdhms</option>
-          <option value="time">hms</option>
-          <option value="date">ymd</option>
-        </select>
-
-        <!-- Orientation -->
-        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">orientation</span>
-        <select bind:value={orientation} class="bg-black text-white text-xs font-mono px-2 py-1 border border-white/20 focus:border-white/50 focus:outline-none cursor-pointer">
-          <option value="auto">auto</option>
-          <option value="horizontal">vertical</option>
-          <option value="vertical">horizontal</option>
-        </select>
 
         <!-- Size -->
         <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">size</span>

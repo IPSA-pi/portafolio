@@ -14,6 +14,7 @@ const STATIC_PATHS = [
     '/video/efectotv',
     '/learn',
     '/new-music',
+    '/text2binary',
     '/privacy',
     '/terms',
 ];

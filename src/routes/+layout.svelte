@@ -39,6 +39,7 @@
     { href: '/video', label: 'Video' },
     { href: '/learn', label: 'Learn' },
     { href: '/new-music', label: 'New Music' },
+    { href: '/text2binary', label: 'Text2Binary' },
     { href: '', label: 'Photography (soon)' },
     { href: '', label: 'Web Art (soon)' },
     // Owner-only hub (behind Cloudflare Access); only listed for the owner.
