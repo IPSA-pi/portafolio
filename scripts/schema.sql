@@ -50,20 +50,19 @@ CREATE POLICY "public_read" ON drawings
 -- CRON JOB for releasing stale reservations
 -- To run this, you need the pg_cron extension enabled in Supabase.
 -- You can run this block in the Supabase SQL Editor:
-/*
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-SELECT cron.schedule(
-  'release-stale-reservations',
-  '*/10 * * * *', -- Every 10 minutes
-  $$
-    UPDATE drawings 
-    SET reserved = false, reserved_at = null
-    WHERE reserved = true 
-      AND sold = false 
-      AND reserved_at < NOW() - INTERVAL '35 minutes';
-  $$
-);
-*/
+--
+-- CREATE EXTENSION IF NOT EXISTS pg_cron;
+-- SELECT cron.schedule(
+--   'release-stale-reservations',
+--   '*/10 * * * *', -- Every 10 minutes
+--   $$
+--     UPDATE drawings
+--     SET reserved = false, reserved_at = null
+--     WHERE reserved = true
+--       AND sold = false
+--       AND reserved_at < NOW() - INTERVAL '35 minutes';
+--   $$
+-- );
 
 
 -- ────────────────────────────────────────────────────────────────────────────

@@ -127,7 +127,7 @@ export const POST = async ({ request, url }) => {
                         'JP', 'AR', 'BR', 'CL', 'CO', 'EC', 'PE', 'PY', 'UY', 'BO',
                     ],
                 },
-                expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+                expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
             });
         } catch (stripeErr) {
             // Roll back every reservation — Stripe session creation failed, don't

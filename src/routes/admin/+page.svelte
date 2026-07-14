@@ -5,7 +5,10 @@
     // issued the domain-wide CF_Authorization cookie, so owner controls are now
     // unlocked across the site (e.g. editing on /new-music). Add new admin
     // features here as they appear.
-    const links = [{ href: '/new-music', label: 'New Music', note: 'Curate the release worklist' }];
+    const links = [
+        { href: '/admin/sales', label: 'Sales', note: 'Revenue, orders & inventory' },
+        { href: '/new-music', label: 'New Music', note: 'Curate the release worklist' },
+    ];
 </script>
 
 <Seo title="Admin" description="Owner tools." path="/admin" />
