@@ -22,6 +22,7 @@
 
 import { parseArgs } from 'node:util';
 import { createClient } from '@supabase/supabase-js';
+import { logDbTarget } from './db-target.js';
 import Stripe from 'stripe';
 
 const { values, positionals } = parseArgs({
@@ -54,6 +55,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !STRIPE_SECRET_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const stripe   = new Stripe(STRIPE_SECRET_KEY);
+logDbTarget(SUPABASE_URL);
 
 // 1. Fetch drawings from Supabase
 let query = supabase.from('drawings').select('slug, stripe_product_id, sold');

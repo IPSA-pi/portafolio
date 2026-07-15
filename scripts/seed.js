@@ -22,6 +22,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { logDbTarget } from './db-target.js';
 import Stripe from 'stripe';
 import fs from 'fs';
 import path from 'path';
@@ -41,6 +42,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !STRIPE_SECRET_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const stripe   = new Stripe(STRIPE_SECRET_KEY);
+logDbTarget(SUPABASE_URL);
 
 // Load the old→new slug map produced by rename.js --apply
 let renameMap = {};

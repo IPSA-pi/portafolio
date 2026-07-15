@@ -16,6 +16,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { logDbTarget } from './db-target.js';
 
 const slugs = process.argv.slice(2);
 if (slugs.length === 0) {
@@ -30,6 +31,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+logDbTarget(SUPABASE_URL);
 const BUCKET = 'drawings';
 
 // Validate all slugs up front before touching anything

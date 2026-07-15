@@ -14,15 +14,21 @@
 		"rename": "node scripts/rename.js",
 		"rename:apply": "node scripts/rename.js --apply",
 		"upload": "node --env-file=.env.local scripts/upload.js",
+		"upload:prod": "node --env-file=.env.local --env-file=.env.prod scripts/upload.js",
 		"seed": "node --env-file=.env.local scripts/seed.js",
 		"seed:dry": "node --env-file=.env.local scripts/seed.js --dry-run",
+		"seed:prod": "node --env-file=.env.local --env-file=.env.prod scripts/seed.js",
+		"set-price": "node --env-file=.env.local scripts/set-price.js",
+		"set-price:prod": "node --env-file=.env.local --env-file=.env.prod scripts/set-price.js",
 		"scrape": "node --env-file=.env.local scripts/scrape-music.js",
 		"scrape:dry": "node scripts/scrape-music.js --dry-run",
+		"scrape:prod": "node --env-file=.env.local --env-file=.env.prod scripts/scrape-music.js",
 		"enrich": "node --env-file=.env.local scripts/enrich-music.js",
 		"enrich:dry": "node --env-file=.env.local scripts/enrich-music.js --dry-run",
 		"enrich:spotify": "node --env-file=.env.local scripts/enrich-spotify.js",
 		"enrich:spotify:dry": "node --env-file=.env.local scripts/enrich-spotify.js --dry-run",
-		"enrich:all": "node --env-file=.env.local scripts/enrich-music.js && node --env-file=.env.local scripts/enrich-spotify.js"
+		"enrich:all": "node --env-file=.env.local scripts/enrich-music.js && node --env-file=.env.local scripts/enrich-spotify.js",
+		"enrich:all:prod": "node --env-file=.env.local --env-file=.env.prod scripts/enrich-music.js && node --env-file=.env.local --env-file=.env.prod scripts/enrich-spotify.js"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.0",

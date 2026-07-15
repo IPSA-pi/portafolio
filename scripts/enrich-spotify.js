@@ -20,6 +20,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { logDbTarget } from './db-target.js';
 import { searchSpotify } from './spotify-client.js';
 
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -39,6 +40,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+logDbTarget(SUPABASE_URL);
 
 const { data: rows, error } = await supabase
     .from('releases')

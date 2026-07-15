@@ -24,6 +24,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { logDbTarget } from './db-target.js';
 import nodata from './sources/nodata.js';
 import ra from './sources/ra.js';
 
@@ -79,6 +80,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     process.exit(1);
 }
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+logDbTarget(SUPABASE_URL);
 
 const CHUNK = 50;
 let upserted = 0;

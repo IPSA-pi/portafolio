@@ -27,6 +27,17 @@ For manual deploys: `npx wrangler deploy`.
 
 ## Environment variables
 
+**Dev vs prod database:** `.env.local` points at the **dev** Supabase
+project and is what `npm run dev` and every default script wrapper load —
+the safe DB is the default everywhere. Production Supabase credentials live
+only in `.env.prod` (gitignored, never auto-loaded); the explicit `:prod`
+npm scripts (`scrape:prod`, `seed:prod`, …) layer it on top of `.env.local`
+via a second `--env-file` flag. Every data-pipeline script prints its
+target at startup (`scripts/db-target.js`, labeled by `DB_LABEL` in each
+env file) — check that line before assuming which DB a run touched. The
+deployed Workers app and the GitHub Actions scraper carry their own prod
+credentials (Cloudflare dashboard / repo secrets) and don't use these files.
+
 **Runtime (Cloudflare Workers / `.env.local` locally):**
 
 | Variable | Used by |
@@ -175,11 +186,18 @@ wrappers — they pass `--env-file=.env.local` automatically. Don't call
 ```bash
 npm run seed              # seed drawings to Supabase
 npm run upload            # upload drawing assets
+npm run set-price         # create Stripe product/price + update Supabase
 npm run scrape            # scrape new music from sources
 npm run enrich            # Tidal enrichment
 npm run enrich:spotify    # Spotify enrichment
 npm run enrich:all        # Tidal + Spotify in sequence
 ```
+
+All of the above hit the **dev** DB. Each has a `:prod` variant
+(`seed:prod`, `upload:prod`, `set-price:prod`, `scrape:prod`,
+`enrich:all:prod`) that layers `.env.prod` on top — the only way a local
+script run touches production. `delete-drawing.js` deliberately has no
+`:prod` wrapper; run it against prod manually and carefully if ever needed.
 
 `scripts/sources/` contains scraper source modules — one file per source:
 `ra.js` (Resident Advisor GraphQL), `nodata.js` (nodata.tv RSS).

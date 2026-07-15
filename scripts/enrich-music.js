@@ -25,6 +25,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { logDbTarget } from './db-target.js';
 import { searchTidal } from './tidal-client.js';
 
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -44,6 +45,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+logDbTarget(SUPABASE_URL);
 
 // Re-check unavailable releases from within this window; see header comment.
 const RECHECK_DAYS = 45;
