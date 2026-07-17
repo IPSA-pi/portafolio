@@ -25,6 +25,10 @@ export type RecentOrder = {
     address: string;
     slugs: string[];
     amount: number;
+    // Same on every row of a session (a checkout ships as one package) —
+    // taken from whichever row is seen first.
+    shippedAt: string | null;
+    trackingNumber: string | null;
 };
 
 export const load: PageServerLoad = async () => {
@@ -85,6 +89,8 @@ export const load: PageServerLoad = async () => {
                     address: formatAddress(o.shipping_address),
                     slugs: [],
                     amount: 0,
+                    shippedAt: o.shipped_at ?? null,
+                    trackingNumber: o.tracking_number ?? null,
                 } as RecentOrder);
             g.slugs.push(o.drawing_slug);
             g.amount += o.amount_total ?? 0;
@@ -188,8 +194,10 @@ function buildOrdersCsv(orders: Array<{
     customer_name: string | null;
     customer_email: string | null;
     shipping_address: unknown;
+    shipped_at?: string | null;
+    tracking_number?: string | null;
 }>): string {
-    const header = ['date', 'session_id', 'slug', 'amount_cad', 'customer_name', 'customer_email', 'address'];
+    const header = ['date', 'session_id', 'slug', 'amount_cad', 'customer_name', 'customer_email', 'address', 'shipped_at', 'tracking_number'];
     const rows = orders.map((o) => [
         o.created_at,
         o.stripe_session_id,
@@ -198,6 +206,8 @@ function buildOrdersCsv(orders: Array<{
         o.customer_name ?? '',
         o.customer_email ?? '',
         formatAddress(o.shipping_address),
+        o.shipped_at ?? '',
+        o.tracking_number ?? '',
     ]);
     return [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n');
 }

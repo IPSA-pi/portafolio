@@ -1,9 +1,37 @@
 <script lang="ts">
+    import { invalidateAll } from '$app/navigation';
     import Seo from '$lib/components/Seo.svelte';
     import { formatPrice } from '$lib/utils/formatPrice';
     import type { PageData } from './$types';
 
     let { data }: { data: PageData } = $props();
+
+    // Per-card mark-shipped state, keyed by Stripe session id.
+    let tracking = $state<Record<string, string>>({});
+    let shipping = $state<Record<string, boolean>>({});
+    let shipError = $state<Record<string, string>>({});
+
+    async function markShipped(sessionId: string) {
+        shipping[sessionId] = true;
+        shipError[sessionId] = '';
+        try {
+            const res = await fetch('/admin/sales/ship', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId, trackingNumber: tracking[sessionId] ?? '' }),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const out = await res.json();
+            if (!out.emailSent && !out.alreadyShipped) {
+                shipError[sessionId] = 'Marked shipped, but the buyer email failed — send it manually.';
+            }
+            await invalidateAll();
+        } catch {
+            shipError[sessionId] = 'Failed to mark shipped — try again.';
+        } finally {
+            shipping[sessionId] = false;
+        }
+    }
 
     const kpis = $derived(data.kpis);
     const totals = $derived(data.totals);
@@ -152,6 +180,30 @@
                         </div>
                         {#if o.address}
                             <div class="mt-2 text-xs text-black/45 dark:text-white/45">{o.address}</div>
+                        {/if}
+                        {#if o.shippedAt}
+                            <div class="mt-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                Shipped {formatDate(o.shippedAt)}{o.trackingNumber ? ` · ${o.trackingNumber}` : ''}
+                            </div>
+                        {:else}
+                            <div class="mt-3 flex flex-wrap items-center gap-2">
+                                <input
+                                    bind:value={tracking[o.sessionId]}
+                                    placeholder="Tracking number or link"
+                                    class="min-w-0 flex-1 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-950 px-2.5 py-1.5 text-xs text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:border-accent focus:outline-none"
+                                />
+                                <button
+                                    onclick={() => markShipped(o.sessionId)}
+                                    disabled={shipping[o.sessionId]}
+                                    class="shrink-0 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-2.5 py-1.5 text-xs font-medium text-black dark:text-white hover:border-accent transition-colors disabled:opacity-40"
+                                >
+                                    {shipping[o.sessionId] ? 'Shipping…' : 'Mark shipped'}
+                                </button>
+                            </div>
+                            <p class="mt-1 text-[11px] text-black/40 dark:text-white/40">Emails the buyer their tracking info.</p>
+                            {#if shipError[o.sessionId]}
+                                <p class="mt-1 text-xs text-red-600 dark:text-red-400">{shipError[o.sessionId]}</p>
+                            {/if}
                         {/if}
                     </li>
                 {:else}

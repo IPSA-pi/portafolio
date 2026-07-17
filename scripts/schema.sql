@@ -138,6 +138,11 @@ CREATE TABLE orders (
     customer_name      TEXT,
     customer_email     TEXT,
     shipping_address   JSONB,
+    -- Fulfillment: stamped by /admin/sales/ship when the owner marks the
+    -- package sent. A session ships as one package, so every row of that
+    -- session gets the same shipped_at/tracking_number.
+    shipped_at         TIMESTAMPTZ,
+    tracking_number    TEXT,
     created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (stripe_session_id, drawing_slug)
 );
@@ -158,9 +163,18 @@ CREATE TABLE orders (
     customer_name      TEXT,
     customer_email     TEXT,
     shipping_address   JSONB,
+    shipped_at         TIMESTAMPTZ,
+    tracking_number    TEXT,
     created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (stripe_session_id, drawing_slug)
 );
 
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+*/
+
+-- Migration (DBs whose orders table predates shipped tracking, 2026-07-17):
+/*
+ALTER TABLE orders
+    ADD COLUMN shipped_at      TIMESTAMPTZ,
+    ADD COLUMN tracking_number TEXT;
 */
