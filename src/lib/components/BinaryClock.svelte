@@ -135,20 +135,42 @@
 </script>
 
 <!-- ─── Binary / Digits ──────────────────────────────────────────────────── -->
+<!--
+  Two stacked layers: the base holds the off squares, the overlay holds the
+  lit squares and carries ONE drop-shadow filter for the whole layer. A
+  per-square box-shadow gets overpainted by later siblings and doubles up
+  where lit squares touch; the container filter glows the combined
+  silhouette instead.
+-->
 {#if mode === 'binary' || mode === 'digits'}
   <div
-    class="select-none {wrapperClass[orientation]} {showBg ? 'bg-black/30 px-5 py-4 rounded' : ''}"
+    class="select-none {showBg ? 'bg-black/30 px-5 py-4 rounded' : ''}"
     aria-label="Binary clock" role="timer"
   >
-    {#each columns as col}
-      <div class={colClass[orientation]}>
-        {#each toBits(col.value, col.bits) as bit}
-          <div style="width:{squareSize}px;height:{squareSize}px;{bit
-            ? `background-color:${colorOn};mix-blend-mode:${blendMode};${glowSize > 0 ? `box-shadow:0 0 ${glowSize}px ${colorOn}` : ''}`
-            : `background-color:${colorOff}`}"></div>
+    <div class="relative">
+      <div class={wrapperClass[orientation]}>
+        {#each columns as col}
+          <div class={colClass[orientation]}>
+            {#each toBits(col.value, col.bits) as bit}
+              <div style="width:{squareSize}px;height:{squareSize}px;{bit ? '' : `background-color:${colorOff}`}"></div>
+            {/each}
+          </div>
         {/each}
       </div>
-    {/each}
+      <div
+        class="absolute inset-0 pointer-events-none {wrapperClass[orientation]}"
+        style={glowSize > 0 ? `filter:drop-shadow(0 0 ${glowSize}px ${colorOn})` : ''}
+        aria-hidden="true"
+      >
+        {#each columns as col}
+          <div class={colClass[orientation]}>
+            {#each toBits(col.value, col.bits) as bit}
+              <div style="width:{squareSize}px;height:{squareSize}px;{bit ? `background-color:${colorOn};mix-blend-mode:${blendMode}` : ''}"></div>
+            {/each}
+          </div>
+        {/each}
+      </div>
+    </div>
   </div>
 
 <!-- ─── Circle ───────────────────────────────────────────────────────────── -->
