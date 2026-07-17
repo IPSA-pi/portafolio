@@ -249,8 +249,8 @@
                         <div class="min-w-0 flex-1">
                             <div class="flex items-start justify-between gap-2">
                                 <div class="min-w-0">
-                                    <p class="truncate font-semibold text-black dark:text-white">{r.artist}</p>
-                                    <p class="truncate text-sm text-black/80 dark:text-white/80">{r.title}</p>
+                                    <p class="truncate font-semibold text-black dark:text-white">{r.title}</p>
+                                    <p class="truncate text-sm text-black/80 dark:text-white/80">{r.artist}</p>
                                     {#if r.label || r.release_year}
                                         <p class="mt-0.5 text-xs text-black/45 dark:text-white/45">
                                             {#if r.label}
