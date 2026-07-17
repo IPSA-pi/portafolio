@@ -213,7 +213,10 @@ export const POST = async ({ request }) => {
 
     let event;
     try {
-        event = getStripe().webhooks.constructEvent(body, signature, env.STRIPE_WEBHOOK_SECRET as string);
+        // constructEventAsync, not constructEvent: on Cloudflare Workers the
+        // only crypto is SubtleCrypto, which is async-only — the sync variant
+        // works in local dev (Node) but throws on every real delivery.
+        event = await getStripe().webhooks.constructEventAsync(body, signature, env.STRIPE_WEBHOOK_SECRET as string);
     } catch (err: any) {
         console.error('Webhook signature verification failed:', err.message);
         throw error(400, `Webhook Error: ${err.message}`);
