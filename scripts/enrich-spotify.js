@@ -5,7 +5,11 @@
  * (`spotify_available IS NULL`) and records whether it's available plus a
  * direct album link.
  *
- * Safe to re-run: only touches rows where spotify_available is still null.
+ * Also re-checks releases marked unavailable but released within the last
+ * RECHECK_DAYS, same as the Tidal pass: sources announce releases around (or
+ * before) their street date, so Spotify often doesn't have them yet at first
+ * enrich. Rows without a released_at fall back to created_at (when the
+ * scraper first saw them). Older "unavailable" rows are left alone.
  *
  * Usage:
  *   node --env-file=.env.local scripts/enrich-spotify.js
@@ -42,10 +46,18 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 logDbTarget(SUPABASE_URL);
 
+// Re-check unavailable releases from within this window; see header comment.
+const RECHECK_DAYS = 45;
+const recheckCutoff = new Date(Date.now() - RECHECK_DAYS * 86_400_000).toISOString().slice(0, 10);
+
 const { data: rows, error } = await supabase
     .from('releases')
     .select('id, artist, title')
-    .is('spotify_available', null)
+    .or(
+        `spotify_available.is.null,` +
+            `and(spotify_available.is.false,released_at.gte.${recheckCutoff}),` +
+            `and(spotify_available.is.false,released_at.is.null,created_at.gte.${recheckCutoff})`
+    )
     .limit(LIMIT);
 
 if (error) {

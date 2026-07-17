@@ -90,6 +90,9 @@ CREATE TABLE releases (
     tidal_track_id   TEXT,
     tidal_album_url  TEXT,
     tidal_available  BOOLEAN,
+    -- Spotify enrichment (same shape as the Tidal pass)
+    spotify_available BOOLEAN,
+    spotify_album_url TEXT,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -177,4 +180,11 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders
     ADD COLUMN shipped_at      TIMESTAMPTZ,
     ADD COLUMN tracking_number TEXT;
+*/
+
+-- Migration (DBs whose releases table predates Spotify enrichment, 2026-07-17):
+/*
+ALTER TABLE releases
+    ADD COLUMN IF NOT EXISTS spotify_available BOOLEAN,
+    ADD COLUMN IF NOT EXISTS spotify_album_url TEXT;
 */

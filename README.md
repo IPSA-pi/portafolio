@@ -283,7 +283,7 @@ Needs `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (not for `--dry-run`, which e
 
 ### `enrich-music.js` — Tidal availability pre-check
 
-Stage 2 of the music pipeline: searches Tidal for each unchecked release (`tidal_available IS NULL`) and writes `tidal_available` + `tidal_album_url` (`tidal_track_id` is reserved for a future playlist stage). Also re-checks releases marked unavailable within the last 45 days — sources announce ahead of street dates, so early misses get another look; older misses stay settled, keeping re-runs cheap.
+Stage 2 of the music pipeline: searches Tidal for each unchecked release (`tidal_available IS NULL`) and writes `tidal_available` + `tidal_album_url` (`tidal_track_id` is reserved for a future playlist stage). Also re-checks releases marked unavailable within the last 45 days (by `released_at`, falling back to `created_at` when the source gave no date) — sources announce ahead of street dates, so early misses get another look; older misses stay settled, keeping re-runs cheap.
 
 ```sh
 npm run enrich                       # dev
@@ -297,9 +297,7 @@ Needs `TIDAL_CLIENT_ID`/`TIDAL_CLIENT_SECRET` on top of the Supabase pair — ex
 
 ### `enrich-spotify.js` — Spotify availability pre-check
 
-Same shape as the Tidal pass: fills `spotify_available` + `spotify_album_url` where `spotify_available IS NULL`. Same `--dry-run` / `--limit` / `--debug` flags; wrappers are `enrich:spotify` and `enrich:spotify:dry`. Needs `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET`, exits 0 if missing.
-
-One asymmetry with the Tidal pass: there is **no recheck window** — a release marked unavailable on Spotify stays that way unless you null the column by hand.
+Same shape as the Tidal pass: fills `spotify_available` + `spotify_album_url` where `spotify_available IS NULL`, and re-checks unavailable releases within the same 45-day recheck window (same `released_at` → `created_at` fallback). Same `--dry-run` / `--limit` / `--debug` flags; wrappers are `enrich:spotify` and `enrich:spotify:dry`. Needs `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET`, exits 0 if missing.
 
 ### Scheduled runs (CI)
 

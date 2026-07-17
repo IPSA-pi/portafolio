@@ -9,8 +9,9 @@
  * Also re-checks releases marked unavailable but released within the last
  * RECHECK_DAYS: sources announce releases around (or before) their street date,
  * so TIDAL often doesn't have them yet at first enrich, and a later addition
- * would otherwise never be picked up. Older "unavailable" rows are left alone —
- * they're genuinely not on streaming — so re-running stays cheap.
+ * would otherwise never be picked up. Rows without a released_at fall back to
+ * created_at (when the scraper first saw them). Older "unavailable" rows are
+ * left alone — they're genuinely not on streaming — so re-running stays cheap.
  *
  * Usage:
  *   node --env-file=.env.local scripts/enrich-music.js
@@ -54,7 +55,11 @@ const recheckCutoff = new Date(Date.now() - RECHECK_DAYS * 86_400_000).toISOStri
 const { data: rows, error } = await supabase
     .from('releases')
     .select('id, artist, title')
-    .or(`tidal_available.is.null,and(tidal_available.is.false,released_at.gte.${recheckCutoff})`)
+    .or(
+        `tidal_available.is.null,` +
+            `and(tidal_available.is.false,released_at.gte.${recheckCutoff}),` +
+            `and(tidal_available.is.false,released_at.is.null,created_at.gte.${recheckCutoff})`
+    )
     .limit(LIMIT);
 
 if (error) {
