@@ -1,3 +1,5 @@
+import { RANDOM_ORDER } from '$lib/config';
+
 function mulberry32(seed: number): () => number {
     return () => {
         seed |= 0; seed = seed + 0x6D2B79F5 | 0;
@@ -15,4 +17,9 @@ export function seededShuffle<T>(arr: T[], seed: number): T[] {
         [a[i], a[j]] = [a[j], a[i]];
     }
     return a;
+}
+
+/** Display ordering: seeded shuffle when RANDOM_ORDER, otherwise input order. */
+export function displayOrder<T>(arr: T[], seed: number): T[] {
+    return RANDOM_ORDER ? seededShuffle(arr, seed) : [...arr];
 }

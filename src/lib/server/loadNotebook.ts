@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import { getStripe } from '$lib/server/stripe';
 import { getSupabase } from '$lib/server/supabase';
 import { getSlugsFromSession } from '$lib/server/checkoutSlugs';
-import { seededShuffle } from '$lib/utils/shuffle';
+import { displayOrder } from '$lib/utils/shuffle';
 
 function variantUrl(storageUrl: string, variant: 'sm' | 'md' | 'lg'): string {
     return storageUrl.replace(/\.webp$/, `-${variant}.webp`);
@@ -56,7 +56,7 @@ export async function loadNotebook(
         throw error(404, 'Notebook not found');
     }
 
-    const images = seededShuffle(buildImages(drawings), seed);
+    const images = displayOrder(buildImages(drawings), seed);
     const products = buildProducts(drawings);
 
     if (sessionId) {
@@ -97,7 +97,7 @@ export async function loadAllDrawings(seed: number) {
     }
 
     return {
-        images:   seededShuffle(buildImages(drawings), seed),
+        images:   displayOrder(buildImages(drawings), seed),
         products: buildProducts(drawings),
     };
 }
