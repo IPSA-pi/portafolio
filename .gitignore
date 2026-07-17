@@ -15,6 +15,12 @@ Thumbs.db
 # Raw media sources (processed output in static/home/ is committed)
 /media
 
+# Drawing scans — served from Supabase Storage, never bundled
+/src/lib/assets/drawings
+
+# Editor
+/.vscode
+
 # Env
 .env
 .env.*

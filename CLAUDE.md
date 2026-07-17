@@ -27,16 +27,15 @@ For manual deploys: `npx wrangler deploy`.
 
 ## Environment variables
 
-**Dev vs prod database:** `.env.local` points at the **dev** Supabase
-project and is what `npm run dev` and every default script wrapper load —
-the safe DB is the default everywhere. Production Supabase credentials live
-only in `.env.prod` (gitignored, never auto-loaded); the explicit `:prod`
-npm scripts (`scrape:prod`, `seed:prod`, …) layer it on top of `.env.local`
-via a second `--env-file` flag. Every data-pipeline script prints its
-target at startup (`scripts/db-target.js`, labeled by `DB_LABEL` in each
-env file) — check that line before assuming which DB a run touched. The
-deployed Workers app and the GitHub Actions scraper carry their own prod
-credentials (Cloudflare dashboard / repo secrets) and don't use these files.
+**Dev vs prod database:** `.env.local` always targets the **dev** Supabase
+project; prod credentials live only in gitignored `.env.prod`, loaded solely
+by the explicit `:prod` npm wrappers. Full mechanics (env-file layering,
+what CI and the Worker use, key rotation): README → "Dev and prod
+databases". Rules for agents: never run a `:prod` script unless the user
+explicitly asks for prod; always check the `Supabase target: <ref> [<label>]`
+line every data-pipeline script prints at startup (seed/set-price also print
+`Stripe target: [TEST|LIVE]`); the `:prod` overlay swaps in the **live**
+Stripe key along with the prod Supabase pair — a `:prod` run is fully prod.
 
 **Runtime (Cloudflare Workers / `.env.local` locally):**
 
@@ -180,8 +179,10 @@ checkout's own limit). See `/cart` (`src/routes/cart/`) for the review page.
 ## Data-pipeline scripts (`scripts/`)
 
 Node.js scripts, not part of the app build. Always run via the npm script
-wrappers — they pass `--env-file=.env.local` automatically. Don't call
-`node scripts/X.js` directly unless you pass the flag yourself.
+wrappers — they pass `--env-file=.env.local` automatically; script flags go
+after `--` (`npm run seed -- --dry-run`). Per-script reference (flags, what
+each writes, failure modes, pipeline ordering): README → "Data-pipeline
+scripts".
 
 ```bash
 npm run seed              # seed drawings to Supabase
@@ -193,17 +194,26 @@ npm run enrich:spotify    # Spotify enrichment
 npm run enrich:all        # Tidal + Spotify in sequence
 ```
 
-All of the above hit the **dev** DB. Each has a `:prod` variant
-(`seed:prod`, `upload:prod`, `set-price:prod`, `scrape:prod`,
-`enrich:all:prod`) that layers `.env.prod` on top — the only way a local
-script run touches production. `delete-drawing.js` deliberately has no
-`:prod` wrapper; run it against prod manually and carefully if ever needed.
+Safety rules:
+
+- All of the above hit the **dev** DB. The `:prod` variants (`seed:prod`,
+  `upload:prod`, `set-price:prod`, `scrape:prod`, `enrich:all:prod`) are the
+  only local path to production — never run one unprompted.
+- `delete-drawing.js` is destructive and deliberately has no wrapper, no
+  dry-run, and no `:prod` variant; a prod deletion is a manual, careful,
+  hand-assembled command.
+- `seed` preserves DB-side `sold` / `reserved` / `display_order` (and the
+  Stripe link, when its Stripe scan finds none) on rows that already exist —
+  keep it that way; the webhook records sales in Supabase only.
+- `scrape` is insert-only (never clobbers the owner's `status`); the enrich
+  passes only fill still-null availability columns.
 
 `scripts/sources/` contains scraper source modules — one file per source:
 `ra.js` (Resident Advisor GraphQL), `nodata.js` (nodata.tv RSS).
 
 A daily GitHub Actions workflow (`.github/workflows/scrape-music.yml`) runs
-`scrape` + `enrich` + `enrich:spotify` automatically at 08:00 UTC.
+`scrape` + `enrich` + `enrich:spotify` at 08:00 UTC against prod, via repo
+secrets — it doesn't read the env files.
 
 ## Static media — `static/`
 

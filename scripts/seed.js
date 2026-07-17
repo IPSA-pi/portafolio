@@ -9,7 +9,9 @@
  *      can link them.
  *
  * Run after upload.js so the storage URLs are live.
- * Safe to re-run: uses upsert on slug.
+ * Safe to re-run: upserts on slug, and rows that already exist keep their
+ * DB-side sold / reserved / display_order (webhook and owner writes), plus
+ * their Stripe link when the Stripe scan finds no product for the slug.
  *
  * Usage:
  *   node --env-file=.env.local scripts/seed.js
@@ -22,7 +24,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { logDbTarget } from './db-target.js';
+import { logDbTarget, logStripeTarget } from './db-target.js';
 import Stripe from 'stripe';
 import fs from 'fs';
 import path from 'path';
@@ -43,6 +45,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !STRIPE_SECRET_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 const stripe   = new Stripe(STRIPE_SECRET_KEY);
 logDbTarget(SUPABASE_URL);
+logStripeTarget(STRIPE_SECRET_KEY);
 
 // Load the old→new slug map produced by rename.js --apply
 let renameMap = {};
@@ -120,7 +123,47 @@ while (true) {
 
 console.log(`Linked ${stripeLinked} Stripe products`);
 
-// 3. Preview or upsert
+// 3. Preserve DB-side state on rows that already exist. The webhook marks
+//    sales in Supabase only (it never writes Stripe metadata), and reserved /
+//    display_order are owned by checkout and the owner respectively — a
+//    re-seed must not reset any of them. Stripe metadata.sold can still ADD
+//    a sold flag (migration-era products), never clear one.
+const existingBySlug = new Map();
+const allSlugs = rows.map(r => r.slug);
+const IN_CHUNK = 200;
+for (let i = 0; i < allSlugs.length; i += IN_CHUNK) {
+    const { data: existing, error } = await supabase
+        .from('drawings')
+        .select('slug, sold, reserved, display_order, stripe_product_id, stripe_price_id, price_cents')
+        .in('slug', allSlugs.slice(i, i + IN_CHUNK));
+    if (error) {
+        console.error('Failed to load existing rows:', error.message);
+        process.exit(1);
+    }
+    for (const row of existing ?? []) existingBySlug.set(row.slug, row);
+}
+
+let preserved = 0;
+for (const row of rows) {
+    const ex = existingBySlug.get(row.slug);
+    if (!ex) continue;
+
+    row.sold          = ex.sold || row.sold;
+    row.reserved      = ex.reserved;
+    row.display_order = ex.display_order;
+
+    // Stripe scan found nothing for this slug (e.g. rename-map.json missing):
+    // keep the existing link rather than de-listing the drawing.
+    if (!row.stripe_product_id && ex.stripe_product_id) {
+        row.stripe_product_id = ex.stripe_product_id;
+        row.stripe_price_id   = ex.stripe_price_id;
+        row.price_cents       = ex.price_cents;
+    }
+    preserved++;
+}
+console.log(`${preserved} existing rows (DB state preserved), ${rows.length - preserved} new`);
+
+// 4. Preview or upsert
 if (DRY_RUN) {
     console.log('\nDRY RUN — first 5 rows:\n');
     for (const r of rows.slice(0, 5)) {
