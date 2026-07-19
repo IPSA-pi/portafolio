@@ -13,7 +13,7 @@ import { verifyAccessJwt } from '$lib/server/access';
  * signature* rather than trust its presence: cookies are client-controlled, and a
  * forged `CF_Authorization` would otherwise fool any path not fronted by Access.
  * `verifyAccessJwt` checks the RS256 signature against Cloudflare's public keys
- * plus the audience/issuer/expiry claims. See LEARN.md → "Auth & cookies".
+ * plus the audience/issuer/expiry claims. See learn/06-auth.md.
  *
  * Locally there is no Access in front, so `ADMIN_DEV_BYPASS=1` turns this on.
  */

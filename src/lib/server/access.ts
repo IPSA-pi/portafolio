@@ -7,7 +7,7 @@
 // its mere presence proves nothing — what proves it genuine is the RS256
 // signature, which only Cloudflare (holder of the private key) can produce. We
 // verify that signature against Cloudflare's public keys and check the standard
-// claims (audience, issuer, expiry). See LEARN.md → "Auth & cookies".
+// claims (audience, issuer, expiry). See learn/06-auth.md.
 //
 // jose works on the Cloudflare Workers runtime (it builds on Web Crypto).
 // `createRemoteJWKSet` fetches Cloudflare's public keys and caches them, with a

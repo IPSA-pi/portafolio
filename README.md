@@ -5,8 +5,9 @@ Personal portfolio and drawing gallery with e-commerce, built with SvelteKit and
 Live at [iansebelius.com](https://iansebelius.com)
 
 > New to the codebase or learning web dev? See [LEARN.md](./LEARN.md) for a concept-first
-> walkthrough of how the site works and the ideas behind it. This README covers running and
-> operating the site.
+> walkthrough of how the site works and the ideas behind it, organized as chapters in
+> [`learn/`](./learn) and published at [iansebelius.com/learn](https://iansebelius.com/learn).
+> This README covers running and operating the site.
 
 ## Stack
 
@@ -324,6 +325,7 @@ src/
         +page.server.ts       # Loads drawings from Supabase
         +page.svelte          # Gallery grid
     cart/                      # Client-side cart review page (localStorage)
+    learn/                    # Learn section: index + [chapter] pages, prerendered
     new-music/                # Public read-only curated release list
     admin/                    # Owner-only surfaces, gated by Cloudflare Access
       new-music/status/       # POST: write a release's status (re-checks isAdmin)
@@ -358,6 +360,7 @@ scripts/                      # Data-pipeline scripts — see the section above
   db-target.js                # Prints "Supabase target: ref [LABEL]" at startup
   sources/                    # Scraper source modules (ra.js, nodata.js)
   schema.sql                  # Supabase DDL: drawings, releases, orders + pg_cron sweep
+learn/                        # Learn-section chapters (one .md per chapter) — see LEARN.md
 ```
 
 The `orders` table (see `scripts/schema.sql`) is the durable record of each sale — one row per sold drawing, written by the webhook at fulfillment independently of whether the confirmation emails succeed.

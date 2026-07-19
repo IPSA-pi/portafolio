@@ -215,6 +215,18 @@ A daily GitHub Actions workflow (`.github/workflows/scrape-music.yml`) runs
 `scrape` + `enrich` + `enrich:spotify` at 08:00 UTC against prod, via repo
 secrets — it doesn't read the env files.
 
+## Learn section — `/learn`
+
+Teaching content ("how this site was built") lives as one Markdown file per
+chapter in `learn/` at the repo root. `src/lib/learn/chapters.ts` is the
+manifest (slug, file, title, part) that drives the `/learn` index, the
+`/learn/[chapter]` pages (prev/next, prerender `entries`), and the sitemap;
+`src/lib/server/learn.ts` renders the Markdown (marked + Shiki) at build time —
+both routes are fully prerendered, nothing runs at the edge. To add a chapter:
+add the `.md` file, one manifest entry, and a line in `LEARN.md` (the
+repo-facing TOC). Cross-chapter links inside chapters use absolute site paths
+(`/learn/<slug>`); repo-relative `.md` links get rewritten to GitHub URLs.
+
 ## Static media — `static/`
 
 - `static/drawings/covers/` — WebP thumbnails for the shop listing

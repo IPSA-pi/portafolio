@@ -1,5 +1,6 @@
 import { SITE_URL } from '$lib/seo';
 import { NOTEBOOKS } from '$lib/notebooks';
+import { chapters } from '$lib/learn/chapters';
 
 // Static, publicly-indexable pages. Deliberately excludes:
 // - /admin/* (owner-only, gated by Cloudflare Access)
@@ -20,7 +21,11 @@ const STATIC_PATHS = [
 ];
 
 export const GET = async () => {
-    const paths = [...STATIC_PATHS, ...NOTEBOOKS.map((n) => `/drawing/${n.slug}`)];
+    const paths = [
+        ...STATIC_PATHS,
+        ...chapters.map((c) => `/learn/${c.slug}`),
+        ...NOTEBOOKS.map((n) => `/drawing/${n.slug}`),
+    ];
 
     const urls = paths
         .map((path) => `  <url><loc>${SITE_URL}${path}</loc></url>`)
