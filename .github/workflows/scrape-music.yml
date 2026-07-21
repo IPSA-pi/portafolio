@@ -2,9 +2,10 @@ name: Scrape new music
 
 on:
   schedule:
-    # Daily at 08:00 UTC. Adjust freely — nodata.tv posts in bursts, not
-    # continuously, so once a day is enough for a worklist (not a live feed).
-    - cron: '0 8 * * *'
+    # Daily at 13:00 UTC = 6am Pacific (Victoria BC) during PDT. GitHub cron is
+    # UTC-only with no DST support, so in winter (PST) this lands at 5am local.
+    # nodata.tv posts in bursts, not continuously, so once a day is plenty.
+    - cron: '0 13 * * *'
   workflow_dispatch: {} # allows manual "Run workflow" from the Actions tab
 
 jobs:

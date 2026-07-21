@@ -42,10 +42,18 @@ async function getAccessToken(clientId, clientSecret) {
     return cachedToken.value;
 }
 
+/**
+ * Lowercase and collapse to space-separated word tokens. Keeps any Unicode
+ * letter or number (`\p{L}\p{N}`) rather than only ASCII `a-z0-9`: a title
+ * made entirely of non-ASCII characters — Polar Inertia's "π" — would
+ * otherwise normalize to the empty string and never match anything, even when
+ * the album is genuinely on TIDAL. Both sides go through the same normalizer,
+ * so accented and non-Latin titles now compare consistently too.
+ */
 function normalize(s) {
     return s
         .toLowerCase()
-        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
         .trim()
         .replace(/\s+/g, ' ');
 }
