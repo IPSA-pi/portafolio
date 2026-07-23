@@ -4,11 +4,14 @@ import { chapters } from '$lib/learn/chapters';
 
 // Static, publicly-indexable pages. Deliberately excludes:
 // - /admin/* (owner-only, gated by Cloudflare Access)
-// - /drawing/feed and /drawing/[slug]/[index] (per-session shuffled feed
-//   views, not stable canonical URLs worth indexing)
+// - /drawing/[slug]/[index] (per-session shuffled per-drawing views, not
+//   stable canonical URLs worth indexing)
+// /drawing/feed (the "All Drawings" view) IS listed: since H1 it's a stable
+// chronological page, not a shuffled feed.
 const STATIC_PATHS = [
     '/',
     '/drawing',
+    '/drawing/feed',
     '/video',
     '/video/cinema',
     '/video/tv',
