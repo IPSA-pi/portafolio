@@ -65,12 +65,12 @@ for (const folder of fs.readdirSync(DRAWINGS_DIR)) {
 
     for (const file of fs.readdirSync(folderPath)) {
         // Originals only: {notebook}_{dd}.webp — no variant suffix
-        const match = file.match(/^([a-z]+_(\d+))_(\d{2})\.webp$/);
+        const match = file.match(/^(.+)_(\d{2})\.webp$/);
         if (!match) continue;
 
         const notebook      = match[1];
-        const drawingNumber = parseInt(match[3]);
-        const slug          = `${notebook}_${match[3]}`;
+        const drawingNumber = parseInt(match[2]);
+        const slug          = `${notebook}_${match[2]}`;
         const storageUrl    = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${notebook}/${file}`;
 
         rows.push({
