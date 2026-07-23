@@ -14,9 +14,13 @@
         // 'notebook' = single-notebook viewer (per-image URL); 'all' = the random
         // feed of every drawing (no per-image URL rewrite, closes to /drawing).
         mode?: 'notebook' | 'all';
+        // When set, closing (Esc / the back button) calls this instead of
+        // navigating away — the All Drawings grid uses it to return in-place
+        // to the grid rather than reloading /drawing.
+        onClose?: () => void;
     }
 
-    let { images, products, startIndex, notebookSlug, mode = 'notebook' }: Props = $props();
+    let { images, products, startIndex, notebookSlug, mode = 'notebook', onClose }: Props = $props();
 
     // The all-drawings feed scrolls vertically (doom-scroll); a single notebook's
     // lightbox scrolls horizontally.
@@ -83,6 +87,7 @@
     }
 
     function close() {
+        if (onClose) { onClose(); return; }
         goto(mode === 'all' ? '/drawing' : '/drawing/' + notebookSlug);
     }
 

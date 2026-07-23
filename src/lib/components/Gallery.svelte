@@ -5,7 +5,24 @@
 	import { formatTitle } from '$lib/utils/formatTitle';
 	import { formatPrice as formatPriceUtil } from '$lib/utils/formatPrice';
 
-	let { images = [], products = {}, notebookSlug = '' } = $props();
+	interface Props {
+		images?: { original: string; sm: string; md: string; lg: string; slug: string; notebook?: string }[];
+		products?: Record<string, { priceId: string; price: number; sold: boolean; reserved: boolean }>;
+		notebookSlug?: string;
+		// `onOpen`, when provided, intercepts a tile click and receives the tile's
+		// index instead of navigating to a per-drawing URL. The All Drawings grid
+		// (/drawing/feed) uses it to open the in-place vertical viewer; the
+		// per-notebook gallery leaves it unset and keeps its `/drawing/[slug]/[i]`
+		// navigation.
+		onOpen?: (index: number) => void;
+	}
+
+	let { images = [], products = {}, notebookSlug = '', onOpen = undefined }: Props = $props();
+
+	function openTile(index: number) {
+		if (onOpen) onOpen(index);
+		else goto(`/drawing/${notebookSlug}/${index + 1}`);
+	}
 
 	let cartFullMessage = $state<string | null>(null);
 	let cartFullTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -32,10 +49,10 @@
 			role="button"
 			tabindex="0"
 			class="relative cursor-pointer overflow-hidden w-full p-0 border-0 block aspect-[3/5] bg-zinc-200 dark:bg-zinc-800"
-			onclick={() => goto(`/drawing/${notebookSlug}/${index + 1}`)}
+			onclick={() => openTile(index)}
 			onkeydown={(e) => {
 				if (e.target !== e.currentTarget) return; // let the nested add-to-cart button handle its own keydowns
-				if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goto(`/drawing/${notebookSlug}/${index + 1}`); }
+				if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTile(index); }
 			}}
 			aria-label="View {formatTitle(image.slug)} in fullscreen"
 		>

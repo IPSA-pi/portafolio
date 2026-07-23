@@ -79,9 +79,13 @@ export async function loadNotebook(
     return { images, products, slug };
 }
 
-// Loads every drawing across all notebooks, seeded-shuffled, for the
-// full-screen random feed at /drawing/feed.
-export async function loadAllDrawings(seed: number) {
+// Loads every drawing across all notebooks for the "All Drawings" view at
+// /drawing/feed. Returns them in `display_order`-ascending order (unshuffled)
+// so the page can stable-sort by the chronology key client-side — grouping by
+// notebook while preserving each notebook's own page order. The random-feed
+// shuffle was dropped here on purpose (Part H): this view is chronological +
+// filterable; only the per-notebook galleries stay seeded-shuffled.
+export async function loadAllDrawings() {
     const { data: drawings, error: dbError } = await getSupabase()
         .from('drawings')
         .select('*')
@@ -97,7 +101,7 @@ export async function loadAllDrawings(seed: number) {
     }
 
     return {
-        images:   displayOrder(buildImages(drawings), seed),
+        images:   buildImages(drawings),
         products: buildProducts(drawings),
     };
 }

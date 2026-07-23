@@ -78,7 +78,7 @@
             Select a notebook to view.
         </p>
 
-        <!-- View toggle: Notebooks (this page) ⇄ Feed (all drawings) -->
+        <!-- View toggle: Notebooks (this page) ⇄ All Drawings (flat feed) -->
         <div class="mt-6 inline-flex rounded-full border border-black/10 dark:border-white/15 p-1 text-sm">
             <span class="px-4 py-1.5 rounded-full bg-black text-white dark:bg-white dark:text-black font-medium">
                 Notebooks
@@ -87,7 +87,7 @@
                 href="/drawing/feed"
                 class="px-4 py-1.5 rounded-full text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent transition-colors"
             >
-                Feed
+                All Drawings
             </a>
         </div>
     </div>
