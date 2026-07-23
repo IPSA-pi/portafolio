@@ -1,5 +1,5 @@
 import { SITE_URL } from '$lib/seo';
-import { NOTEBOOKS } from '$lib/notebooks';
+import { loadNotebookCards } from '$lib/server/loadNotebook';
 import { chapters } from '$lib/learn/chapters';
 
 // Static, publicly-indexable pages. Deliberately excludes:
@@ -21,10 +21,11 @@ const STATIC_PATHS = [
 ];
 
 export const GET = async () => {
+    const notebooks = await loadNotebookCards();
     const paths = [
         ...STATIC_PATHS,
         ...chapters.map((c) => `/learn/${c.slug}`),
-        ...NOTEBOOKS.map((n) => `/drawing/${n.slug}`),
+        ...notebooks.map((n) => `/drawing/${n.slug}`),
     ];
 
     const urls = paths

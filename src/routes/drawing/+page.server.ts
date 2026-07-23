@@ -1,7 +1,5 @@
-import { displayOrder } from '$lib/utils/shuffle';
-import { NOTEBOOKS } from '$lib/notebooks';
-import type { RequestEvent } from '@sveltejs/kit';
+import { loadNotebookCards } from '$lib/server/loadNotebook';
 
-export function load({ locals }: RequestEvent) {
-    return { notebooks: displayOrder(NOTEBOOKS, locals.sessionSeed) };
+export async function load() {
+    return { notebooks: await loadNotebookCards() };
 }

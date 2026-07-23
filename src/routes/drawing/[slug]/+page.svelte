@@ -4,13 +4,11 @@
     import { invalidateAll, replaceState } from "$app/navigation";
     import Gallery from "$lib/components/Gallery.svelte";
     import Seo from "$lib/components/Seo.svelte";
-    import { NOTEBOOKS_BY_SLUG } from "$lib/notebooks";
     import { removeFromCart } from "$lib/stores/cart";
     import { handleCheckoutReturn, clearPendingCheckout } from "$lib/utils/checkoutReturn";
 
     let { data } = $props();
 
-    let notebook = $derived(NOTEBOOKS_BY_SLUG[$page.params.slug ?? ""]);
     let title = $derived($page.params.slug ?? "Gallery");
     let showSuccess = $state(false);
 
@@ -43,8 +41,7 @@
 
 <Seo
     {title}
-    description={notebook?.description}
-    image={notebook ? `/og/${notebook.slug}.jpg` : undefined}
+    image={$page.params.slug ? `/og/${$page.params.slug}.jpg` : undefined}
     path={$page.url.pathname}
 />
 

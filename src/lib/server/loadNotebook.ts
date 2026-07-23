@@ -3,6 +3,7 @@ import { getStripe } from '$lib/server/stripe';
 import { getSupabase } from '$lib/server/supabase';
 import { getSlugsFromSession } from '$lib/server/checkoutSlugs';
 import { displayOrder } from '$lib/utils/shuffle';
+import { chronologyKey } from '$lib/utils/chronology';
 
 function variantUrl(storageUrl: string, variant: 'sm' | 'md' | 'lg'): string {
     return storageUrl.replace(/\.webp$/, `-${variant}.webp`);
@@ -104,4 +105,52 @@ export async function loadAllDrawings() {
         images:   buildImages(drawings),
         products: buildProducts(drawings),
     };
+}
+
+export type NotebookCard = { slug: string; title: string; cover: string };
+
+// Derives the /drawing notebook index straight from the DB: one card per
+// distinct `notebook`, titled by its dir name, with the cover taken from that
+// notebook's first drawing (lowest display_order) via its `-md` variant — no
+// static cover file or notebooks.ts entry needed, so new notebooks appear
+// automatically. Sorted by the chronology key, newest first, to match the
+// All Drawings view. Degrades to an empty list on error rather than 500ing.
+export async function loadNotebookCards(): Promise<NotebookCard[]> {
+    const { data: drawings, error: dbError } = await getSupabase()
+        .from('drawings')
+        .select('slug, notebook, storage_url, display_order')
+        .order('display_order', { ascending: true });
+
+    if (dbError) {
+        console.error('Supabase query error:', dbError.message);
+        return [];
+    }
+    if (!drawings) return [];
+
+    // The query is display_order-ascending, so the first row seen for each
+    // notebook is that notebook's first drawing — the one we cover it with.
+    const coverByNotebook = new Map<string, string>();
+    for (const d of drawings) {
+        if (!coverByNotebook.has(d.notebook)) {
+            coverByNotebook.set(d.notebook, d.storage_url);
+        }
+    }
+
+    const cards: NotebookCard[] = [...coverByNotebook.entries()].map(
+        ([notebook, storageUrl]) => ({
+            slug:  notebook,
+            title: notebook,
+            cover: variantUrl(storageUrl, 'md'),
+        })
+    );
+
+    // Newest first; an unknown key (not yymmdd, not one of the six legacy)
+    // sorts as oldest so a bad key never destabilises the comparison.
+    const key = (n: string) => {
+        const k = chronologyKey(n);
+        return Number.isFinite(k) ? k : -1;
+    };
+    cards.sort((a, b) => key(b.slug) - key(a.slug));
+
+    return cards;
 }

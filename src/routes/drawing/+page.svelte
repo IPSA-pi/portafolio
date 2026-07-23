@@ -97,13 +97,16 @@
             <a href="/drawing/{notebook.slug}" class="group flex flex-col items-center text-center">
                 <div class="relative w-full max-w-xs md:max-w-[160px] aspect-[3/4]">
                     <img
-                        src="/drawings/covers/{notebook.slug}.webp"
-                        alt="Cover of {notebook.title}"
+                        src={notebook.cover}
+                        alt="Cover of notebook {notebook.title}"
                         class="absolute inset-0 w-full h-full object-cover transition-[transform,opacity] duration-500 group-hover:scale-105 drop-shadow-xl opacity-0"
                         loading="lazy"
                         onload={(e) => (e.currentTarget as HTMLImageElement).classList.replace('opacity-0', 'opacity-100')}
                     />
                 </div>
+                <span class="mt-3 text-sm font-medium text-gray-900 dark:text-white group-hover:text-accent transition-colors">
+                    {notebook.title}
+                </span>
             </a>
         {/each}
     </div>
