@@ -44,11 +44,12 @@ for (const folder of fs.readdirSync(DRAWINGS_DIR)) {
     for (const file of fs.readdirSync(folderPath)) {
         if (!file.endsWith('.webp')) continue;
         // Only accept new format: {notebook}_{dd}[-variant].webp
-        if (!/^[a-z]+_\d+_\d{2}(?:-(?:sm|md|lg))?\.webp$/.test(file)) {
+        const match = file.match(/^(.+)_(\d{2})(?:-(?:sm|md|lg))?\.webp$/);
+        if (!match) {
             console.warn(`  skip (old format?): ${file}`);
             continue;
         }
-        const notebook = file.match(/^([a-z]+_\d+)_/)[1];
+        const notebook = match[1];
         files.push({
             localPath:   path.join(folderPath, file),
             storagePath: `${notebook}/${file}`,
