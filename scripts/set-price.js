@@ -5,10 +5,18 @@
  * Usage:
  *   node --env-file=.env.local scripts/set-price.js <slug> <price-in-dollars>
  *   node --env-file=.env.local scripts/set-price.js --notebook <notebook> <price-in-dollars>
+ *   node --env-file=.env.local scripts/set-price.js --all <price-in-dollars>
  *
  * Examples:
  *   node --env-file=.env.local scripts/set-price.js negro_2_09 150
  *   node --env-file=.env.local scripts/set-price.js --notebook negro_2 150
+ *   node --env-file=.env.local scripts/set-price.js --all --unpriced 20
+ *
+ * Flags:
+ *   --unpriced   only touch drawings with no stripe_price_id / price_cents.
+ *                Combine with --all or --notebook to backfill without minting
+ *                a duplicate Stripe price for drawings that already have one.
+ *   --dry-run    print what would change; write nothing to Stripe or Supabase.
  *
  * If a drawing already has a Stripe product, a new price is created and set
  * as the default (Stripe prices are immutable — you can't edit an amount).
@@ -26,18 +34,34 @@ import { logDbTarget, logStripeTarget } from './db-target.js';
 import Stripe from 'stripe';
 
 const { values, positionals } = parseArgs({
-    options: { notebook: { type: 'string' } },
+    options: {
+        notebook:  { type: 'string' },
+        all:       { type: 'boolean' },
+        unpriced:  { type: 'boolean' },
+        'dry-run': { type: 'boolean' },
+    },
     allowPositionals: true,
 });
 
 const notebook = values.notebook ?? null;
-const slug     = notebook ? null : positionals[0];
-const rawPrice = notebook ? positionals[0] : positionals[1];
+const all      = values.all ?? false;
+const UNPRICED = values.unpriced ?? false;
+const DRY_RUN  = values['dry-run'] ?? false;
+// --all / --notebook take no slug, so the price is the first positional.
+const slug     = (notebook || all) ? null : positionals[0];
+const rawPrice = (notebook || all) ? positionals[0] : positionals[1];
 
-if ((!notebook && !slug) || !rawPrice) {
+if (notebook && all) {
+    console.error('Pass either --notebook or --all, not both.');
+    process.exit(1);
+}
+
+if ((!notebook && !all && !slug) || !rawPrice) {
     console.error('Usage:');
     console.error('  node --env-file=.env.local scripts/set-price.js <slug> <price-in-dollars>');
     console.error('  node --env-file=.env.local scripts/set-price.js --notebook <notebook> <price-in-dollars>');
+    console.error('  node --env-file=.env.local scripts/set-price.js --all <price-in-dollars>');
+    console.error('Flags: --unpriced (skip drawings that already have a price), --dry-run');
     process.exit(1);
 }
 
@@ -59,10 +83,12 @@ logDbTarget(SUPABASE_URL);
 logStripeTarget(STRIPE_SECRET_KEY);
 
 // 1. Fetch drawings from Supabase
-let query = supabase.from('drawings').select('slug, stripe_product_id, sold');
+let query = supabase.from('drawings').select('slug, stripe_product_id, stripe_price_id, price_cents, sold');
 
 if (notebook) {
     query = query.eq('notebook', notebook).order('display_order', { ascending: true });
+} else if (all) {
+    query = query.order('notebook').order('display_order', { ascending: true });
 } else {
     query = query.eq('slug', slug);
 }
@@ -70,26 +96,46 @@ if (notebook) {
 const { data: drawings, error: dbError } = await query;
 
 if (dbError || !drawings?.length) {
-    console.error(notebook
+    console.error(dbError?.message ?? (notebook
         ? `No drawings found for notebook "${notebook}".`
-        : `Drawing "${slug}" not found in Supabase.`
+        : all
+            ? 'No drawings found in Supabase.'
+            : `Drawing "${slug}" not found in Supabase.`)
     );
     process.exit(1);
 }
 
-const toPrice = drawings.filter(d => !d.sold);
-const skipped = drawings.filter(d => d.sold);
+const toPrice = drawings.filter(d => !d.sold && (!UNPRICED || !d.stripe_price_id || d.price_cents == null));
+const sold    = drawings.filter(d => d.sold);
+const priced  = UNPRICED ? drawings.filter(d => !d.sold && d.stripe_price_id && d.price_cents != null) : [];
 
-if (skipped.length) {
-    console.log(`Skipping ${skipped.length} already-sold drawing(s): ${skipped.map(d => d.slug).join(', ')}\n`);
+if (sold.length) {
+    console.log(`Skipping ${sold.length} already-sold drawing(s): ${sold.map(d => d.slug).join(', ')}\n`);
 }
 
-console.log(`Setting price $${(priceCents / 100).toFixed(2)} on ${toPrice.length} drawing(s):\n`);
+if (priced.length) {
+    console.log(`--unpriced: skipping ${priced.length} drawing(s) that already have a price.\n`);
+}
+
+if (!toPrice.length) {
+    console.log('Nothing to price.');
+    process.exit(0);
+}
+
+console.log(`${DRY_RUN ? '[DRY RUN] Would set' : 'Setting'} price $${(priceCents / 100).toFixed(2)} on ${toPrice.length} drawing(s):\n`);
 
 // 2. Price each drawing
 let success = 0;
 for (const drawing of toPrice) {
     try {
+        if (DRY_RUN) {
+            console.log(`  ${drawing.slug}: ${drawing.stripe_product_id
+                ? `would reuse product ${drawing.stripe_product_id}`
+                : 'would create product'} + new price`);
+            success++;
+            continue;
+        }
+
         // Create or reuse Stripe product
         let productId = drawing.stripe_product_id;
 
@@ -137,4 +183,4 @@ for (const drawing of toPrice) {
     }
 }
 
-console.log(`\nDone. ${success}/${toPrice.length} priced at $${(priceCents / 100).toFixed(2)}.`);
+console.log(`\n${DRY_RUN ? '[DRY RUN] Nothing written. ' : ''}Done. ${success}/${toPrice.length} priced at $${(priceCents / 100).toFixed(2)}.`);

@@ -248,13 +248,16 @@ A missing `rename-map.json` is still a warning worth heeding for **new** rows: t
 
 ### `set-price.js` — create a Stripe product + CAD price
 
-Prices one drawing or every unsold drawing in a notebook. Creates the Stripe product if the drawing has none, creates a new price (Stripe prices are immutable — "updating" means a new price set as default), and mirrors `stripe_price_id` / `price_cents` into Supabase. Already-sold drawings are skipped.
+Prices one drawing, every unsold drawing in a notebook (`--notebook`), or the whole table (`--all`). Creates the Stripe product if the drawing has none, creates a new price (Stripe prices are immutable — "updating" means a new price set as default), and mirrors `stripe_price_id` / `price_cents` into Supabase. Already-sold drawings are skipped.
 
 ```sh
 npm run set-price -- negro_2_09 150            # one drawing, $150 CAD
 npm run set-price -- --notebook negro_2 150    # whole notebook
 npm run set-price:prod -- --notebook negro_2 150
+npm run set-price -- --all --unpriced 20       # backfill only drawings with no price
 ```
+
+Two flags shape the batch modes. `--unpriced` narrows the selection to drawings with no `stripe_price_id` / `price_cents`, so a backfill doesn't mint a redundant second price for drawings that already have one — the intended pairing for `--all`. `--dry-run` prints the same per-drawing plan and touches neither Stripe nor Supabase; use it before any `:prod` batch.
 
 Needs `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`. Prices are always `cad` — a mixed-currency cart fails at Stripe session creation, so never create prices in anything else. The `:prod` wrapper swaps in the **live** Stripe key along with the prod database; confirm the `Stripe target: [LIVE]` startup line matches your intent.
 
