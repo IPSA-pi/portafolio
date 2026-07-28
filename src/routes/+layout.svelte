@@ -69,6 +69,17 @@
   <source src="/home/hero.webm" type="video/webm" />
   <source src="/home/hero.mp4" type="video/mp4" />
 </video>
+<!-- Overlay video: different loop length than hero.webm (3.295s) so the blend never repeats -->
+<video
+  autoplay
+  loop
+  muted
+  playsinline
+  class="fixed inset-0 w-full h-full object-cover -z-10 opacity-50"
+>
+  <source src="/home/overlay.webm" type="video/webm" />
+  <source src="/home/overlay.mp4" type="video/mp4" />
+</video>
 <div class="fixed inset-0 bg-black/40 -z-10"></div>
 
 <nav class="sticky top-0 z-50 bg-white dark:bg-black border-b border-black/10 dark:border-white/10 backdrop-blur-sm transition-colors duration-200" class:hidden={$isFullscreen || isFeedRoute}>
