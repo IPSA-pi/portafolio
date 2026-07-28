@@ -1,49 +1,36 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { SvelteSet } from 'svelte/reactivity';
     import Seo from '$lib/components/Seo.svelte';
     import type { Release, ReleaseStatus } from '$lib/server/supabase';
+    import {
+        musicWorklist,
+        setVisitorStatus,
+        serializeWorklist,
+        parseWorklistFile,
+        VISITOR_STATUSES,
+        type VisitorStatus
+    } from '$lib/stores/musicWorklist';
 
     let { data } = $props();
 
-    // Owner sees editing controls (status picker, batch tools); the public gets a
-    // read-only view with a personal "heard" tracker. See hooks.server.ts.
+    // Everyone gets the same worklist UI (status picker, filters, batch copy).
+    // The difference is where a status lands: the owner writes the shared
+    // releases.status column; a visitor writes their personal per-browser
+    // worklist (localStorage). See hooks.server.ts for isAdmin.
     let isAdmin = $derived(Boolean(data.isAdmin));
 
     // Local mutable copy so status changes update the UI optimistically.
     // svelte-ignore state_referenced_locally
     let releases = $state<Release[]>(data.releases);
 
-    let statusFilter = $state<'all' | ReleaseStatus>('all');
+    let statusFilter = $state<string>('all');
     let sourceFilter = $state<'all' | string>('all');
     let availableOnly = $state(false);
     let spotifyOnly = $state(false);
     let selected = new SvelteSet<string>();
     let copied = $state<string | null>(null); // id (or 'selected') most recently copied
-
-    // Visitor "heard" tracker: persisted per-browser in localStorage (no account
-    // needed) so a returning visitor sees what they've already checked off.
-    const SEEN_KEY = 'new-music:heard';
-    let heard = new SvelteSet<string>();
-
-    onMount(() => {
-        try {
-            const raw = localStorage.getItem(SEEN_KEY);
-            if (raw) for (const id of JSON.parse(raw) as string[]) heard.add(id);
-        } catch {
-            /* storage unavailable / bad JSON — start empty */
-        }
-    });
-
-    function toggleHeard(id: string) {
-        if (heard.has(id)) heard.delete(id);
-        else heard.add(id);
-        try {
-            localStorage.setItem(SEEN_KEY, JSON.stringify([...heard]));
-        } catch {
-            /* storage unavailable (private mode, quota) — in-memory only */
-        }
-    }
+    let importNote = $state<string | null>(null);
+    let importInput = $state<HTMLInputElement | null>(null);
 
     const STATUSES: ReleaseStatus[] = ['new', 'liked', 'queued', 'unavailable', 'dismissed'];
 
@@ -55,16 +42,32 @@
         dismissed: 'bg-neutral-500/10 text-neutral-500 line-through'
     };
 
+    // Visitor statuses reuse the owner palette where the meaning matches;
+    // "heard" reads as settled/neutral, like the owner's "unavailable".
+    const VISITOR_STATUS_STYLES: Record<VisitorStatus, string> = {
+        heard: 'bg-neutral-500/15 text-neutral-400',
+        liked: STATUS_STYLES.liked,
+        queued: STATUS_STYLES.queued,
+        dismissed: STATUS_STYLES.dismissed
+    };
+
+    // A visitor's effective status for a row; absence of an entry = 'unheard'.
+    function visitorStatus(id: string): VisitorStatus | 'unheard' {
+        return $musicWorklist[id] ?? 'unheard';
+    }
+
     let sources = $derived([...new Set(releases.flatMap((r) => r.sources ?? [r.source]))].sort());
 
     let filtered = $derived(
-        releases.filter(
-            (r) =>
-                (statusFilter === 'all' || r.status === statusFilter) &&
+        releases.filter((r) => {
+            const status = isAdmin ? r.status : visitorStatus(r.id);
+            return (
+                (statusFilter === 'all' || status === statusFilter) &&
                 (sourceFilter === 'all' || (r.sources ?? [r.source]).includes(sourceFilter)) &&
                 (!availableOnly || r.tidal_available === true) &&
                 (!spotifyOnly || r.spotify_available === true)
-        )
+            );
+        })
     );
 
     function label(r: Release): string {
@@ -128,6 +131,33 @@
         if (!res.ok) r.status = prev; // revert on failure
     }
 
+    function exportWorklist() {
+        const blob = new Blob([serializeWorklist($musicWorklist)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'new-music-worklist.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    async function importWorklist(e: Event) {
+        const input = e.currentTarget as HTMLInputElement;
+        const file = input.files?.[0];
+        input.value = ''; // allow re-importing the same file
+        if (!file) return;
+        const imported = parseWorklistFile(await file.text());
+        if (imported === null) {
+            importNote = 'Invalid file';
+        } else {
+            // Merge, imported entries winning — restoring a backup shouldn't
+            // wipe statuses set since the export was taken.
+            musicWorklist.update((w) => ({ ...w, ...imported }));
+            importNote = `Restored ${Object.keys(imported).length} statuses`;
+        }
+        setTimeout(() => (importNote = null), 2500);
+    }
+
     function toggle(id: string) {
         if (selected.has(id)) selected.delete(id);
         else selected.add(id);
@@ -152,17 +182,22 @@
 
             <!-- Filters -->
             <div class="flex flex-wrap items-center gap-2 text-sm">
-                {#if isAdmin}
-                    <select
-                        bind:value={statusFilter}
-                        class="rounded-md border border-black/10 dark:border-white/15 bg-white dark:bg-neutral-900 px-2 py-1 text-black dark:text-white"
-                    >
-                        <option value="all">All statuses</option>
+                <select
+                    bind:value={statusFilter}
+                    class="rounded-md border border-black/10 dark:border-white/15 bg-white dark:bg-neutral-900 px-2 py-1 text-black dark:text-white"
+                >
+                    <option value="all">All statuses</option>
+                    {#if isAdmin}
                         {#each STATUSES as s}
                             <option value={s}>{s}</option>
                         {/each}
-                    </select>
-                {/if}
+                    {:else}
+                        <option value="unheard">unheard</option>
+                        {#each VISITOR_STATUSES as s}
+                            <option value={s}>{s}</option>
+                        {/each}
+                    {/if}
+                </select>
                 {#if sources.length > 1}
                     <select
                         bind:value={sourceFilter}
@@ -182,11 +217,41 @@
                     <input type="checkbox" bind:checked={spotifyOnly} class="h-3.5 w-3.5 accent-accent" />
                     Spotify only
                 </label>
+                {#if !isAdmin}
+                    <!-- Visitor statuses live only in this browser's localStorage;
+                         export/import is the recovery path across devices/wipes. -->
+                    <span class="flex items-center gap-2 text-xs text-black/40 dark:text-white/40">
+                        <button
+                            onclick={exportWorklist}
+                            class="hover:text-accent transition-colors underline underline-offset-2"
+                            title="Download your statuses as a backup file"
+                        >
+                            Export
+                        </button>
+                        <button
+                            onclick={() => importInput?.click()}
+                            class="hover:text-accent transition-colors underline underline-offset-2"
+                            title="Restore statuses from a backup file"
+                        >
+                            Import
+                        </button>
+                        <input
+                            bind:this={importInput}
+                            type="file"
+                            accept=".json,application/json"
+                            class="hidden"
+                            onchange={importWorklist}
+                        />
+                        {#if importNote}
+                            <span aria-live="polite">{importNote}</span>
+                        {/if}
+                    </span>
+                {/if}
             </div>
         </header>
 
-        <!-- Batch bar (owner only) -->
-        {#if isAdmin && selected.size > 0}
+        <!-- Batch bar -->
+        {#if selected.size > 0}
             <div
                 class="sticky top-16 z-10 mb-3 flex items-center justify-between gap-3 rounded-lg border border-accent/30 bg-accent/10 px-4 py-2 text-sm backdrop-blur-sm"
             >
@@ -224,26 +289,16 @@
                         class="group flex flex-col gap-2 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-3 transition-opacity sm:flex-row sm:items-start sm:gap-4"
                         class:ring-1={isAdmin && r.status === 'new'}
                         class:ring-accent={isAdmin && r.status === 'new'}
-                        class:opacity-50={!isAdmin && heard.has(r.id)}
+                        class:opacity-50={!isAdmin &&
+                            (visitorStatus(r.id) === 'heard' || visitorStatus(r.id) === 'dismissed')}
                     >
-                        {#if isAdmin}
-                            <input
-                                type="checkbox"
-                                checked={selected.has(r.id)}
-                                onchange={() => toggle(r.id)}
-                                class="h-4 w-4 shrink-0 accent-accent"
-                                aria-label="Select {label(r)}"
-                            />
-                        {:else}
-                            <input
-                                type="checkbox"
-                                checked={heard.has(r.id)}
-                                onchange={() => toggleHeard(r.id)}
-                                class="h-4 w-4 shrink-0 accent-accent"
-                                title="Mark as heard — remembered on this device"
-                                aria-label="Mark {label(r)} as heard"
-                            />
-                        {/if}
+                        <input
+                            type="checkbox"
+                            checked={selected.has(r.id)}
+                            onchange={() => toggle(r.id)}
+                            class="h-4 w-4 shrink-0 accent-accent"
+                            aria-label="Select {label(r)}"
+                        />
 
                         <!-- Main info -->
                         <div class="min-w-0 flex-1">
@@ -275,6 +330,8 @@
                                 <div class="shrink-0 flex flex-col items-end gap-1.5 pt-0.5">
                                     {#if isAdmin}
                                         <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {STATUS_STYLES[r.status]}">{r.status}</span>
+                                    {:else if $musicWorklist[r.id]}
+                                        <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {VISITOR_STATUS_STYLES[$musicWorklist[r.id]]}">{$musicWorklist[r.id]}</span>
                                     {/if}
                                     <span class="text-[10px] text-black/30 dark:text-white/30 leading-none">
                                         {#each r.sources ?? [r.source] as s, i}
@@ -333,6 +390,23 @@
                                     aria-label="Set status"
                                 >
                                     {#each STATUSES as s}
+                                        <option value={s}>{s}</option>
+                                    {/each}
+                                </select>
+                            {:else}
+                                <select
+                                    value={$musicWorklist[r.id] ?? ''}
+                                    onchange={(e) =>
+                                        setVisitorStatus(
+                                            r.id,
+                                            (e.currentTarget.value || null) as VisitorStatus | null
+                                        )}
+                                    class="ml-auto rounded-md border border-black/10 dark:border-white/15 bg-white dark:bg-neutral-900 px-1.5 py-1 text-xs text-black dark:text-white"
+                                    title="Remembered on this device"
+                                    aria-label="Set status"
+                                >
+                                    <option value="">unheard</option>
+                                    {#each VISITOR_STATUSES as s}
                                         <option value={s}>{s}</option>
                                     {/each}
                                 </select>
