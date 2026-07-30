@@ -47,11 +47,19 @@ async function getAccessToken(clientId, clientSecret) {
  * letter or number (`\p{L}\p{N}`) rather than only ASCII `a-z0-9`: a title
  * made entirely of non-ASCII characters — Polar Inertia's "π" — would
  * otherwise normalize to the empty string and never match anything, even when
- * the album is genuinely on TIDAL. Both sides go through the same normalizer,
- * so accented and non-Latin titles now compare consistently too.
+ * the album is genuinely on TIDAL.
+ *
+ * Decomposes to NFD and drops the combining marks first, so the two sides
+ * compare regardless of how each spells an accent. TIDAL returns decomposed
+ * names ("Carré" as `Carre` + U+0301) while our sources store the composed
+ * form; since a combining mark is `\p{M}`, not `\p{L}`, stripping without
+ * folding turned one side into "carr e" and the other into "carré" and the
+ * artist never matched itself.
  */
 function normalize(s) {
-    return s
+    return String(s ?? '')
+        .normalize('NFD')
+        .replace(/\p{M}+/gu, '')
         .toLowerCase()
         .replace(/[^\p{L}\p{N}]+/gu, ' ')
         .trim()
@@ -80,13 +88,65 @@ function searchQuery(artist, title) {
  * A nodata release title can also bundle two tracks ("Living In The Zone
  * (Remix) / A New Start") where TIDAL titles the album after just one of them,
  * so accept a match on the whole expected title or on any " / " segment of it.
+ *
+ * The decoration has to be whole extra *tokens*, not any old trailing
+ * characters: a plain substring test matched our "Selected II" against
+ * Ottagone's own "Selected III", since "selected iii" does contain
+ * "selected ii". Numbered series are common enough — and the neighbouring
+ * volume is exactly the wrong answer — that the boundary matters.
  */
 function titlesMatch(candidateTitle, expectedTitle) {
     const candidate = normalize(candidateTitle ?? '');
     if (!candidate) return false;
     for (const part of [expectedTitle, ...String(expectedTitle ?? '').split(/\s*\/\s*/)]) {
         const expected = normalize(part);
-        if (expected && (candidate === expected || candidate.includes(expected))) return true;
+        if (expected && containsTokens(candidate, expected)) return true;
+    }
+    return false;
+}
+
+/** Whole-token containment: "michael j blood" is in "michael j blood presents",
+ *  but "a" is not in "michael j blood" the way plain `includes` would claim. */
+function containsTokens(haystack, needle) {
+    return ` ${haystack} `.includes(` ${needle} `);
+}
+
+/**
+ * Our `artist` can bundle several names the way the source printed them —
+ * "Michael J. Blood / MOODS", "A & B", "X feat. Y" — while TIDAL credits the
+ * album to just one of them (or to each separately). So split ours on the
+ * usual joiners and accept the album if *any* credited artist lines up with
+ * *any* of our segments.
+ *
+ * Containment (either direction) is deliberate here, unlike for titles: it
+ * absorbs "Michael J Blood" vs "Michael J. Blood presents". But it only
+ * applies at token boundaries and only to names of MIN_ARTIST_TOKEN_LEN or
+ * more — a one- or two-character alias is a substring of half the artists
+ * alive, which is the same trap that let a bare title match through in the
+ * first place. Short names still match, they just have to match exactly.
+ *
+ * Compilations credited to "Various Artists" name nobody, so they can't be
+ * checked this way and are let through on the title match alone.
+ */
+const ARTIST_JOINERS = /\s*(?:\/|&|\+|,|\bx\b|\bvs\.?\b|\band\b|\bfeat\.?\b|\bft\.?\b|\bwith\b)\s*/i;
+const MIN_ARTIST_TOKEN_LEN = 3;
+
+function artistsMatch(candidateNames, expectedArtist) {
+    const segments = String(expectedArtist ?? '')
+        .split(ARTIST_JOINERS)
+        .map(normalize)
+        .filter(Boolean);
+    if (!segments.length) return false;
+
+    for (const name of candidateNames) {
+        const candidate = normalize(name);
+        if (!candidate) continue;
+        if (candidate === 'various artists') return true;
+        for (const segment of segments) {
+            if (candidate === segment) return true;
+            if (segment.length >= MIN_ARTIST_TOKEN_LEN && containsTokens(candidate, segment)) return true;
+            if (candidate.length >= MIN_ARTIST_TOKEN_LEN && containsTokens(segment, candidate)) return true;
+        }
     }
     return false;
 }
@@ -95,31 +155,55 @@ function titlesMatch(candidateTitle, expectedTitle) {
  * The search query is a loose, popularity-weighted text match — for an
  * artist with no matching release on Tidal, it still happily returns that
  * artist's *other* albums ranked by popularity, with no real title overlap.
- * So the top hit can't be trusted blindly: we only accept a candidate album
- * whose own title actually matches the release title we're looking for.
+ * Worse, when TIDAL has nothing by that artist at all it falls back to a bag
+ * of globally popular albums, and a common one-word title finds a namesake in
+ * there every time: "Michael J. Blood / MOODS — ULTRAMARINE" matched Aleph
+ * One's 2019 "Ultramarine". So the top hit can't be trusted blindly, and
+ * neither can a title match on its own — a candidate has to match the release
+ * title *and* be credited to the artist we're looking for.
  */
-function findMatchingAlbum(json, expectedTitle) {
+function findTitleMatches(json, expectedTitle) {
     const candidateIds = json?.data?.relationships?.albums?.data?.map((d) => d.id) ?? [];
     const included = json?.included ?? [];
     const albumsById = new Map(included.filter((i) => i.type === 'albums').map((i) => [i.id, i]));
+    const artistNamesById = new Map(
+        included.filter((i) => i.type === 'artists').map((i) => [i.id, i.attributes?.name])
+    );
 
+    const matches = [];
     for (const id of candidateIds) {
         const album = albumsById.get(id);
-        if (album && titlesMatch(album.attributes?.title, expectedTitle)) return album;
+        if (!album || !titlesMatch(album.attributes?.title, expectedTitle)) continue;
+        matches.push({
+            album,
+            // May be empty: the `included` side-load can come back short, in
+            // which case the caller resolves the credits out-of-band rather
+            // than either trusting or dropping the candidate blindly.
+            names: (album.relationships?.artists?.data ?? [])
+                .map((d) => artistNamesById.get(d.id))
+                .filter(Boolean)
+        });
     }
-    return null;
+    return matches;
 }
 
-/**
- * Search the TIDAL catalog for a release and decide if it's genuinely there.
- * Returns { available, trackId, albumUrl }. `trackId` is left null here —
- * Stage 3 resolves it directly from the matched album's own tracklist when
- * it's actually needed for a playlist-add, which is more precise than trying
- * to fuzzy-match an individual track out of this search response.
- */
+/** Fetch an album's credited artist names directly, for the unverifiable case. */
+async function fetchAlbumArtists({ token, albumId, countryCode }) {
+    const url = `${API_BASE}/v2/albums/${albumId}?countryCode=${countryCode}&include=artists`;
+    const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.api+json' }
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (json?.included ?? [])
+        .filter((i) => i.type === 'artists')
+        .map((i) => i.attributes?.name)
+        .filter(Boolean);
+}
+
 /** Run one search query, retrying once on a 429, and return the parsed body. */
 async function fetchSearchResults({ token, query, countryCode }) {
-    const url = `${API_BASE}/v2/searchResults/${encodeURIComponent(query)}?countryCode=${countryCode}&include=albums`;
+    const url = `${API_BASE}/v2/searchResults/${encodeURIComponent(query)}?countryCode=${countryCode}&include=albums.artists`;
     const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.api+json' }
     });
@@ -135,6 +219,13 @@ async function fetchSearchResults({ token, query, countryCode }) {
     return res.json();
 }
 
+/**
+ * Search the TIDAL catalog for a release and decide if it's genuinely there.
+ * Returns { available, trackId, albumUrl }. `trackId` is left null here —
+ * Stage 3 resolves it directly from the matched album's own tracklist when
+ * it's actually needed for a playlist-add, which is more precise than trying
+ * to fuzzy-match an individual track out of this search response.
+ */
 export async function searchTidal({ clientId, clientSecret, artist, title, countryCode = 'US', debug = false }) {
     const token = await getAccessToken(clientId, clientSecret);
 
@@ -146,11 +237,20 @@ export async function searchTidal({ clientId, clientSecret, artist, title, count
     const titleQueries = segments.length > 1 ? [title, segments[0]] : [title];
 
     let album = null;
-    for (const tq of titleQueries) {
+    outer: for (const tq of titleQueries) {
         const json = await fetchSearchResults({ token, query: searchQuery(artist, tq), countryCode });
         if (debug) console.log(JSON.stringify(json, null, 2));
-        album = findMatchingAlbum(json, title);
-        if (album) break;
+
+        for (const candidate of findTitleMatches(json, title)) {
+            const names = candidate.names.length
+                ? candidate.names
+                : await fetchAlbumArtists({ token, albumId: candidate.album.id, countryCode });
+            if (debug) console.log(`  candidate "${candidate.album.attributes?.title}" by ${names.join(', ')}`);
+            if (artistsMatch(names, artist)) {
+                album = candidate.album;
+                break outer;
+            }
+        }
     }
 
     const sharingLink = album?.attributes?.externalLinks?.find((l) => l.meta?.type === 'TIDAL_SHARING')?.href;
