@@ -146,6 +146,10 @@ CREATE TABLE orders (
     -- session gets the same shipped_at/tracking_number.
     shipped_at         TIMESTAMPTZ,
     tracking_number    TEXT,
+    -- In-person sales: payment_method records cash/etransfer for booth sales.
+    -- NULL = card via Stripe. Paired with stripe_session_id prefixed 'manual_'
+    -- for in-person orders; shipped_at is set immediately (handover time).
+    payment_method     TEXT,
     created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (stripe_session_id, drawing_slug)
 );
@@ -180,6 +184,12 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders
     ADD COLUMN shipped_at      TIMESTAMPTZ,
     ADD COLUMN tracking_number TEXT;
+*/
+
+-- Migration (DBs whose orders table predates in-person sales, 2026-07-30):
+/*
+ALTER TABLE orders
+    ADD COLUMN payment_method TEXT;
 */
 
 -- Migration (DBs whose releases table predates Spotify enrichment, 2026-07-17):

@@ -55,6 +55,7 @@ export type Order = {
     shipping_address: unknown | null;
     shipped_at: string | null;
     tracking_number: string | null;
+    payment_method: string | null;
     created_at: string;
 };
 
@@ -75,10 +76,10 @@ type Database = {
             };
             orders: {
                 Row: Order;
-                // shipped_at/tracking_number stay optional on insert — the
-                // webhook writes order rows without them (unshipped).
-                Insert: Omit<Order, 'id' | 'created_at' | 'shipped_at' | 'tracking_number'> &
-                    Partial<Pick<Order, 'id' | 'created_at' | 'shipped_at' | 'tracking_number'>>;
+                // shipped_at/tracking_number/payment_method stay optional on insert — the
+                // webhook writes order rows without them (unshipped, card payment).
+                Insert: Omit<Order, 'id' | 'created_at' | 'shipped_at' | 'tracking_number' | 'payment_method'> &
+                    Partial<Pick<Order, 'id' | 'created_at' | 'shipped_at' | 'tracking_number' | 'payment_method'>>;
                 Update: Partial<Omit<Order, 'id'>>;
                 Relationships: [];
             };
