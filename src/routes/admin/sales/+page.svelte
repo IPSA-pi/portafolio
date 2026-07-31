@@ -161,11 +161,17 @@
                     <li class="rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-4">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
-                                <div class="font-semibold text-black dark:text-white truncate">
-                                    {o.customerName || 'Unknown buyer'}
-                                </div>
-                                {#if o.customerEmail}
-                                    <div class="text-xs text-black/45 dark:text-white/45 truncate">{o.customerEmail}</div>
+                                {#if o.manual}
+                                    <span class="inline-flex items-center rounded-full bg-black/5 dark:bg-white/10 px-2 py-0.5 text-xs font-medium text-black/70 dark:text-white/70">
+                                        In person · {o.paymentMethod === 'etransfer' ? 'e-transfer' : 'cash'}
+                                    </span>
+                                {:else}
+                                    <div class="font-semibold text-black dark:text-white truncate">
+                                        {o.customerName || 'Unknown buyer'}
+                                    </div>
+                                    {#if o.customerEmail}
+                                        <div class="text-xs text-black/45 dark:text-white/45 truncate">{o.customerEmail}</div>
+                                    {/if}
                                 {/if}
                             </div>
                             <div class="shrink-0 text-right">
@@ -183,7 +189,11 @@
                         {/if}
                         {#if o.shippedAt}
                             <div class="mt-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                                Shipped {formatDate(o.shippedAt)}{o.trackingNumber ? ` · ${o.trackingNumber}` : ''}
+                                {#if o.manual}
+                                    Sold in person {formatDate(o.shippedAt)}
+                                {:else}
+                                    Shipped {formatDate(o.shippedAt)}{o.trackingNumber ? ` · ${o.trackingNumber}` : ''}
+                                {/if}
                             </div>
                         {:else}
                             <div class="mt-3 flex flex-wrap items-center gap-2">

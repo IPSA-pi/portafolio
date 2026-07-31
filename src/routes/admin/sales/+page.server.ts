@@ -29,6 +29,11 @@ export type RecentOrder = {
     // taken from whichever row is seen first.
     shippedAt: string | null;
     trackingNumber: string | null;
+    // In-person (booth) sale — stripe_session_id is 'manual_<uuid>', not a
+    // real Stripe session. customerName/customerEmail/address are always
+    // null/empty for these (see /admin/drawings/sold).
+    manual: boolean;
+    paymentMethod: string | null;
 };
 
 export const load: PageServerLoad = async () => {
@@ -91,6 +96,8 @@ export const load: PageServerLoad = async () => {
                     amount: 0,
                     shippedAt: o.shipped_at ?? null,
                     trackingNumber: o.tracking_number ?? null,
+                    manual: o.stripe_session_id.startsWith('manual_'),
+                    paymentMethod: o.payment_method ?? null,
                 } as RecentOrder);
             g.slugs.push(o.drawing_slug);
             g.amount += o.amount_total ?? 0;
@@ -196,8 +203,9 @@ function buildOrdersCsv(orders: Array<{
     shipping_address: unknown;
     shipped_at?: string | null;
     tracking_number?: string | null;
+    payment_method?: string | null;
 }>): string {
-    const header = ['date', 'session_id', 'slug', 'amount_cad', 'customer_name', 'customer_email', 'address', 'shipped_at', 'tracking_number'];
+    const header = ['date', 'session_id', 'slug', 'amount_cad', 'customer_name', 'customer_email', 'address', 'shipped_at', 'tracking_number', 'payment_method'];
     const rows = orders.map((o) => [
         o.created_at,
         o.stripe_session_id,
@@ -208,6 +216,7 @@ function buildOrdersCsv(orders: Array<{
         formatAddress(o.shipping_address),
         o.shipped_at ?? '',
         o.tracking_number ?? '',
+        o.payment_method ?? '',
     ]);
     return [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n');
 }
