@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { goto, replaceState } from '$app/navigation';
+    import { goto, replaceState, invalidateAll } from '$app/navigation';
+    import { page } from '$app/stores';
     import { untrack } from 'svelte';
     import { fade } from 'svelte/transition';
     import PurchaseButton from './PurchaseButton.svelte';
@@ -65,6 +66,42 @@
             cartFullMessage = `Cart is full (${MAX_CART_ITEMS} max)`;
             clearTimeout(cartFullTimeout);
             cartFullTimeout = setTimeout(() => (cartFullMessage = null), 3000);
+        }
+    }
+
+    // Booth "mark sold" / undo — owner-only, in-person cash/e-transfer sales
+    // (see /admin/drawings/sold). Gated on currentProduct like PurchaseButton
+    // itself: only listed (priced) drawings have a products entry.
+    let isAdmin = $derived(Boolean($page.data.isAdmin));
+    let ownerToast = $state<'none' | 'choose-method' | 'confirm-undo'>('none');
+    let ownerBusy = $state(false);
+    let ownerError = $state<string | null>(null);
+    let ownerErrorTimeout: ReturnType<typeof setTimeout> | undefined;
+
+    function showOwnerError(message: string) {
+        ownerError = message;
+        clearTimeout(ownerErrorTimeout);
+        ownerErrorTimeout = setTimeout(() => (ownerError = null), 4000);
+    }
+
+    async function postSoldStatus(sold: boolean, method?: 'cash' | 'etransfer') {
+        if (!currentImage || ownerBusy) return;
+        ownerBusy = true;
+        ownerToast = 'none';
+        try {
+            const res = await fetch('/admin/drawings/sold', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ slug: currentImage.slug, sold, ...(method ? { method } : {}) })
+            });
+            const resBody = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                showOwnerError(resBody.error ?? 'Something went wrong');
+                return;
+            }
+            await invalidateAll();
+        } finally {
+            ownerBusy = false;
         }
     }
 
@@ -332,6 +369,23 @@
                     compact
                 />
             {/if}
+            {#if isAdmin && currentImage && currentProduct}
+                {#if currentProduct.sold}
+                    <button
+                        onclick={() => (ownerToast = 'confirm-undo')}
+                        class="rounded-full px-3 py-1.5 text-xs font-semibold bg-white/10 text-white hover:bg-white/20 backdrop-blur-sm transition-all active:scale-95"
+                    >
+                        Sold · undo
+                    </button>
+                {:else}
+                    <button
+                        onclick={() => (ownerToast = 'choose-method')}
+                        class="rounded-full px-3 py-1.5 text-xs font-semibold bg-white/10 text-white hover:bg-white/20 backdrop-blur-sm transition-all active:scale-95"
+                    >
+                        Mark sold
+                    </button>
+                {/if}
+            {/if}
         </div>
     </div>
 </div>
@@ -342,5 +396,70 @@
         class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] bg-black text-white text-sm px-5 py-3 rounded-full shadow-lg border border-white/10 max-w-[90vw] text-center"
     >
         {cartFullMessage}
+    </div>
+{/if}
+
+<!-- Owner booth controls: mark-sold payment-method chooser / undo confirm -->
+{#if ownerToast === 'choose-method'}
+    <div
+        transition:fade={{ duration: 150 }}
+        class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-black px-4 py-3 text-white shadow-lg max-w-[90vw]"
+    >
+        <p class="text-xs text-white/70">Mark sold — payment method?</p>
+        <div class="flex gap-2">
+            <button
+                onclick={() => postSoldStatus(true, 'cash')}
+                disabled={ownerBusy}
+                class="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold hover:bg-white/20 disabled:opacity-50"
+            >
+                Cash
+            </button>
+            <button
+                onclick={() => postSoldStatus(true, 'etransfer')}
+                disabled={ownerBusy}
+                class="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold hover:bg-white/20 disabled:opacity-50"
+            >
+                E-transfer
+            </button>
+            <button
+                onclick={() => (ownerToast = 'none')}
+                disabled={ownerBusy}
+                class="rounded-full bg-white/5 px-4 py-1.5 text-sm text-white/70 hover:bg-white/10 disabled:opacity-50"
+            >
+                Cancel
+            </button>
+        </div>
+    </div>
+{:else if ownerToast === 'confirm-undo'}
+    <div
+        transition:fade={{ duration: 150 }}
+        class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-black px-4 py-3 text-white shadow-lg max-w-[90vw]"
+    >
+        <p class="text-xs text-white/70">Undo this sale?</p>
+        <div class="flex gap-2">
+            <button
+                onclick={() => postSoldStatus(false)}
+                disabled={ownerBusy}
+                class="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold hover:bg-white/20 disabled:opacity-50"
+            >
+                Undo
+            </button>
+            <button
+                onclick={() => (ownerToast = 'none')}
+                disabled={ownerBusy}
+                class="rounded-full bg-white/5 px-4 py-1.5 text-sm text-white/70 hover:bg-white/10 disabled:opacity-50"
+            >
+                Cancel
+            </button>
+        </div>
+    </div>
+{/if}
+
+{#if ownerError}
+    <div
+        transition:fade={{ duration: 150 }}
+        class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] bg-black text-white text-sm px-5 py-3 rounded-full shadow-lg border border-white/10 max-w-[90vw] text-center"
+    >
+        {ownerError}
     </div>
 {/if}
