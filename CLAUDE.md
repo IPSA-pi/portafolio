@@ -85,6 +85,25 @@ The public read surface is separate:
   owner additionally sees editing controls and the full list including
   `dismissed`/`unavailable` items, gated on `data.isAdmin` in the page.
 
+## About page — `/about`
+
+Artist bio and contact details. The content is **plain data in source**, not
+database rows: `ABOUT` in `src/lib/about.ts` holds the bio paragraphs, role,
+location, email, and Instagram handle (stored without the `@` — the URL is
+derived). Editing it is a code change.
+
+Publishing is the `ABOUT_PUBLISHED` flag in that same file. While it's `false`,
+`about/+page.server.ts` 404s the page for everyone except the owner (404, not
+403 — an unfinished page shouldn't advertise that it exists), and the nav shows
+it as "About (draft)" while the footer link and the sitemap entry stay hidden.
+Flip the flag and push to `main` to go live. The `/admin` hub links to the
+draft. Nothing here runs at the edge beyond the flag check, so keep it that way
+— it's a static text page, no Supabase round trip.
+
+Gating on `locals.isAdmin` is sound because `hooks.server.ts` verifies the
+Cloudflare Access JWT's RS256 signature rather than trusting the cookie's
+presence.
+
 ## Stripe integration
 
 - `src/routes/api/checkout/+server.ts` — reserves 1–20 drawings atomically

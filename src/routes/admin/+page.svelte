@@ -7,6 +7,7 @@
     // features here as they appear.
     const links = [
         { href: '/admin/sales', label: 'Sales', note: 'Revenue, orders & inventory' },
+        { href: '/about', label: 'About page', note: 'Draft — flip ABOUT_PUBLISHED in src/lib/about.ts to publish' },
         { href: '/new-music', label: 'New Music', note: 'Curate the release worklist' },
     ];
 </script>

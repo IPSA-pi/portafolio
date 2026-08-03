@@ -6,6 +6,7 @@
   import { isFullscreen } from "$lib/stores/fullscreen";
   import { viewerOpen } from "$lib/stores/viewer";
   import { cartCount } from "$lib/stores/cart";
+  import { ABOUT_PUBLISHED } from "$lib/about";
 
   interface Props {
     children?: import("svelte").Snippet;
@@ -49,12 +50,14 @@
 
   let navLinks = $derived([
     { href: '/drawing', label: 'Drawing' },
-    { href: '/video', label: 'Video' },
     { href: '/learn', label: 'Learn' },
     { href: '/new-music', label: 'New Music' },
     { href: '/text2binary', label: 'Text2Binary' },
-    { href: '', label: 'Photography (soon)' },
-    { href: '', label: 'Web Art (soon)' },
+    // About stays hidden until ABOUT_PUBLISHED is flipped in src/lib/about.ts —
+    // except for the owner, who sees it flagged as a draft.
+    ...(ABOUT_PUBLISHED || data?.isAdmin
+      ? [{ href: '/about', label: ABOUT_PUBLISHED ? 'About' : 'About (draft)' }]
+      : []),
     // Owner-only hub (behind Cloudflare Access); only listed for the owner.
     ...(data?.isAdmin ? [{ href: '/admin', label: 'Admin' }] : []),
   ]);
@@ -197,6 +200,9 @@
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
     <p class="text-xs text-black/65 dark:text-white/65">&copy; {new Date().getFullYear()} Ian Sebelius. All rights reserved.</p>
     <div class="flex gap-6">
+      {#if ABOUT_PUBLISHED}
+        <a href="/about" class="text-xs text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors">About</a>
+      {/if}
       <a href="/privacy" class="text-xs text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors">Privacy Policy</a>
       <a href="/terms" class="text-xs text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors">Terms of Service</a>
     </div>
