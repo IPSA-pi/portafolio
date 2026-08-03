@@ -66,5 +66,5 @@
         </div>
     {/if}
 
-    <Gallery images={data.images} products={data.products} notebookSlug={data.slug} />
+    <Gallery images={data.images} notebookSlug={data.slug} />
 </div>

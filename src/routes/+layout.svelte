@@ -4,6 +4,7 @@
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import { page } from "$app/stores";
   import { isFullscreen } from "$lib/stores/fullscreen";
+  import { viewerOpen } from "$lib/stores/viewer";
   import { cartCount } from "$lib/stores/cart";
 
   interface Props {
@@ -13,9 +14,11 @@
 
   let { children, data }: Props = $props();
   let menuOpen = $state(false);
-  let isFeedRoute = $derived(
-    /^\/drawing\/[^/]+\/\d+$/.test($page.url.pathname) ||
-    $page.url.pathname === '/drawing/feed'
+  // The per-drawing feed routes are always immersive. /drawing/feed is not:
+  // its grid keeps the nav, and only hides it while the in-place viewer is
+  // open (signalled by the `viewerOpen` store).
+  let hideChrome = $derived(
+    /^\/drawing\/[^/]+\/\d+$/.test($page.url.pathname) || $viewerOpen
   );
 
   // Breadcrumb segments derived from the URL (shown on subpages instead of the
@@ -82,7 +85,7 @@
 </video>
 <div class="fixed inset-0 bg-black/40 -z-10"></div>
 
-<nav class="sticky top-0 z-50 bg-white dark:bg-black border-b border-black/10 dark:border-white/10 backdrop-blur-sm transition-colors duration-200" class:hidden={$isFullscreen || isFeedRoute}>
+<nav class="sticky top-0 z-50 bg-white dark:bg-black border-b border-black/10 dark:border-white/10 backdrop-blur-sm transition-colors duration-200" class:hidden={$isFullscreen || hideChrome}>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex justify-between h-16">
 
@@ -180,7 +183,7 @@
   {@render children?.()}
 </main>
 
-<footer class="border-t border-black/10 dark:border-white/10 bg-white dark:bg-black transition-colors duration-200" class:hidden={$isFullscreen || isFeedRoute}>
+<footer class="border-t border-black/10 dark:border-white/10 bg-white dark:bg-black transition-colors duration-200" class:hidden={$isFullscreen || hideChrome}>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
     <p class="text-xs text-black/30 dark:text-white/30">&copy; {new Date().getFullYear()} Ian Sebelius. All rights reserved.</p>
     <div class="flex gap-6">

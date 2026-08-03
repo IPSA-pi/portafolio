@@ -4,7 +4,6 @@
 
 	interface Props {
 		images?: { original: string; sm: string; md: string; lg: string; slug: string; notebook?: string }[];
-		products?: Record<string, { priceId: string; price: number; sold: boolean; reserved: boolean }>;
 		notebookSlug?: string;
 		// `onOpen`, when provided, intercepts a tile click and receives the tile's
 		// index instead of navigating to a per-drawing URL. The All Drawings grid
@@ -14,7 +13,7 @@
 		onOpen?: (index: number) => void;
 	}
 
-	let { images = [], products = {}, notebookSlug = '', onOpen = undefined }: Props = $props();
+	let { images = [], notebookSlug = '', onOpen = undefined }: Props = $props();
 
 	function openTile(index: number) {
 		if (onOpen) onOpen(index);
@@ -22,14 +21,13 @@
 	}
 </script>
 
-<!-- Contact-sheet grid: the artwork is the only chrome. Price, Sold/On-hold
-	 status and the buy / add-to-cart controls all live in the lightbox
-	 (Feed.svelte). Sold or reserved tiles keep a quiet visual cue (desaturated
-	 + dimmed) — no text badge — so the grid reads as pure imagery. -->
+<!-- Contact-sheet grid: the artwork is the only chrome. Availability carries no
+	 visual weight here at all — sold and on-hold tiles render exactly like the
+	 rest, so the grid reads as pure imagery. Price, Sold/On-hold status and the
+	 buy / add-to-cart controls all live in the lightbox (Feed.svelte); the All
+	 Drawings grid (/drawing/feed) additionally has an availability filter. -->
 <div class="grid grid-cols-3 gap-0 md:grid-cols-4 lg:grid-cols-6">
 	{#each images as image, index}
-		{@const product = products[image.slug]}
-		{@const dimmed = product?.sold || product?.reserved}
 		<div
 			role="button"
 			tabindex="0"
@@ -47,9 +45,9 @@
 						{image.lg} 1920w"
 				sizes="(min-width: 1024px) 17vw, (min-width: 768px) 25vw, 33vw"
 				alt={formatTitle(image.slug)}
-				class="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 opacity-0 {dimmed ? 'grayscale-[0.5]' : ''}"
+				class="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 opacity-0"
 				loading={index < 3 ? 'eager' : 'lazy'}
-				onload={(e) => (e.currentTarget as HTMLImageElement).classList.replace('opacity-0', dimmed ? 'opacity-60' : 'opacity-100')}
+				onload={(e) => (e.currentTarget as HTMLImageElement).classList.replace('opacity-0', 'opacity-100')}
 			/>
 		</div>
 	{/each}
