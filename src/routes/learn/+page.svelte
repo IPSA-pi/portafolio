@@ -21,10 +21,10 @@
 -->
 <div class="min-h-screen bg-gray-100 dark:bg-neutral-950">
   <div class="container mx-auto px-4 py-12 max-w-3xl">
-    <h1 class="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+    <h1 class="text-3xl font-bold text-neutral-900 dark:text-white">
         Learn — how this site is built
     </h1>
-    <p class="mt-4 text-neutral-700 dark:text-neutral-300 leading-relaxed">
+    <p class="mt-4 text-neutral-800 dark:text-white leading-relaxed">
         This is the conceptual companion to the site's
         <a
             href="https://github.com/IPSA-pi/portafolio"
@@ -35,7 +35,7 @@
         way to learn core web-development concepts — including the bugs that happened along the
         way and what each one teaches.
     </p>
-    <p class="mt-3 text-neutral-700 dark:text-neutral-300 leading-relaxed">
+    <p class="mt-3 text-neutral-800 dark:text-white leading-relaxed">
         Written for curious beginners and intermediate devs. The chapters build on each other
         loosely, but each stands alone — if one assumes knowledge you don't have yet, skip it and
         come back.
@@ -44,7 +44,7 @@
     {#each parts as part}
         <section class="mt-10">
             <h2
-                class="text-sm font-semibold uppercase tracking-widest text-neutral-500 dark:text-neutral-400"
+                class="text-sm font-semibold uppercase tracking-widest text-neutral-800 dark:text-white"
             >
                 {part.title}
             </h2>
@@ -58,19 +58,19 @@
                             <span class="flex items-baseline gap-3">
                                 {#if part.title !== 'Appendix'}
                                     <span
-                                        class="text-sm font-mono text-neutral-400 dark:text-neutral-500"
+                                        class="text-sm font-mono text-neutral-800 dark:text-white"
                                     >
                                         {String(chapterNumber(chapter.slug)).padStart(2, '0')}
                                     </span>
                                 {/if}
                                 <span
-                                    class="font-semibold text-neutral-900 dark:text-neutral-100 group-hover:text-accent transition-colors"
+                                    class="font-semibold text-neutral-900 dark:text-white group-hover:text-accent transition-colors"
                                 >
                                     {chapter.title}
                                 </span>
                             </span>
                             <span
-                                class="mt-1 block text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed"
+                                class="mt-1 block text-sm text-neutral-800 dark:text-white leading-relaxed"
                             >
                                 {chapter.description}
                             </span>

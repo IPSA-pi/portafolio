@@ -44,7 +44,7 @@
                 href={section.href}
                 class="text-xs font-medium tracking-widest uppercase transition-colors {$page.url.pathname === section.href
                     ? 'text-white'
-                    : 'text-white/40 hover:text-white/70'}"
+                    : 'text-white hover:text-white'}"
             >
                 {section.label}
             </a>

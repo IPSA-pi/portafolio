@@ -20,7 +20,7 @@
     <div class="max-w-2xl mx-auto px-4 sm:px-6 py-10">
         <header class="mb-6">
             <h1 class="text-2xl font-bold tracking-tight text-black dark:text-white">Admin</h1>
-            <p class="text-sm text-black/50 dark:text-white/50">Signed in as owner.</p>
+            <p class="text-sm text-black dark:text-white">Signed in as owner.</p>
         </header>
 
         <ul class="space-y-2">
@@ -32,9 +32,9 @@
                     >
                         <span>
                             <span class="font-semibold text-black dark:text-white">{l.label}</span>
-                            <span class="block text-xs text-black/45 dark:text-white/45">{l.note}</span>
+                            <span class="block text-xs text-black dark:text-white">{l.note}</span>
                         </span>
-                        <span class="text-black/30 dark:text-white/30">→</span>
+                        <span class="text-black/65 dark:text-white/65">→</span>
                     </a>
                 </li>
             {/each}

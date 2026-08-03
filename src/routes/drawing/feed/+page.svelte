@@ -111,7 +111,7 @@
     <div class="container mx-auto px-4 py-8">
         <div class="mb-8">
             <h1 class="text-3xl font-bold text-gray-900 dark:text-white">All Drawings</h1>
-            <p class="mt-2 text-gray-600 dark:text-gray-400">
+            <p class="mt-2 text-gray-800 dark:text-white">
                 Every drawing across all notebooks — sort, shuffle or filter by availability.
             </p>
 
@@ -119,7 +119,7 @@
             <div class="mt-6 inline-flex rounded-full border border-black/10 dark:border-white/15 p-1 text-sm">
                 <a
                     href="/drawing"
-                    class="px-4 py-1.5 rounded-full text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent transition-colors"
+                    class="px-4 py-1.5 rounded-full text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors"
                 >
                     Notebooks
                 </a>
@@ -138,7 +138,7 @@
                     onclick={() => (sort = 'newest')}
                     class="px-4 py-1.5 rounded-full transition-colors {sort === 'newest'
                         ? 'bg-black text-white dark:bg-white dark:text-black font-medium'
-                        : 'text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent'}"
+                        : 'text-black dark:text-white hover:text-accent dark:hover:text-accent'}"
                 >
                     Newest
                 </button>
@@ -148,7 +148,7 @@
                     onclick={() => (sort = 'oldest')}
                     class="px-4 py-1.5 rounded-full transition-colors {sort === 'oldest'
                         ? 'bg-black text-white dark:bg-white dark:text-black font-medium'
-                        : 'text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent'}"
+                        : 'text-black dark:text-white hover:text-accent dark:hover:text-accent'}"
                 >
                     Oldest
                 </button>
@@ -159,7 +159,7 @@
                     title={sort === 'shuffle' ? 'Shuffle again' : 'Random order'}
                     class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full transition-colors {sort === 'shuffle'
                         ? 'bg-black text-white dark:bg-white dark:text-black font-medium'
-                        : 'text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent'}"
+                        : 'text-black dark:text-white hover:text-accent dark:hover:text-accent'}"
                 >
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -188,7 +188,7 @@
                         onclick={() => (availability = opt.value)}
                         class="px-4 py-1.5 rounded-full transition-colors {availability === opt.value
                             ? 'bg-black text-white dark:bg-white dark:text-black font-medium'
-                            : 'text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent'}"
+                            : 'text-black dark:text-white hover:text-accent dark:hover:text-accent'}"
                     >
                         {opt.label}
                     </button>
@@ -205,7 +205,7 @@
         </div>
 
         {#if visible.length === 0}
-            <p class="py-16 text-center text-gray-500 dark:text-gray-400">
+            <p class="py-16 text-center text-gray-800 dark:text-white">
                 {#if query.trim()}
                     No drawings match “{query}”.
                 {:else if availability === 'sold'}

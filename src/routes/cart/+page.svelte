@@ -98,7 +98,7 @@
 
     {#if $cartItems.length === 0}
         <div class="text-center py-16">
-            <p class="text-gray-500 dark:text-gray-400 mb-4">Your cart is empty.</p>
+            <p class="text-gray-800 dark:text-white mb-4">Your cart is empty.</p>
             <a href="/drawing" class="text-sm font-medium text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors">
                 Browse drawings →
             </a>
@@ -118,7 +118,7 @@
                         {#if unavailable}
                             <p class="text-sm text-red-600 dark:text-red-400 mt-1">No longer available — please remove</p>
                         {:else}
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            <p class="text-sm text-gray-800 dark:text-white mt-1">
                                 {formatPrice(availability[item.slug]?.price_cents ?? item.price)}
                             </p>
                         {/if}
@@ -126,7 +126,7 @@
                     <button
                         type="button"
                         onclick={() => removeFromCart(item.slug)}
-                        class="text-sm text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors flex-none"
+                        class="text-sm text-gray-800 dark:text-white hover:text-red-600 dark:hover:text-red-400 transition-colors flex-none"
                     >
                         Remove
                     </button>
@@ -138,7 +138,7 @@
             <span class="font-medium text-gray-900 dark:text-white">Subtotal</span>
             <span class="font-semibold text-gray-900 dark:text-white">{formatPrice($cartTotal)}</span>
         </div>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <p class="text-sm text-gray-800 dark:text-white mb-2">
             Each drawing is a one-of-a-kind original. Free worldwide shipping.
         </p>
         {#if $cartItems.length >= MAX_CART_ITEMS}

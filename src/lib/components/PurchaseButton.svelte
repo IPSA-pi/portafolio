@@ -65,7 +65,7 @@
         <span class="text-red-400 text-xs font-bold uppercase tracking-widest">Sold</span>
     {:else if reserved}
         <span
-            class="text-zinc-300 text-xs font-semibold uppercase tracking-widest"
+            class="text-white text-xs font-semibold uppercase tracking-widest"
             title="In someone's checkout — check back soon"
         >On hold</span>
     {:else if priceId}
@@ -116,7 +116,7 @@
                     Buy Original — {formattedPrice}
                 {/if}
             </button>
-            <p class="text-white/60 text-xs">Free Worldwide Shipping</p>
+            <p class="text-white text-xs">Free Worldwide Shipping</p>
         {/if}
     </div>
 {/if}

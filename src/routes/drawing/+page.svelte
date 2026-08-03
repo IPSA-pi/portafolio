@@ -74,7 +74,7 @@
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
             Drawings
         </h1>
-        <p class="mt-2 text-gray-600 dark:text-gray-400">
+        <p class="mt-2 text-gray-800 dark:text-white">
             Select a notebook to view.
         </p>
 
@@ -85,7 +85,7 @@
             </span>
             <a
                 href="/drawing/feed"
-                class="px-4 py-1.5 rounded-full text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent transition-colors"
+                class="px-4 py-1.5 rounded-full text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors"
             >
                 All Drawings
             </a>

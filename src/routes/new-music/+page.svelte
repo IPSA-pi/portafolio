@@ -34,18 +34,20 @@
 
     const STATUSES: ReleaseStatus[] = ['new', 'liked', 'queued', 'unavailable', 'dismissed'];
 
+    // Badge text stays on the plain foreground colour — the accent green is
+    // ~1.4:1 on a light background, so the tint alone carries the status.
     const STATUS_STYLES: Record<ReleaseStatus, string> = {
-        new: 'bg-accent/15 text-accent',
+        new: 'bg-accent/15 text-black dark:text-white',
         liked: 'bg-pink-500/15 text-pink-500',
         queued: 'bg-emerald-500/15 text-emerald-500',
-        unavailable: 'bg-neutral-500/15 text-neutral-400',
-        dismissed: 'bg-neutral-500/10 text-neutral-500 line-through'
+        unavailable: 'bg-neutral-500/15 text-neutral-800 dark:text-white',
+        dismissed: 'bg-neutral-500/10 text-neutral-800 dark:text-white line-through'
     };
 
     // Visitor statuses reuse the owner palette where the meaning matches;
     // "heard" reads as settled/neutral, like the owner's "unavailable".
     const VISITOR_STATUS_STYLES: Record<VisitorStatus, string> = {
-        heard: 'bg-neutral-500/15 text-neutral-400',
+        heard: 'bg-neutral-500/15 text-neutral-800 dark:text-white',
         liked: STATUS_STYLES.liked,
         queued: STATUS_STYLES.queued,
         dismissed: STATUS_STYLES.dismissed
@@ -175,7 +177,7 @@
         <header class="mb-6 flex flex-wrap items-end justify-between gap-3">
             <div>
                 <h1 class="text-2xl font-bold tracking-tight text-black dark:text-white">New Music</h1>
-                <p class="text-sm text-black/50 dark:text-white/50">
+                <p class="text-sm text-black dark:text-white">
                     {filtered.length} of {releases.length} releases
                 </p>
             </div>
@@ -209,18 +211,18 @@
                         {/each}
                     </select>
                 {/if}
-                <label class="flex items-center gap-1.5 text-black/60 dark:text-white/60">
+                <label class="flex items-center gap-1.5 text-black dark:text-white">
                     <input type="checkbox" bind:checked={availableOnly} class="h-3.5 w-3.5 accent-accent" />
                     Tidal only
                 </label>
-                <label class="flex items-center gap-1.5 text-black/60 dark:text-white/60">
+                <label class="flex items-center gap-1.5 text-black dark:text-white">
                     <input type="checkbox" bind:checked={spotifyOnly} class="h-3.5 w-3.5 accent-accent" />
                     Spotify only
                 </label>
                 {#if !isAdmin}
                     <!-- Visitor statuses live only in this browser's localStorage;
                          export/import is the recovery path across devices/wipes. -->
-                    <span class="flex items-center gap-2 text-xs text-black/40 dark:text-white/40">
+                    <span class="flex items-center gap-2 text-xs text-black dark:text-white">
                         <button
                             onclick={exportWorklist}
                             class="hover:text-accent transition-colors underline underline-offset-2"
@@ -265,7 +267,7 @@
                     </button>
                     <button
                         onclick={() => selected.clear()}
-                        class="text-black/50 dark:text-white/50 hover:text-accent transition-colors"
+                        class="text-black dark:text-white hover:text-accent transition-colors"
                     >
                         Clear
                     </button>
@@ -275,7 +277,7 @@
 
         <!-- List -->
         {#if filtered.length === 0}
-            <p class="py-16 text-center text-black/40 dark:text-white/40">
+            <p class="py-16 text-center text-black dark:text-white">
                 {#if releases.length === 0}
                     No releases. Run <code class="font-mono">npm run scrape</code> to populate.
                 {:else}
@@ -305,9 +307,9 @@
                             <div class="flex items-start justify-between gap-2">
                                 <div class="min-w-0">
                                     <p class="truncate font-semibold text-black dark:text-white">{r.title}</p>
-                                    <p class="truncate text-sm text-black/80 dark:text-white/80">{r.artist}</p>
+                                    <p class="truncate text-sm text-black dark:text-white">{r.artist}</p>
                                     {#if r.label || r.release_year}
-                                        <p class="mt-0.5 text-xs text-black/45 dark:text-white/45">
+                                        <p class="mt-0.5 text-xs text-black dark:text-white">
                                             {#if r.label}
                                                 <a
                                                     href="https://www.discogs.com/search?q={encodeURIComponent(r.label)}&type=label"
@@ -322,7 +324,7 @@
                                     {#if r.genre?.length}
                                         <div class="mt-1.5 flex flex-wrap gap-1">
                                             {#each r.genre as g}
-                                                <span class="rounded px-1.5 py-0.5 text-[10px] bg-black/5 dark:bg-white/10 text-black/55 dark:text-white/50">{g}</span>
+                                                <span class="rounded px-1.5 py-0.5 text-[10px] bg-black/5 dark:bg-white/10 text-black dark:text-white">{g}</span>
                                             {/each}
                                         </div>
                                     {/if}
@@ -333,7 +335,7 @@
                                     {:else if $musicWorklist[r.id]}
                                         <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {VISITOR_STATUS_STYLES[$musicWorklist[r.id]]}">{$musicWorklist[r.id]}</span>
                                     {/if}
-                                    <span class="text-[10px] text-black/30 dark:text-white/30 leading-none">
+                                    <span class="text-[10px] text-black/65 dark:text-white/65 leading-none">
                                         {#each r.sources ?? [r.source] as s, i}
                                             {#if i > 0}<span> · </span>{/if}
                                             {#if r.source_url?.includes(s)}
@@ -358,7 +360,7 @@
                                 href={ytMusicUrl(r)}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black/60 dark:text-white/60 hover:text-accent hover:border-accent transition-colors"
+                                class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black dark:text-white hover:text-accent hover:border-accent transition-colors"
                             >
                                 YT Music ↗
                             </a>
@@ -367,7 +369,7 @@
                                     href={tidalUrl(r)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black/60 dark:text-white/60 hover:text-accent hover:border-accent transition-colors"
+                                    class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black dark:text-white hover:text-accent hover:border-accent transition-colors"
                                 >
                                     Tidal ✓
                                 </a>
@@ -377,7 +379,7 @@
                                     href={spotifyUrl(r)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black/60 dark:text-white/60 hover:text-accent hover:border-accent transition-colors"
+                                    class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black dark:text-white hover:text-accent hover:border-accent transition-colors"
                                 >
                                     Spotify ✓
                                 </a>

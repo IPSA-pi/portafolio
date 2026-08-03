@@ -9,7 +9,12 @@
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 		<script>
 			try {
-				const t = localStorage.getItem('theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+				// Mobile defaults to dark regardless of the OS setting; desktop still
+				// follows prefers-color-scheme. A stored choice always wins. Keep this
+				// in sync with getInitialTheme() in src/lib/stores/theme.ts.
+				const prefersDark = matchMedia('(max-width: 767px)').matches
+					|| matchMedia('(prefers-color-scheme: dark)').matches;
+				const t = localStorage.getItem('theme') || (prefersDark ? 'dark' : 'light');
 				if (t === 'dark') document.documentElement.classList.add('dark');
 			} catch(e) {}
 		</script>

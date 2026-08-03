@@ -8,7 +8,7 @@
 
 <button
   onclick={toggleTheme}
-  class="rounded-full p-2 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+  class="rounded-full p-2 text-black dark:text-white hover:text-accent dark:hover:text-accent hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
   aria-label="Toggle Dark Mode"
 >
   {#if $theme === 'dark'}

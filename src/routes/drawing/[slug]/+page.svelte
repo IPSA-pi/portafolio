@@ -49,7 +49,7 @@
     <div class="mb-8 flex items-baseline gap-4">
         <a
             href="/drawing"
-            class="text-sm text-gray-500 hover:text-black dark:hover:text-white transition-colors"
+            class="text-sm text-gray-800 dark:text-white hover:text-black dark:hover:text-accent transition-colors"
             >← Back</a
         >
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white">

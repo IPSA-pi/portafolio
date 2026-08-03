@@ -19,7 +19,7 @@
   <div class="container mx-auto px-4 py-12 max-w-3xl">
     <nav class="mb-8 text-sm">
         <a href="/learn" class="text-accent hover:text-accent-hover">← Learn</a>
-        <span class="ml-3 uppercase tracking-widest text-neutral-500 dark:text-neutral-400"
+        <span class="ml-3 uppercase tracking-widest text-neutral-800 dark:text-white"
             >{data.part}</span
         >
     </nav>
@@ -45,7 +45,7 @@
         {#if data.prev}
             <a
                 href="/learn/{data.prev.slug}"
-                class="max-w-[48%] text-sm text-neutral-600 dark:text-neutral-400 hover:text-accent transition-colors"
+                class="max-w-[48%] text-sm text-neutral-800 dark:text-white hover:text-accent transition-colors"
             >
                 <span class="block text-xs uppercase tracking-widest">Previous</span>
                 <span class="mt-1 block font-semibold">← {data.prev.title}</span>
@@ -56,7 +56,7 @@
         {#if data.next}
             <a
                 href="/learn/{data.next.slug}"
-                class="max-w-[48%] text-right text-sm text-neutral-600 dark:text-neutral-400 hover:text-accent transition-colors"
+                class="max-w-[48%] text-right text-sm text-neutral-800 dark:text-white hover:text-accent transition-colors"
             >
                 <span class="block text-xs uppercase tracking-widest">Next</span>
                 <span class="mt-1 block font-semibold">{data.next.title} →</span>

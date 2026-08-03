@@ -146,7 +146,7 @@
       <div class="grid grid-cols-[auto_1fr] gap-x-5 gap-y-3 items-center">
 
         <!-- Mode -->
-        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">mode</span>
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white">mode</span>
         <select bind:value={mode} class="bg-black text-white text-xs font-mono px-2 py-1 border border-white/20 focus:border-white/50 focus:outline-none cursor-pointer">
           <option value="binary">binary</option>
           <option value="digits">digits</option>
@@ -155,7 +155,7 @@
         </select>
 
         <!-- Last column -->
-        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">last col</span>
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white">last col</span>
         <select bind:value={msPrecision} class="bg-black text-white text-xs font-mono px-2 py-1 border border-white/20 focus:border-white/50 focus:outline-none cursor-pointer">
           {#each precisionOptions as opt}
             <option value={opt.value}>{opt.label}</option>
@@ -163,7 +163,7 @@
         </select>
 
         <!-- Range -->
-        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">range</span>
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white">range</span>
         <select bind:value={range} class="bg-black text-white text-xs font-mono px-2 py-1 border border-white/20 focus:border-white/50 focus:outline-none cursor-pointer">
           <option value="full">ymdhms</option>
           <option value="time">hms</option>
@@ -171,7 +171,7 @@
         </select>
 
         <!-- Orientation -->
-        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">orientation</span>
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white">orientation</span>
         <select bind:value={orientation} class="bg-black text-white text-xs font-mono px-2 py-1 border border-white/20 focus:border-white/50 focus:outline-none cursor-pointer">
           <option value="auto">auto</option>
           <option value="horizontal">vertical</option>
@@ -179,43 +179,43 @@
         </select>
 
         <!-- Size -->
-        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">size</span>
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white">size</span>
         <div class="flex items-center gap-2">
           <button
             onclick={() => { squareSize = Math.max(MIN_SIZE, squareSize - SIZE_STEP); }}
-            class="w-6 h-6 flex items-center justify-center text-white/50 hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
+            class="w-6 h-6 flex items-center justify-center text-white hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
           >−</button>
-          <span class="text-xs font-mono text-white/40 w-8 text-center">{squareSize}</span>
+          <span class="text-xs font-mono text-white w-8 text-center">{squareSize}</span>
           <button
             onclick={() => { squareSize = Math.min(MAX_SIZE, squareSize + SIZE_STEP); }}
-            class="w-6 h-6 flex items-center justify-center text-white/50 hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
+            class="w-6 h-6 flex items-center justify-center text-white hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
           >+</button>
         </div>
 
         <!-- Glow -->
-        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">glow</span>
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white">glow</span>
         <div class="flex items-center gap-2">
           <button
             onclick={() => glowSize = Math.max(0, glowSize - 2)}
-            class="w-6 h-6 flex items-center justify-center text-white/50 hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
+            class="w-6 h-6 flex items-center justify-center text-white hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
           >−</button>
-          <span class="text-xs font-mono text-white/40 w-8 text-center">{glowSize}px</span>
+          <span class="text-xs font-mono text-white w-8 text-center">{glowSize}px</span>
           <button
             onclick={() => glowSize = Math.min(40, glowSize + 2)}
-            class="w-6 h-6 flex items-center justify-center text-white/50 hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
+            class="w-6 h-6 flex items-center justify-center text-white hover:text-white border border-white/20 hover:border-white/50 font-mono text-sm transition-colors"
           >+</button>
         </div>
 
         <!-- Color 0 -->
-        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">color 0</span>
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white">color 0</span>
         <div class="flex flex-col gap-1">
           <div class="flex items-center gap-2">
             <input type="color" bind:value={colorOff} class="w-7 h-5 cursor-pointer rounded-sm border-0 bg-transparent p-0" />
-            <span class="text-[10px] font-mono text-white/25">{colorOff}</span>
+            <span class="text-[10px] font-mono text-white/60">{colorOff}</span>
           </div>
           <div class="flex items-center gap-2">
             <input type="range" min="0" max="100" bind:value={alphaOff} class="flex-1 h-[2px] accent-white cursor-pointer" />
-            <span class="text-[10px] font-mono text-white/25 w-7 text-right">{alphaOff}%</span>
+            <span class="text-[10px] font-mono text-white/60 w-7 text-right">{alphaOff}%</span>
           </div>
         </div>
 
@@ -224,7 +224,7 @@
           <button
             onclick={swapColors}
             title="Swap colors"
-            class="p-1 text-white/30 hover:text-white/80 transition-colors"
+            class="p-1 text-white/65 hover:text-white transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5 7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" />
@@ -233,15 +233,15 @@
         </div>
 
         <!-- Color 1 -->
-        <span class="text-[10px] font-mono uppercase tracking-widest text-white/40">color 1</span>
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white">color 1</span>
         <div class="flex flex-col gap-1">
           <div class="flex items-center gap-2">
             <input type="color" bind:value={colorOn} class="w-7 h-5 cursor-pointer rounded-sm border-0 bg-transparent p-0" />
-            <span class="text-[10px] font-mono text-white/25">{colorOn}</span>
+            <span class="text-[10px] font-mono text-white/60">{colorOn}</span>
           </div>
           <div class="flex items-center gap-2">
             <input type="range" min="0" max="100" bind:value={alphaOn} class="flex-1 h-[2px] accent-white cursor-pointer" />
-            <span class="text-[10px] font-mono text-white/25 w-7 text-right">{alphaOn}%</span>
+            <span class="text-[10px] font-mono text-white/60 w-7 text-right">{alphaOn}%</span>
           </div>
         </div>
 
@@ -249,12 +249,12 @@
         <div class="col-span-2 pt-1 flex gap-2">
           <button
             onclick={resetColors}
-            class="flex-1 py-1 text-xs font-mono text-white/40 hover:text-white border border-white/10 hover:border-white/40 transition-colors"
+            class="flex-1 py-1 text-xs font-mono text-white hover:text-white border border-white/10 hover:border-white/40 transition-colors"
           >reset colors</button>
           <button
             onclick={toggleFullscreen}
             title="Fullscreen"
-            class="px-3 py-1 text-white/40 hover:text-white border border-white/10 hover:border-white/40 transition-colors"
+            class="px-3 py-1 text-white hover:text-white border border-white/10 hover:border-white/40 transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />

@@ -31,6 +31,16 @@
     }))
   );
 
+  // The hero video below is `-z-10`, which paints above the canvas background
+  // that <body> propagates — so it shows through <main> on every route. Home,
+  // Text2Binary and Video want that (their text is white by design). Ordinary
+  // content pages don't: in light mode their near-black text landed on the dark
+  // video and was unreadable, so they get an opaque light surface instead.
+  // Dark mode keeps the video, where white-on-video reads fine.
+  let videoForward = $derived(
+    segments.length === 0 || segments[0] === 'text2binary' || segments[0] === 'video'
+  );
+
   onMount(() => {
     const handler = () => isFullscreen.set(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handler);
@@ -100,10 +110,10 @@
               {#if link.href}
                 <a
                   href={link.href}
-                  class="inline-flex items-center px-1 pt-1 text-sm font-medium text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent transition-colors"
+                  class="inline-flex items-center px-1 pt-1 text-sm font-medium text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors"
                 >{link.label}</a>
               {:else}
-                <span class="inline-flex items-center px-1 pt-1 text-sm font-medium text-black/20 dark:text-white/20 cursor-not-allowed">{link.label}</span>
+                <span class="inline-flex items-center px-1 pt-1 text-sm font-medium text-black/60 dark:text-white/60 cursor-not-allowed">{link.label}</span>
               {/if}
             {/each}
           </div>
@@ -111,10 +121,10 @@
           <!-- Breadcrumb (subpages) -->
           <div class="ml-2 flex items-center text-sm font-medium min-w-0">
             {#each crumbs as crumb}
-              <span class="mx-1.5 text-black/30 dark:text-white/30">/</span>
+              <span class="mx-1.5 text-black/65 dark:text-white/65">/</span>
               <a
                 href={crumb.href}
-                class="text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent transition-colors truncate"
+                class="text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors truncate"
               >{crumb.label}</a>
             {/each}
           </div>
@@ -126,7 +136,7 @@
         {#if $cartCount > 0}
           <a
             href="/cart"
-            class="relative p-2 rounded-md text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent transition-colors"
+            class="relative p-2 rounded-md text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors"
             aria-label="View cart ({$cartCount} items)"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
@@ -141,7 +151,7 @@
              there); always available on subpages, since those show breadcrumbs
              instead of the section links and have no other way to navigate. -->
         <button
-          class="p-2 rounded-md text-black/50 dark:text-white/50 hover:text-accent dark:hover:text-accent transition-colors {segments.length === 0 ? 'sm:hidden' : ''}"
+          class="p-2 rounded-md text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors {segments.length === 0 ? 'sm:hidden' : ''}"
           onclick={() => menuOpen = !menuOpen}
           aria-label="Toggle menu"
         >
@@ -169,26 +179,26 @@
           <a
             href={link.href}
             onclick={() => menuOpen = false}
-            class="block px-6 py-4 text-sm font-medium text-black/60 dark:text-white/60 hover:text-accent dark:hover:text-accent transition-colors"
+            class="block px-6 py-4 text-sm font-medium text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors"
           >{link.label}</a>
         {:else}
-          <span class="block px-6 py-4 text-sm font-medium text-black/20 dark:text-white/20">{link.label}</span>
+          <span class="block px-6 py-4 text-sm font-medium text-black/60 dark:text-white/60">{link.label}</span>
         {/if}
       {/each}
     </div>
   {/if}
 </nav>
 
-<main class="min-h-screen transition-colors duration-200">
+<main class="min-h-screen transition-colors duration-200 {videoForward ? '' : 'bg-white dark:bg-transparent'}">
   {@render children?.()}
 </main>
 
 <footer class="border-t border-black/10 dark:border-white/10 bg-white dark:bg-black transition-colors duration-200" class:hidden={$isFullscreen || hideChrome}>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-    <p class="text-xs text-black/30 dark:text-white/30">&copy; {new Date().getFullYear()} Ian Sebelius. All rights reserved.</p>
+    <p class="text-xs text-black/65 dark:text-white/65">&copy; {new Date().getFullYear()} Ian Sebelius. All rights reserved.</p>
     <div class="flex gap-6">
-      <a href="/privacy" class="text-xs text-black/40 dark:text-white/40 hover:text-accent dark:hover:text-accent transition-colors">Privacy Policy</a>
-      <a href="/terms" class="text-xs text-black/40 dark:text-white/40 hover:text-accent dark:hover:text-accent transition-colors">Terms of Service</a>
+      <a href="/privacy" class="text-xs text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors">Privacy Policy</a>
+      <a href="/terms" class="text-xs text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors">Terms of Service</a>
     </div>
   </div>
 </footer>

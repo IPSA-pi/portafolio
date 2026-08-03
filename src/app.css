@@ -8,6 +8,19 @@
   }
 }
 
+/* Tailwind Typography's dark palette (`dark:prose-invert`) renders body copy at
+   neutral-300 and its secondary text dimmer still. Push the readable parts to
+   white so the /learn chapters match the rest of the site in dark mode. Higher
+   specificity than `.prose-invert`, so these win. */
+.dark .prose {
+  --tw-prose-invert-body: #fff;
+  --tw-prose-invert-lead: #fff;
+  --tw-prose-invert-counters: #fff;
+  --tw-prose-invert-bullets: #fff;
+  --tw-prose-invert-quotes: #fff;
+  --tw-prose-invert-captions: #fff;
+}
+
 html, body {
   scrollbar-width: none;
 }

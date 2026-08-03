@@ -7,7 +7,12 @@ function getInitialTheme(): Theme {
     if (!browser) return 'dark';
     const stored = window.localStorage.getItem('theme') as Theme | null;
     if (stored) return stored;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    // Mobile defaults to dark regardless of the OS setting; desktop follows
+    // prefers-color-scheme. Mirrors the inline no-flash script in src/app.html.
+    const prefersDark =
+        window.matchMedia('(max-width: 767px)').matches ||
+        window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return prefersDark ? 'dark' : 'light';
 }
 
 const initialValue = getInitialTheme();
