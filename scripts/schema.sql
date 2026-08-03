@@ -12,6 +12,11 @@ CREATE TABLE drawings (
     stripe_product_id TEXT,
     stripe_price_id  TEXT,
     price_cents      INT,                              -- e.g. 15000 = $150.00
+    title            TEXT,                             -- null = fall back to the slug
+    year             INT,                              -- e.g. 2026
+    medium           TEXT,                             -- e.g. Ballpoint pen on paper
+    width_cm         NUMERIC,                          -- e.g. 7.6
+    height_cm        NUMERIC,                          -- e.g. 12.7
     sold             BOOLEAN     NOT NULL DEFAULT false,
     reserved         BOOLEAN     NOT NULL DEFAULT false,
     reserved_at      TIMESTAMPTZ,
@@ -197,4 +202,16 @@ ALTER TABLE orders
 ALTER TABLE releases
     ADD COLUMN IF NOT EXISTS spotify_available BOOLEAN,
     ADD COLUMN IF NOT EXISTS spotify_album_url TEXT;
+*/
+
+-- Migration (DBs whose drawings table predates artwork metadata, 2026-08-03):
+-- Also kept as a standalone file:
+-- scripts/migrations/2026-08-03-drawings-artwork-metadata.sql
+/*
+ALTER TABLE drawings
+    ADD COLUMN IF NOT EXISTS title     TEXT,
+    ADD COLUMN IF NOT EXISTS year      INT,
+    ADD COLUMN IF NOT EXISTS medium    TEXT,
+    ADD COLUMN IF NOT EXISTS width_cm  NUMERIC,
+    ADD COLUMN IF NOT EXISTS height_cm NUMERIC;
 */
