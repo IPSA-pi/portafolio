@@ -32,19 +32,32 @@
     let mdLoaded: boolean[] = $state(untrack(() => Array(images.length).fill(false) as boolean[]));
     let rotation = $state(0);
 
-    // Double-click zoom, centred on the click point — desktop only. On touch
-    // devices we leave the browser's own pinch / double-tap zoom to the user
-    // instead. Deliberately simple: no panning — click to inspect detail, click
-    // again to reset. Resets automatically on navigation so a new slide starts 1×.
+    // Double-click (or the toolbar button) zooms toward the click point, then
+    // drag to pan — desktop only. On touch devices we leave the browser's own
+    // pinch / double-tap zoom to the user instead. Resets automatically on
+    // navigation so a new slide always starts at 1×.
     let canDblZoom = $state(false);
     // Only fetch the lg (1920w) variant on viewports large enough to benefit,
     // or once the current slide is zoomed in — small screens get the md
     // variant only, so every slide isn't downloaded twice.
     let largeViewport = $state(false);
+    const ZOOM_LEVEL = 2;
     let zoom = $state(1);
-    let zoomOrigin = $state({ x: 50, y: 50 });
+    // Panning is expressed as a plain pixel translate against a fixed, centred
+    // transform-origin (rather than moving the origin around), so the drag
+    // maths and the clamp below stay in one coordinate space.
+    let pan = $state({ x: 0, y: 0 });
+    let panning = $state(false);
+    // Half the overhang of the scaled box, i.e. how far the image can travel
+    // before its edge would pull inside the frame. Set whenever we zoom in.
+    let panLimit = { x: 0, y: 0 };
+    // The per-slide zoom layers, so the toolbar button can measure the current
+    // one the same way a click does.
+    let zoomLayers: HTMLElement[] = [];
     let zoomStyle = $derived(
-        `transform: scale(${zoom}); transform-origin: ${zoomOrigin.x}% ${zoomOrigin.y}%; cursor: ${canDblZoom ? (zoom === 1 ? 'zoom-in' : 'zoom-out') : 'default'};`
+        `transform: translate(${pan.x}px, ${pan.y}px) scale(${zoom}); transform-origin: 50% 50%;` +
+            (panning ? ' transition: none;' : '') +
+            ` cursor: ${canDblZoom ? (zoom === 1 ? 'zoom-in' : panning ? 'grabbing' : 'grab') : 'default'};`
     );
 
     let currentImage = $derived(images[currentIndex]);
@@ -136,31 +149,92 @@
         showControls();
     }
 
+    function resetZoom() {
+        zoom = 1;
+        pan = { x: 0, y: 0 };
+    }
+
+    function clampPan(x: number, y: number) {
+        return {
+            x: Math.max(-panLimit.x, Math.min(panLimit.x, x)),
+            y: Math.max(-panLimit.y, Math.min(panLimit.y, y))
+        };
+    }
+
+    // Zoom in on the current slide, keeping the point under the cursor put.
+    // With a centred origin a point `d` px from the centre lands at `d * zoom`,
+    // so translating by `d * (1 - zoom)` puts it back where it was. Called with
+    // no coordinates (the toolbar button) it just zooms on the centre.
+    function zoomIn(clientX?: number, clientY?: number) {
+        const el = zoomLayers[currentIndex];
+        if (!el) return;
+        const rect = el.getBoundingClientRect(); // zoom is 1 here, so unscaled
+        panLimit = {
+            x: (rect.width * (ZOOM_LEVEL - 1)) / 2,
+            y: (rect.height * (ZOOM_LEVEL - 1)) / 2
+        };
+        const dx = clientX === undefined ? 0 : clientX - (rect.left + rect.width / 2);
+        const dy = clientY === undefined ? 0 : clientY - (rect.top + rect.height / 2);
+        zoom = ZOOM_LEVEL;
+        pan = clampPan(dx * (1 - ZOOM_LEVEL), dy * (1 - ZOOM_LEVEL));
+    }
+
     function toggleZoom(e: MouseEvent) {
         if (!canDblZoom) return; // touch devices use native pinch zoom
-        if (zoom !== 1) { zoom = 1; return; }
-        if (!(e.currentTarget instanceof HTMLElement)) return;
-        const rect = e.currentTarget.getBoundingClientRect();
-        zoomOrigin = {
-            x: ((e.clientX - rect.left) / rect.width) * 100,
-            y: ((e.clientY - rect.top) / rect.height) * 100
-        };
-        zoom = 2;
+        if (zoom !== 1) { resetZoom(); return; }
+        zoomIn(e.clientX, e.clientY);
+        showControls();
+    }
+
+    function toggleZoomButton() {
+        if (zoom !== 1) resetZoom();
+        else zoomIn();
+        showControls();
+    }
+
+    // Drag to pan while zoomed. Only ever engages at zoom > 1, which touch
+    // devices never reach, so this can't fight the native swipe/scroll.
+    let panStart = { x: 0, y: 0, panX: 0, panY: 0 };
+
+    function startPan(e: PointerEvent) {
+        if (zoom === 1 || !(e.currentTarget instanceof HTMLElement)) return;
+        panning = true;
+        panStart = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+        e.currentTarget.setPointerCapture(e.pointerId);
+        e.preventDefault();
+    }
+
+    function movePan(e: PointerEvent) {
+        if (!panning) return;
+        pan = clampPan(panStart.panX + (e.clientX - panStart.x), panStart.panY + (e.clientY - panStart.y));
+    }
+
+    function endPan(e: PointerEvent) {
+        if (!panning) return;
+        panning = false;
+        if (e.currentTarget instanceof HTMLElement) e.currentTarget.releasePointerCapture(e.pointerId);
     }
 
     function handleKeydown(e: KeyboardEvent) {
-        if (e.key === 'Escape') close();
+        // Escape backs out of the zoom first, then out of the viewer.
+        if (e.key === 'Escape') { if (zoom > 1) resetZoom(); else close(); }
         else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') scrollToIndex(Math.min(currentIndex + 1, images.length - 1));
         else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') scrollToIndex(Math.max(currentIndex - 1, 0));
         else if (e.key === 'r' || e.key === 'R') rotateBy(e.shiftKey ? -90 : 90);
+        else if (e.key === 'z' || e.key === 'Z') toggleZoomButton();
     }
 
-    // In the horizontal lightbox a mouse wheel scrolls vertically, which would do
-    // nothing. Translate any wheel gesture into one step of horizontal navigation,
-    // with a short lock so a single flick advances exactly one image. (The vertical
-    // feed uses native scrolling, so this is only wired up in horizontal mode.)
+    // Two jobs. While zoomed in, swallow the wheel entirely: otherwise the
+    // faintest trackpad nudge scrolls the feed (or steps to the next slide) out
+    // from under the zoom, which on a desktop reads as the zoom not working at
+    // all. Otherwise, in the horizontal lightbox a vertical wheel would do
+    // nothing, so translate any wheel gesture into one step of horizontal
+    // navigation, with a short lock so a single flick advances exactly one
+    // image. (The vertical feed uses native scrolling at 1×.)
     let wheelLock = false;
     function handleWheel(e: WheelEvent) {
+        if (zoom > 1) { e.preventDefault(); return; }
+        if (vertical) return;
         const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
         if (Math.abs(delta) < 10) return;
         e.preventDefault();
@@ -179,7 +253,9 @@
         largeViewport = window.matchMedia('(min-width: 1024px)').matches;
         untrack(() => scrollToIndex(startIndex, 'instant'));
         untrack(showControls);
-        if (!vertical) container.addEventListener('wheel', handleWheel, { passive: false });
+        // Wired up in both modes: even the vertical feed needs it to hold the
+        // scroll still while zoomed.
+        container.addEventListener('wheel', handleWheel, { passive: false });
 
         const slides = container.querySelectorAll<HTMLElement>('[data-index]');
         const observer = new IntersectionObserver(
@@ -187,7 +263,7 @@
                 for (const entry of entries) {
                     if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
                         const i = Number((entry.target as HTMLElement).dataset.index);
-                        if (i !== currentIndex) zoom = 1; // new slide always starts at 1×
+                        if (i !== currentIndex) resetZoom(); // new slide always starts at 1×
                         currentIndex = i;
                         if (mode === 'notebook') {
                             replaceState(`/drawing/${notebookSlug}/${i + 1}`, {});
@@ -248,7 +324,6 @@
 <div
     bind:this={container}
     onpointerdown={showControls}
-    onscroll={() => { if (zoom !== 1) zoom = 1; }}
     class="fixed inset-0 z-40 bg-black scrollbar-none snap-mandatory {vertical ? 'overflow-y-scroll snap-y' : 'flex overflow-x-scroll overflow-y-hidden snap-x'}"
     style="-webkit-overflow-scrolling: touch;"
 >
@@ -270,9 +345,14 @@
 
             <!-- Image: centred, rotatable, double-tap to zoom -->
             <div class="absolute inset-0 flex items-center justify-center overflow-hidden">
-                <!-- Zoom layer: scales toward the tap point -->
+                <!-- Zoom layer: scales toward the tap point, then drags to pan -->
                 <div
+                    bind:this={zoomLayers[i]}
                     ondblclick={toggleZoom}
+                    onpointerdown={startPan}
+                    onpointermove={movePan}
+                    onpointerup={endPan}
+                    onpointercancel={endPan}
                     role="presentation"
                     class="transition-transform duration-300 ease-out"
                     style={i === currentIndex ? zoomStyle : ''}
@@ -313,7 +393,9 @@
 <div
     class="fixed inset-x-0 bottom-0 z-50 flex items-center gap-3 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-12 bg-gradient-to-t from-black/70 via-black/40 to-transparent transition-opacity duration-300 {controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}"
 >
-    <!-- Rotate left (counter-clockwise, −90°): left-pointing curved arrow -->
+    <!-- Rotate left (counter-clockwise, −90°). A near-full circle with the arrow
+         head sitting on its rim reads as "spin", where the old hooked arrow
+         read as undo/redo. -->
     <button
         onclick={() => rotateBy(-90)}
         class="flex-none rounded-full bg-white/10 backdrop-blur-sm p-2.5 text-white transition hover:bg-white/20 active:scale-95"
@@ -321,11 +403,12 @@
         title="Rotate left (Shift+R)"
     >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v5h5" />
         </svg>
     </button>
 
-    <!-- Rotate right (clockwise, +90°): right-pointing curved arrow -->
+    <!-- Rotate right (clockwise, +90°) -->
     <button
         onclick={() => rotateBy(90)}
         class="flex-none rounded-full bg-white/10 backdrop-blur-sm p-2.5 text-white transition hover:bg-white/20 active:scale-95"
@@ -333,9 +416,29 @@
         title="Rotate right (R)"
     >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="m15 15 6-6m0 0-6-6m6 6H9a6 6 0 0 0 0 12h3" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1.06 6.74 2.74L21 8" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 3v5h-5" />
         </svg>
     </button>
+
+    <!-- Zoom toggle — desktop only (touch uses native pinch). Double-clicking the
+         artwork does the same thing, but nothing on screen said so. -->
+    {#if canDblZoom}
+        <button
+            onclick={toggleZoomButton}
+            class="flex-none rounded-full bg-white/10 backdrop-blur-sm p-2.5 text-white transition hover:bg-white/20 active:scale-95"
+            aria-label={zoom === 1 ? 'Zoom in' : 'Zoom out'}
+            title={zoom === 1 ? 'Zoom in (Z) — double-click the artwork, then drag to pan' : 'Zoom out (Z)'}
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+                {#if zoom === 1}
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
+                {:else}
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM13.5 10.5h-6" />
+                {/if}
+            </svg>
+        </button>
+    {/if}
 
     <!-- Title -->
     {#if currentImage}
