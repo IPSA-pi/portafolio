@@ -38,7 +38,7 @@
             <div>
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">2. Pricing and Availability</h2>
                 <p class="mt-3 text-gray-700 dark:text-white leading-relaxed">
-                    Prices are displayed in US dollars and may be updated at any time without prior notice. Each original work is one of a kind and listed as available until sold. In the event of a technical error resulting in a purchase at an incorrect price, the seller reserves the right to cancel the order and issue a full refund.
+                    Prices are displayed in Canadian dollars (CAD) and may be updated at any time without prior notice. Each original work is one of a kind and listed as available until sold. In the event of a technical error resulting in a purchase at an incorrect price, the seller reserves the right to cancel the order and issue a full refund.
                 </p>
             </div>
 
