@@ -8,10 +8,15 @@
  *      scripts/rename-map.json maps old Stripe slugs → new slugs so we
  *      can link them.
  *
+ *   3. scripts/metadata/<notebook>.json — repo-authored artwork metadata
+ *      (title / year / medium / dimensions). See that folder's README.
+ *
  * Run after upload.js so the storage URLs are live.
  * Safe to re-run: upserts on slug, and rows that already exist keep their
  * DB-side sold / reserved / display_order (webhook and owner writes), plus
  * their Stripe link when the Stripe scan finds no product for the slug.
+ * Artwork metadata is the exception — the repo owns it, so a re-seed
+ * overwrites whatever is in the DB.
  *
  * Usage:
  *   node --env-file=.env.local scripts/seed.js
@@ -33,6 +38,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DRAWINGS_DIR = path.resolve(__dirname, '../src/lib/assets/drawings');
 const MAP_FILE = path.resolve(__dirname, 'rename-map.json');
+const METADATA_DIR = path.resolve(__dirname, 'metadata');
 const BUCKET = 'drawings';
 const DRY_RUN = process.argv.includes('--dry-run');
 
@@ -57,6 +63,35 @@ if (fs.existsSync(MAP_FILE)) {
 }
 const oldToNew = new Map(Object.entries(renameMap));
 
+// Artwork metadata sidecars: scripts/metadata/<notebook>.json, loaded once per
+// notebook. A missing file is fine (no metadata); malformed JSON is fatal, so a
+// typo can never silently blank a whole notebook's metadata.
+const sidecarCache = new Map();
+function loadSidecar(notebook) {
+    if (sidecarCache.has(notebook)) return sidecarCache.get(notebook);
+
+    const file = path.join(METADATA_DIR, `${notebook}.json`);
+    let sidecar = {};
+    if (fs.existsSync(file)) {
+        try {
+            sidecar = JSON.parse(fs.readFileSync(file, 'utf8'));
+        } catch (err) {
+            console.error(`Malformed metadata sidecar: ${file}\n  ${err.message}`);
+            process.exit(1);
+        }
+    }
+    sidecarCache.set(notebook, sidecar);
+    return sidecar;
+}
+
+// defaults apply to the whole notebook; per-drawing entries override them.
+// `title` is per-drawing only — one title shared by a notebook is never right.
+function artworkMetadata(notebook, slug) {
+    const sidecar = loadSidecar(notebook);
+    const { title: _sharedTitle, ...defaults } = sidecar.defaults ?? {};
+    return { ...defaults, ...(sidecar.drawings?.[slug] ?? {}) };
+}
+
 // 1. Build rows from filesystem (originals only)
 const rows = [];
 for (const folder of fs.readdirSync(DRAWINGS_DIR)) {
@@ -72,6 +107,7 @@ for (const folder of fs.readdirSync(DRAWINGS_DIR)) {
         const drawingNumber = parseInt(match[2]);
         const slug          = `${notebook}_${match[2]}`;
         const storageUrl    = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${notebook}/${file}`;
+        const meta          = artworkMetadata(notebook, slug);
 
         rows.push({
             slug,
@@ -82,6 +118,11 @@ for (const folder of fs.readdirSync(DRAWINGS_DIR)) {
             stripe_product_id: null,
             stripe_price_id:   null,
             price_cents:       null,
+            title:             meta.title     ?? null,
+            year:              meta.year      ?? null,
+            medium:            meta.medium    ?? null,
+            width_cm:          meta.width_cm  ?? null,
+            height_cm:         meta.height_cm ?? null,
             sold:              false,
             reserved:          false,
         });
@@ -90,6 +131,28 @@ for (const folder of fs.readdirSync(DRAWINGS_DIR)) {
 
 rows.sort((a, b) => a.slug.localeCompare(b.slug));
 console.log(`\nFound ${rows.length} drawings on disk`);
+
+// 1b. Metadata summary + typo guard. A sidecar entry pointing at a slug (or a
+//     whole notebook) that isn't on disk writes nothing, so warn rather than
+//     fail — only malformed JSON, handled in loadSidecar, is fatal.
+const METADATA_FIELDS = ['title', 'year', 'medium', 'width_cm', 'height_cm'];
+const sidecarFiles = fs.existsSync(METADATA_DIR)
+    ? fs.readdirSync(METADATA_DIR).filter(f => f.endsWith('.json'))
+    : [];
+const slugsOnDisk = new Set(rows.map(r => r.slug));
+for (const file of sidecarFiles) {
+    const notebook = path.basename(file, '.json');
+    if (!rows.some(r => r.notebook === notebook)) {
+        console.warn(`  metadata/${file}: no drawings on disk for notebook "${notebook}"`);
+    }
+    for (const slug of Object.keys(loadSidecar(notebook).drawings ?? {})) {
+        if (!slugsOnDisk.has(slug)) {
+            console.warn(`  metadata/${file}: no drawing on disk for slug "${slug}"`);
+        }
+    }
+}
+const withMetadata = rows.filter(r => METADATA_FIELDS.some(f => r[f] !== null)).length;
+console.log(`Metadata: ${sidecarFiles.length} sidecars, ${withMetadata}/${rows.length} drawings with metadata`);
 
 // 2. Fetch Stripe products and match to rows
 const byNewSlug = new Map(rows.map(r => [r.slug, r]));
@@ -128,6 +191,11 @@ console.log(`Linked ${stripeLinked} Stripe products`);
 //    display_order are owned by checkout and the owner respectively — a
 //    re-seed must not reset any of them. Stripe metadata.sold can still ADD
 //    a sold flag (migration-era products), never clear one.
+//
+//    Artwork metadata (title / year / medium / width_cm / height_cm) is
+//    deliberately NOT preserved here: the repo owns those columns via
+//    scripts/metadata/<notebook>.json, so a re-seed overwrites the DB and
+//    deleting a sidecar key writes NULL. Edit the sidecar, not the row.
 const existingBySlug = new Map();
 const allSlugs = rows.map(r => r.slug);
 const IN_CHUNK = 200;
