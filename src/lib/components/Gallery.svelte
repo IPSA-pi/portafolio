@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { formatTitle } from '$lib/utils/formatTitle';
-	import type { ArtworkImage } from '$lib/utils/artwork';
+	import { artworkTitle, artworkAlt, type ArtworkImage } from '$lib/utils/artwork';
 
 	interface Props {
 		images?: ArtworkImage[];
@@ -37,7 +36,7 @@
 			onkeydown={(e) => {
 				if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTile(index); }
 			}}
-			aria-label="View {formatTitle(image.slug)} in fullscreen"
+			aria-label="View {artworkTitle(image, image.slug)} in fullscreen"
 		>
 			<img
 				src={image.sm}
@@ -45,7 +44,7 @@
 						{image.md} 1024w,
 						{image.lg} 1920w"
 				sizes="(min-width: 1024px) 17vw, (min-width: 768px) 25vw, 33vw"
-				alt={formatTitle(image.slug)}
+				alt={artworkAlt(image, image.slug)}
 				class="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 opacity-0"
 				loading={index < 3 ? 'eager' : 'lazy'}
 				onload={(e) => (e.currentTarget as HTMLImageElement).classList.replace('opacity-0', 'opacity-100')}

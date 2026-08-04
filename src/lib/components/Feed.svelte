@@ -5,8 +5,7 @@
     import { fade } from 'svelte/transition';
     import PurchaseButton from './PurchaseButton.svelte';
     import { cartItems, cartCount, addToCart, removeFromCart, MAX_CART_ITEMS } from '$lib/stores/cart';
-    import { formatTitle } from '$lib/utils/formatTitle';
-    import type { ArtworkImage } from '$lib/utils/artwork';
+    import { artworkTitle, artworkAlt, formatTombstone, type ArtworkImage } from '$lib/utils/artwork';
 
     interface Props {
         images: ArtworkImage[];
@@ -365,7 +364,7 @@
                     >
                         <img
                             src={image.md}
-                            alt={formatTitle(image.slug)}
+                            alt={artworkAlt(image, image.slug)}
                             class="w-full h-full object-contain shadow-2xl select-none"
                             draggable="false"
                             loading={Math.abs(i - startIndex) <= 1 ? 'eager' : 'lazy'}
@@ -441,11 +440,17 @@
         </button>
     {/if}
 
-    <!-- Title -->
+    <!-- Title (+ tombstone, when the drawing has metadata) -->
     {#if currentImage}
-        <p class="flex-1 min-w-0 text-center text-white text-sm tracking-wide truncate select-none pointer-events-none drop-shadow">
-            {formatTitle(currentImage.slug)}
-        </p>
+        {@const tombstone = formatTombstone(currentImage)}
+        <div class="flex-1 min-w-0 text-center select-none pointer-events-none">
+            <p class="text-white text-sm tracking-wide truncate drop-shadow">
+                {artworkTitle(currentImage, currentImage.slug)}
+            </p>
+            {#if tombstone}
+                <p class="text-white/60 text-[10px] tracking-wide truncate drop-shadow">{tombstone}</p>
+            {/if}
+        </div>
     {/if}
 
     <!-- Buy (or width-reserving spacer so the title stays centred) -->
