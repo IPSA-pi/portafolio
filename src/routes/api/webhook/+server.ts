@@ -3,6 +3,7 @@ import { getSupabase } from '$lib/server/supabase';
 import { getResend } from '$lib/server/resend';
 import { getSlugsFromSession } from '$lib/server/checkoutSlugs';
 import { releaseSessionReservations } from '$lib/server/reservations';
+import { formatTombstone } from '$lib/utils/artwork';
 import { env } from '$env/dynamic/private';
 import { error, json } from '@sveltejs/kit';
 
@@ -15,11 +16,36 @@ function escapeHtml(s: string): string {
         .replace(/'/g, '&#39;');
 }
 
-function buildCustomerEmail(customerName: string, slugs: string[]) {
-    const multiple = slugs.length > 1;
+// One purchased drawing as the emails present it: the slug (for subjects), the
+// display title — the drawing's own title, or the bare slug exactly as these
+// emails printed before metadata existed — and its tombstone, '' when the row
+// has no metadata.
+type EmailItem = { slug: string; title: string; tombstone: string };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toEmailItems(rows: any[]): EmailItem[] {
+    return rows.map((d) => ({
+        slug:  d.slug,
+        title: d.title?.trim() || d.slug,
+        tombstone: formatTombstone({
+            year:     d.year,
+            medium:   d.medium,
+            widthCm:  d.width_cm,
+            heightCm: d.height_cm,
+        }),
+    }));
+}
+
+const mutedLine = (text: string) =>
+    `<div style="font-size:13px;color:#999;">${escapeHtml(text)}</div>`;
+
+function buildCustomerEmail(customerName: string, items: EmailItem[]) {
+    const multiple = items.length > 1;
     const drawingsHtml = multiple
-        ? `<ul style="font-size:16px;color:#444;line-height:1.7;margin:0 0 16px;padding-left:20px;">${slugs.map((s) => `<li><strong>${s}</strong></li>`).join('')}</ul>`
-        : `<strong>${slugs[0]}</strong>`;
+        ? `<ul style="font-size:16px;color:#444;line-height:1.7;margin:0 0 16px;padding-left:20px;">${items
+              .map((i) => `<li><strong>${escapeHtml(i.title)}</strong>${i.tombstone ? mutedLine(i.tombstone) : ''}</li>`)
+              .join('')}</ul>`
+        : `<strong>${escapeHtml(items[0].title)}</strong>`;
 
     return `
 <!DOCTYPE html>
@@ -39,7 +65,11 @@ function buildCustomerEmail(customerName: string, slugs: string[]) {
                 ? `Your original drawings are on their way to you soon:`
                 : `Your original drawing ${drawingsHtml} is on its way to you soon.`}
           </p>
-          ${multiple ? drawingsHtml : ''}
+          ${multiple
+              ? drawingsHtml
+              : items[0].tombstone
+                  ? `<p style="font-size:13px;color:#999;line-height:1.7;margin:0 0 16px;">${escapeHtml(items[0].tombstone)}</p>`
+                  : ''}
           <p style="font-size:16px;color:#444;line-height:1.7;margin:0 0 16px;">
             I'll pack ${multiple ? 'them' : 'it'} carefully and ship ${multiple ? 'them' : 'it'} within 3–5 business days.
             You'll receive a follow-up email with tracking information once ${multiple ? 'they ship' : 'it ships'}.
@@ -60,7 +90,7 @@ function buildCustomerEmail(customerName: string, slugs: string[]) {
 </html>`;
 }
 
-function artistNotificationEmail(slugs: string[], customerName: string, customerEmail: string, address: any, amountTotal: number) {
+function artistNotificationEmail(items: EmailItem[], customerName: string, customerEmail: string, address: any, amountTotal: number) {
     const formattedAmount = new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(amountTotal / 100);
     const formattedAddress = escapeHtml(
         address
@@ -77,11 +107,13 @@ function artistNotificationEmail(slugs: string[], customerName: string, customer
       <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;padding:48px;">
         <tr><td>
           <p style="font-size:13px;letter-spacing:4px;text-transform:uppercase;color:#999;margin:0 0 32px;">Sale Notification</p>
-          <h1 style="font-size:28px;font-weight:400;color:#111;margin:0 0 32px;">You sold ${slugs.length > 1 ? `${slugs.length} drawings` : 'a drawing'}.</h1>
+          <h1 style="font-size:28px;font-weight:400;color:#111;margin:0 0 32px;">You sold ${items.length > 1 ? `${items.length} drawings` : 'a drawing'}.</h1>
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
-              <td style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#999;padding-bottom:4px;">Drawing${slugs.length > 1 ? 's' : ''}</td>
-              <td style="font-size:16px;color:#111;padding-bottom:16px;">${slugs.join(', ')}</td>
+              <td style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#999;padding-bottom:4px;">Drawing${items.length > 1 ? 's' : ''}</td>
+              <td style="font-size:16px;color:#111;padding-bottom:16px;">${items
+                  .map((i) => `${escapeHtml(i.title)}${i.tombstone ? mutedLine(i.tombstone) : ''}`)
+                  .join('<br/>')}</td>
             </tr>
             <tr>
               <td style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#999;padding-bottom:4px;">Amount</td>
@@ -118,7 +150,10 @@ async function fulfillOrder(session: any) {
         .update({ sold: true, reserved: false, reserved_at: null })
         .in('slug', slugs)
         .eq('sold', false)
-        .select('slug, price_cents');
+        // Artwork metadata comes back on the same query the sold-flip already
+        // runs — the emails below need it; the orders insert still uses only
+        // slug + price_cents.
+        .select('slug, price_cents, title, year, medium, width_cm, height_cm');
 
     if (updateError) {
         console.error('Error marking drawings sold:', updateError);
@@ -131,6 +166,7 @@ async function fulfillOrder(session: any) {
     }
 
     const soldSlugs = updated.map((d) => d.slug);
+    const emailItems = toEmailItems(updated);
     console.log(`Drawings marked as sold: ${soldSlugs.join(', ')}`);
 
     const customerEmail = session.customer_details?.email;
@@ -185,14 +221,14 @@ async function fulfillOrder(session: any) {
             from:    'Ian Sebelius <no-reply@iansebelius.com>',
             to:      customerEmail,
             subject: soldSlugs.length > 1 ? `Your original drawings (${soldSlugs.length})` : `Your original drawing — ${soldSlugs[0]}`,
-            html:    buildCustomerEmail(customerName, soldSlugs),
+            html:    buildCustomerEmail(customerName, emailItems),
         }));
     }
     emailSends.push(getResend().emails.send({
         from:    'Store <no-reply@iansebelius.com>',
         to:      'sebeliusancira@gmail.com',
         subject: soldSlugs.length > 1 ? `Sold: ${soldSlugs.length} drawings` : `Sold: ${soldSlugs[0]}`,
-        html:    artistNotificationEmail(soldSlugs, customerName, customerEmail ?? 'unknown', shippingAddress, amountTotal),
+        html:    artistNotificationEmail(emailItems, customerName, customerEmail ?? 'unknown', shippingAddress, amountTotal),
     }));
 
     const results = await Promise.allSettled(emailSends);

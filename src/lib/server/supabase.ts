@@ -11,6 +11,13 @@ export type Drawing = {
     stripe_product_id: string | null;
     stripe_price_id: string | null;
     price_cents: number | null;
+    // Artwork metadata — owned by the repo (scripts/metadata/<notebook>.json,
+    // written by scripts/seed.js), nullable everywhere: most rows have none.
+    title: string | null;
+    year: number | null;
+    medium: string | null;
+    width_cm: number | null;
+    height_cm: number | null;
     sold: boolean;
     reserved: boolean;
     reserved_at: string | null;
@@ -64,7 +71,10 @@ type Database = {
         Tables: {
             drawings: {
                 Row: Drawing;
-                Insert: Omit<Drawing, 'id' | 'created_at' | 'updated_at'> & Partial<Pick<Drawing, 'id' | 'created_at' | 'updated_at'>>;
+                // The artwork-metadata columns stay optional on insert: the seed
+                // supplies them, but /admin/drawings registers rows without any.
+                Insert: Omit<Drawing, 'id' | 'created_at' | 'updated_at' | 'title' | 'year' | 'medium' | 'width_cm' | 'height_cm'> &
+                    Partial<Pick<Drawing, 'id' | 'created_at' | 'updated_at' | 'title' | 'year' | 'medium' | 'width_cm' | 'height_cm'>>;
                 Update: Partial<Omit<Drawing, 'id'>>;
                 Relationships: [];
             };
