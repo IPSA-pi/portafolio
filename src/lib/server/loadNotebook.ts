@@ -4,13 +4,17 @@ import { getSupabase } from '$lib/server/supabase';
 import { getSlugsFromSession } from '$lib/server/checkoutSlugs';
 import { displayOrder } from '$lib/utils/shuffle';
 import { chronologyKey } from '$lib/utils/chronology';
+import type { ArtworkImage } from '$lib/utils/artwork';
 
 function variantUrl(storageUrl: string, variant: 'sm' | 'md' | 'lg'): string {
     return storageUrl.replace(/\.webp$/, `-${variant}.webp`);
 }
 
+// Artwork metadata rides the images array rather than `products`: `products`
+// only has entries for Stripe-priced drawings, and Gallery never receives it
+// at all. Every field is nullable — most rows carry none.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildImages(drawings: any[]) {
+function buildImages(drawings: any[]): ArtworkImage[] {
     return drawings.map(d => ({
         slug:     d.slug,
         notebook: d.notebook,
@@ -18,6 +22,11 @@ function buildImages(drawings: any[]) {
         sm:       variantUrl(d.storage_url, 'sm'),
         md:       variantUrl(d.storage_url, 'md'),
         lg:       variantUrl(d.storage_url, 'lg'),
+        title:    d.title,
+        year:     d.year,
+        medium:   d.medium,
+        widthCm:  d.width_cm,
+        heightCm: d.height_cm,
     }));
 }
 

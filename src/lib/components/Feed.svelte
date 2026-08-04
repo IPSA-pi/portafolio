@@ -6,9 +6,10 @@
     import PurchaseButton from './PurchaseButton.svelte';
     import { cartItems, cartCount, addToCart, removeFromCart, MAX_CART_ITEMS } from '$lib/stores/cart';
     import { formatTitle } from '$lib/utils/formatTitle';
+    import type { ArtworkImage } from '$lib/utils/artwork';
 
     interface Props {
-        images: { original: string; sm: string; md: string; lg: string; slug: string; notebook?: string }[];
+        images: ArtworkImage[];
         products: Record<string, { priceId: string; price: number; sold: boolean; reserved: boolean }>;
         startIndex: number;
         notebookSlug: string;

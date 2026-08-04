@@ -5,8 +5,7 @@
     import { chronologyKey } from '$lib/utils/chronology';
     import { seededShuffle } from '$lib/utils/shuffle';
     import { viewerOpen } from '$lib/stores/viewer';
-
-    type Img = { original: string; sm: string; md: string; lg: string; slug: string; notebook?: string };
+    import type { ArtworkImage as Img } from '$lib/utils/artwork';
 
     let { data } = $props();
 

@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { formatTitle } from '$lib/utils/formatTitle';
+	import type { ArtworkImage } from '$lib/utils/artwork';
 
 	interface Props {
-		images?: { original: string; sm: string; md: string; lg: string; slug: string; notebook?: string }[];
+		images?: ArtworkImage[];
 		notebookSlug?: string;
 		// `onOpen`, when provided, intercepts a tile click and receives the tile's
 		// index instead of navigating to a per-drawing URL. The All Drawings grid
