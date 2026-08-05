@@ -27,7 +27,7 @@ index both come from the same manifest, `src/lib/learn/chapters.ts`.
 **Part II — The shop**
 
 4. [How the shop works: Stripe + Supabase](./learn/04-shop.md) — data model, purchase flow,
-   payment verification, and the checkout's safety properties.
+   payment verification, the checkout's safety properties, and selling in two places at once.
 5. [Building the cart: war stories](./learn/05-cart.md) — seven real bugs from building the
    multi-item cart, and the general lesson inside each one.
 

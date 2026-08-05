@@ -51,7 +51,7 @@ export const parts: Part[] = [
                 file: '04-shop',
                 title: 'How the shop works: Stripe + Supabase',
                 description:
-                    'How two services split the work of selling one-of-a-kind drawings: data model, purchase flow, payment verification, and safety properties.'
+                    'How two services split the work of selling one-of-a-kind drawings: data model, purchase flow, payment verification, safety properties, and what breaks when the same piece can also sell in person.'
             },
             {
                 slug: 'cart',

@@ -15,6 +15,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const body = await request.json().catch(() => ({}));
     const slug = typeof body.slug === 'string' ? body.slug.trim() : '';
     const sold = body.sold;
+    // Booth override for the reserved-collision case — see the mark-sold
+    // branch below. Ignored when un-marking.
+    const force = body.force === true;
 
     if (!slug) {
         return json({ error: 'Missing slug' }, { status: 400 });
@@ -34,14 +37,41 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         // Same reservation guard as checkout's own atomic reserve — only takes
         // the drawing if it's not sold, and either not reserved or the
         // reservation is stale (dead checkout session).
-        const staleThreshold = new Date(Date.now() - STALE_RESERVATION_MS).toISOString();
-        const { data: updated, error: updateError } = await supabase
+        //
+        // `force` drops just the reservation clause. At the booth the owner is
+        // holding the physical drawing and the buyer's cash, so a live online
+        // hold is a tie they should win: the online buyer has not paid yet, and
+        // if they go on to pay, the webhook catches the collision and asks for a
+        // refund. `sold` is never overridden — that's a completed sale, not a
+        // hold, and reversing one belongs in Stripe.
+        const staleCutoff = Date.now() - STALE_RESERVATION_MS;
+        const staleThreshold = new Date(staleCutoff).toISOString();
+
+        // Only meaningful on the force path: on the normal one the WHERE below
+        // already guarantees no live hold was taken over.
+        let overrodeHold = false;
+        if (force) {
+            const { data: before } = await supabase
+                .from('drawings')
+                .select('reserved, reserved_at')
+                .eq('slug', slug)
+                .maybeSingle();
+            overrodeHold = Boolean(
+                before?.reserved &&
+                before.reserved_at &&
+                Date.parse(before.reserved_at) >= staleCutoff
+            );
+        }
+
+        let update = supabase
             .from('drawings')
             .update({ sold: true, reserved: false, reserved_at: null })
             .eq('slug', slug)
-            .eq('sold', false)
-            .or(`reserved.eq.false,reserved_at.lt.${staleThreshold}`)
-            .select('slug, price_cents');
+            .eq('sold', false);
+        if (!force) {
+            update = update.or(`reserved.eq.false,reserved_at.lt.${staleThreshold}`);
+        }
+        const { data: updated, error: updateError } = await update.select('slug, price_cents');
 
         if (updateError) {
             console.error('Error marking drawing sold:', updateError);
@@ -59,16 +89,25 @@ export const POST: RequestHandler = async ({ request, locals }) => {
                 return json({ error: 'Drawing not found' }, { status: 404 });
             }
             if (existing.sold) {
-                return json({ error: 'Already sold' }, { status: 409 });
+                return json({ error: 'Already sold', reason: 'already_sold' }, { status: 409 });
             }
-            // Not sold, not takeable by our WHERE ⇒ it's actively (non-stale) reserved.
+            // Not sold, not takeable by our WHERE ⇒ it's actively (non-stale)
+            // reserved. `reason` lets the booth UI offer the override rather
+            // than just reporting the failure (unreachable when force is set).
             return json(
-                { error: "In someone's online checkout — wait a few minutes and retry" },
+                { error: "In someone's online checkout", reason: 'reserved' },
                 { status: 409 }
             );
         }
 
         const drawing = updated[0];
+
+        if (overrodeHold) {
+            console.warn(
+                `Booth override: ${slug} marked sold while in a live online checkout — ` +
+                `refund that buyer if their session goes on to pay`
+            );
+        }
 
         // Never-throw style, mirroring the webhook's order insert: the sale is
         // already recorded on the drawing row, so an insert failure here must
@@ -88,9 +127,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
         if (insertError) {
             console.error(`Error inserting manual order record for ${slug}:`, insertError);
-            return json({ ok: true, recorded: false });
+            return json({ ok: true, recorded: false, overrodeHold });
         }
-        return json({ ok: true, recorded: true });
+        return json({ ok: true, recorded: true, overrodeHold });
     }
 
     // Undo — only in-person sales are reversible. A Stripe sale must never be

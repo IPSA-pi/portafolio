@@ -136,6 +136,55 @@ function artistNotificationEmail(items: EmailItem[], customerName: string, custo
 </html>`;
 }
 
+// Sent to the owner only, when a buyer paid for a drawing that had already
+// been sold in person. Plain and loud on purpose — it's a to-do, not a receipt.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function collisionEmail(collided: string[], session: any) {
+    const multiple = collided.length > 1;
+    const buyerEmail = session.customer_details?.email ?? 'unknown';
+    const buyerName  = session.customer_details?.name ?? 'unknown';
+
+    return `
+<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#f9f9f9;font-family:Georgia,serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;padding:48px;">
+        <tr><td>
+          <p style="font-size:13px;letter-spacing:4px;text-transform:uppercase;color:#c00;margin:0 0 32px;">Action needed</p>
+          <h1 style="font-size:28px;font-weight:400;color:#111;margin:0 0 24px;">
+            Someone paid for ${multiple ? 'drawings that were' : 'a drawing that was'} already sold.
+          </h1>
+          <p style="font-size:16px;color:#444;line-height:1.7;margin:0 0 16px;">
+            ${multiple ? 'These were' : 'This was'} marked sold in person, so the online buyer
+            can't be fulfilled. <strong>Refund them in Stripe</strong> and let them know.
+          </p>
+          <ul style="font-size:16px;color:#444;line-height:1.7;margin:0 0 24px;padding-left:20px;">
+            ${collided.map((s) => `<li><strong>${escapeHtml(s)}</strong></li>`).join('')}
+          </ul>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
+            <tr>
+              <td style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#999;padding-bottom:4px;">Buyer</td>
+              <td style="font-size:16px;color:#111;padding-bottom:16px;">${escapeHtml(buyerName)} — ${escapeHtml(buyerEmail)}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#999;padding-bottom:4px;">Session</td>
+              <td style="font-size:14px;color:#111;padding-bottom:16px;font-family:monospace;">${escapeHtml(session.id)}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#999;padding-bottom:4px;">Payment</td>
+              <td style="font-size:14px;color:#111;padding-bottom:16px;font-family:monospace;">${escapeHtml(session.payment_intent ?? 'unknown')}</td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
 async function fulfillOrder(session: any) {
     const slugs = getSlugsFromSession(session);
     if (slugs.length === 0) return;
@@ -160,13 +209,59 @@ async function fulfillOrder(session: any) {
         throw error(500, 'Failed to record sale');
     }
 
-    if (!updated || updated.length === 0) {
-        console.log(`Drawings already sold, skipping: ${slugs.join(', ')}`);
-        return;
+    const rows = updated ?? [];
+    const soldSlugs = rows.map((d) => d.slug);
+    const missing = slugs.filter((s) => !soldSlugs.includes(s));
+
+    // A slug we didn't flip is one of two things: one this same session already
+    // fulfilled (a Stripe webhook retry — normal, stay quiet), or one that was
+    // sold out from under this buyer at the booth while they were in checkout,
+    // who then went on to pay. Our own fulfilment always writes an orders row
+    // keyed by this session id, so the table tells the two apart.
+    //
+    // Note this also catches the partial case — a cart where only some of the
+    // drawings were taken at the booth still fulfils the rest below.
+    if (missing.length > 0) {
+        const { data: ourOrders } = await getSupabase()
+            .from('orders')
+            .select('drawing_slug')
+            .eq('stripe_session_id', session.id);
+        const alreadyOurs = new Set((ourOrders ?? []).map((o) => o.drawing_slug));
+        const collided = missing.filter((s) => !alreadyOurs.has(s));
+
+        if (collided.length > 0) {
+            // Deliberately no orders row for these — the booth sale already
+            // wrote one, and a second would double-count the revenue — and no
+            // automated customer email: the refund and the apology are the
+            // owner's to make, not a template's. Just make sure they hear.
+            console.error(
+                `COLLISION: session ${session.id} paid for already-sold ${collided.join(', ')} — refund required`
+            );
+            // This is the one email whose delivery really matters — a buyer is
+            // owed money until the owner acts on it. Resend resolves with an
+            // `error` field rather than rejecting, so a bare try/catch would
+            // let a failed send pass silently; check both.
+            try {
+                const { error: sendError } = await getResend().emails.send({
+                    from:    'Store <no-reply@iansebelius.com>',
+                    to:      'sebeliusancira@gmail.com',
+                    subject: `ACTION NEEDED — refund ${collided.join(', ')}`,
+                    html:    collisionEmail(collided, session),
+                });
+                if (sendError) {
+                    console.error(`Collision alert REJECTED for ${session.id}:`, sendError);
+                }
+            } catch (e) {
+                console.error(`Collision alert FAILED to send for ${session.id}:`, e);
+            }
+        } else {
+            console.log(`Drawings already fulfilled by this session, skipping: ${missing.join(', ')}`);
+        }
     }
 
-    const soldSlugs = updated.map((d) => d.slug);
-    const emailItems = toEmailItems(updated);
+    if (rows.length === 0) return;
+
+    const emailItems = toEmailItems(rows);
     console.log(`Drawings marked as sold: ${soldSlugs.join(', ')}`);
 
     const customerEmail = session.customer_details?.email;
@@ -189,7 +284,7 @@ async function fulfillOrder(session: any) {
     // discounts today, so per-item price is the honest allocation.
     const { error: insertError } = await getSupabase()
         .from('orders')
-        .insert(updated.map(({ slug, price_cents }) => ({
+        .insert(rows.map(({ slug, price_cents }) => ({
             drawing_slug: slug,
             stripe_session_id: session.id,
             payment_intent: session.payment_intent ?? null,

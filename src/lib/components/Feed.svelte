@@ -86,18 +86,21 @@
     // (see /admin/drawings/sold). Gated on currentProduct like PurchaseButton
     // itself: only listed (priced) drawings have a products entry.
     let isAdmin = $derived(Boolean($page.data.isAdmin));
-    let ownerToast = $state<'none' | 'choose-method' | 'confirm-undo'>('none');
+    let ownerToast = $state<'none' | 'choose-method' | 'confirm-undo' | 'confirm-force'>('none');
     let ownerBusy = $state(false);
-    let ownerError = $state<string | null>(null);
-    let ownerErrorTimeout: ReturnType<typeof setTimeout> | undefined;
+    let ownerMessage = $state<string | null>(null);
+    let ownerMessageTimeout: ReturnType<typeof setTimeout> | undefined;
+    // The method picked before a 'reserved' 409, so "Take it anyway" can retry
+    // with it rather than asking cash/e-transfer a second time.
+    let pendingMethod = $state<'cash' | 'etransfer'>('cash');
 
-    function showOwnerError(message: string) {
-        ownerError = message;
-        clearTimeout(ownerErrorTimeout);
-        ownerErrorTimeout = setTimeout(() => (ownerError = null), 4000);
+    function showOwnerMessage(message: string) {
+        ownerMessage = message;
+        clearTimeout(ownerMessageTimeout);
+        ownerMessageTimeout = setTimeout(() => (ownerMessage = null), 6000);
     }
 
-    async function postSoldStatus(sold: boolean, method?: 'cash' | 'etransfer') {
+    async function postSoldStatus(sold: boolean, method?: 'cash' | 'etransfer', force = false) {
         if (!currentImage || ownerBusy) return;
         ownerBusy = true;
         ownerToast = 'none';
@@ -105,12 +108,28 @@
             const res = await fetch('/admin/drawings/sold', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ slug: currentImage.slug, sold, ...(method ? { method } : {}) })
+                body: JSON.stringify({
+                    slug: currentImage.slug,
+                    sold,
+                    ...(method ? { method } : {}),
+                    ...(force ? { force: true } : {})
+                })
             });
             const resBody = await res.json().catch(() => ({}));
             if (!res.ok) {
-                showOwnerError(resBody.error ?? 'Something went wrong');
+                // A live online hold is the one refusal the owner can overrule:
+                // they're holding the drawing and the cash. Offer the override
+                // rather than leaving them stuck at the table for 35 minutes.
+                if (res.status === 409 && resBody.reason === 'reserved' && method) {
+                    pendingMethod = method;
+                    ownerToast = 'confirm-force';
+                    return;
+                }
+                showOwnerMessage(resBody.error ?? 'Something went wrong');
                 return;
+            }
+            if (resBody.overrodeHold) {
+                showOwnerMessage('Marked sold — refund that buyer if their checkout goes through');
             }
             await invalidateAll();
         } finally {
@@ -562,13 +581,40 @@
             </button>
         </div>
     </div>
+{:else if ownerToast === 'confirm-force'}
+    <div
+        transition:fade={{ duration: 150 }}
+        class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-black px-4 py-3 text-white shadow-lg max-w-[90vw]"
+    >
+        <p class="text-xs text-white">Someone's in online checkout for this one.</p>
+        <p class="max-w-[18rem] text-center text-xs text-white/60">
+            Take it anyway if you're holding the drawing — if their payment goes through,
+            you'll need to refund them in Stripe.
+        </p>
+        <div class="flex gap-2">
+            <button
+                onclick={() => postSoldStatus(true, pendingMethod, true)}
+                disabled={ownerBusy}
+                class="rounded-full bg-red-500/80 px-4 py-1.5 text-sm font-semibold hover:bg-red-500 disabled:opacity-50"
+            >
+                Take it anyway
+            </button>
+            <button
+                onclick={() => (ownerToast = 'none')}
+                disabled={ownerBusy}
+                class="rounded-full bg-white/5 px-4 py-1.5 text-sm text-white hover:bg-white/10 disabled:opacity-50"
+            >
+                Cancel
+            </button>
+        </div>
+    </div>
 {/if}
 
-{#if ownerError}
+{#if ownerMessage}
     <div
         transition:fade={{ duration: 150 }}
         class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] bg-black text-white text-sm px-5 py-3 rounded-full shadow-lg border border-white/10 max-w-[90vw] text-center"
     >
-        {ownerError}
+        {ownerMessage}
     </div>
 {/if}
