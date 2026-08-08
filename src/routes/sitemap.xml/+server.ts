@@ -20,6 +20,7 @@ const STATIC_PATHS = [
     '/learn',
     '/new-music',
     '/text2binary',
+    '/contact',
     '/privacy',
     '/terms',
 ];

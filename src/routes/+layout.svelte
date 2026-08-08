@@ -203,6 +203,7 @@
       {#if ABOUT_PUBLISHED}
         <a href="/about" class="text-xs text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors">About</a>
       {/if}
+      <a href="/contact" class="text-xs text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors">Contact</a>
       <a href="/privacy" class="text-xs text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors">Privacy Policy</a>
       <a href="/terms" class="text-xs text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors">Terms of Service</a>
     </div>
