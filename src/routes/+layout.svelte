@@ -49,7 +49,9 @@
   });
 
   let navLinks = $derived([
-    { href: '/drawing', label: 'Drawing' },
+    // Points at the all-drawings feed, not the notebook listing at /drawing —
+    // that page is still reachable (breadcrumb, cart, post-purchase returns).
+    { href: '/drawing/feed', label: 'Drawing' },
     { href: '/learn', label: 'Learn' },
     { href: '/new-music', label: 'New Music' },
     { href: '/text2binary', label: 'Text2Binary' },
