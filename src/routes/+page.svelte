@@ -11,8 +11,10 @@
   type Orientation = 'auto' | 'horizontal' | 'vertical';
   type Range       = 'full' | 'time' | 'date';
 
+  // Fixed defaults: the settings panel is commented out in the markup below,
+  // so these are what the clock always renders with.
   let msPrecision  = $state<MsPrecision>('none');
-  let mode         = $state<DisplayMode>('binary');
+  let mode         = $state<DisplayMode>('digits');
   let colorOn      = $state('#ffffff');
   let alphaOn      = $state(100);
   let colorOff     = $state('#000000');
@@ -20,7 +22,7 @@
   let squareSize   = $state(20);
   let glowSize     = $state(8);
   let orientation  = $state<Orientation>('auto');
-  let range        = $state<Range>('full');
+  let range        = $state<Range>('time'); // hms
   let settingsOpen = $state(false);
   let isPortrait   = $state(true);
   let clockEl: HTMLElement | undefined = $state();
@@ -106,6 +108,18 @@
 
 <div class="{$isFullscreen ? 'h-screen' : 'h-[calc(100vh-4rem)]'} flex flex-col justify-center items-center overflow-hidden">
 
+  <!--
+    Controls disabled. The clock is a plain, non-interactive element and the
+    settings panel below is unreachable (nothing sets `settingsOpen` to true
+    any more). To bring the controls back, delete this <div> and uncomment the
+    <button> wrapper underneath it — the panel markup is still intact.
+  -->
+  <div bind:this={clockEl} class="portrait:scale-[2] portrait:my-16">
+    <BinaryClock {msPrecision} {mode} blendMode="normal" showBg={false}
+      colorOn={colorOnRgba} colorOff={colorOffRgba} {squareSize} {glowSize} {orientation} {range} />
+  </div>
+
+  <!--
   <button
     type="button"
     bind:this={clockEl}
@@ -116,8 +130,30 @@
     <BinaryClock {msPrecision} {mode} blendMode="normal" showBg={false}
       colorOn={colorOnRgba} colorOff={colorOffRgba} {squareSize} {glowSize} {orientation} {range} />
   </button>
+  -->
 
 </div>
+
+<!-- Fullscreen toggle. It used to live in the settings panel; with that panel
+     commented out it's the one control still reachable, so it stands on its
+     own in the corner (and stays visible in fullscreen, to get back out). -->
+<button
+  type="button"
+  onclick={toggleFullscreen}
+  title={$isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+  aria-label={$isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+  class="fixed bottom-4 right-4 z-20 p-2 text-white/50 hover:text-white transition-colors"
+>
+  {#if $isFullscreen}
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25" />
+    </svg>
+  {:else}
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+    </svg>
+  {/if}
+</button>
 
 <svelte:window onclick={(e) => {
   if (!$isFullscreen || !settingsOpen) return;
@@ -126,7 +162,8 @@
   settingsOpen = false;
 }} />
 
-<!-- Settings panel -->
+<!-- Settings panel — kept intact but currently unreachable: `settingsOpen`
+     never becomes true while the clock's toggle button is commented out. -->
 {#if settingsOpen}
   <div
     bind:this={settingsEl}
