@@ -10,6 +10,23 @@ function variantUrl(storageUrl: string, variant: 'sm' | 'md' | 'lg'): string {
     return storageUrl.replace(/\.webp$/, `-${variant}.webp`);
 }
 
+// Exactly the columns buildImages + buildProducts read, plus display_order for
+// the sort — never `*`. These queries run per request at the edge over every
+// drawing in the table, so the unread columns (id, drawing_number,
+// stripe_product_id, reserved_at, created_at, updated_at) are pure transfer
+// cost. Keep this in sync when either builder starts reading a new column.
+const GALLERY_COLUMNS =
+    'slug, notebook, storage_url, display_order, stripe_price_id, price_cents, sold, reserved, title, year, medium, width_cm, height_cm';
+
+// Public gallery reads are effectively static between sales. `max-age=0` keeps
+// the buyer's own browser revalidating — so a drawing they just bought never
+// looks available on the way back — while shared caches may serve up to a
+// minute old, and up to five more while revalidating. Availability is never
+// trusted from this payload anyway: /cart re-checks it live through
+// /api/drawings/status, and /api/checkout re-checks it atomically at
+// reservation time.
+export const GALLERY_CACHE_CONTROL = 'public, max-age=0, s-maxage=60, stale-while-revalidate=300';
+
 // Artwork metadata rides the images array rather than `products`: `products`
 // only has entries for Stripe-priced drawings, and Gallery never receives it
 // at all. Every field is nullable — most rows carry none.
@@ -53,7 +70,7 @@ export async function loadNotebook(
 ) {
     const { data: drawings, error: dbError } = await getSupabase()
         .from('drawings')
-        .select('*')
+        .select(GALLERY_COLUMNS)
         .eq('notebook', slug)
         .order('display_order', { ascending: true });
 
@@ -98,7 +115,7 @@ export async function loadNotebook(
 export async function loadAllDrawings() {
     const { data: drawings, error: dbError } = await getSupabase()
         .from('drawings')
-        .select('*')
+        .select(GALLERY_COLUMNS)
         .order('display_order', { ascending: true });
 
     if (dbError) {
