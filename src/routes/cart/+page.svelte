@@ -6,6 +6,8 @@
     import { formatPrice } from '$lib/utils/formatPrice';
     import { handleCheckoutReturn, setPendingCheckout } from '$lib/utils/checkoutReturn';
     import Seo from '$lib/components/Seo.svelte';
+    import PageHeader from '$lib/components/PageHeader.svelte';
+    import Notice from '$lib/components/Notice.svelte';
 
     type Availability = { sold: boolean; reserved: boolean; price_cents: number | null };
 
@@ -93,32 +95,49 @@
     <meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8 max-w-2xl">
-    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-8">Cart</h1>
+<div class="shell max-w-2xl pb-20">
+    <!-- The bit-rule doubles as the cart's count readout: it fills as items go in. -->
+    <PageHeader
+        eyebrow="Checkout"
+        title="Cart"
+        count={$cartItems.length}
+        countMax={MAX_CART_ITEMS}
+        countUnit={$cartItems.length === 1 ? 'drawing' : 'drawings'}
+    />
 
     {#if $cartItems.length === 0}
-        <div class="text-center py-16">
-            <p class="text-gray-800 dark:text-white mb-4">Your cart is empty.</p>
-            <a href="/drawing" class="text-sm font-medium text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors">
-                Browse drawings →
+        <div class="border border-line/12 bg-surface-raised px-6 py-16 text-center">
+            <p class="font-body text-body text-content">Nothing here yet.</p>
+            <a
+                href="/drawing/feed"
+                class="mt-3 inline-block font-mono text-label uppercase text-signal transition-colors hover:text-signal-strong"
+            >
+                Browse the drawings →
             </a>
         </div>
     {:else}
-        <ul class="divide-y divide-black/10 dark:divide-white/10 mb-8">
+        <ul class="mb-10 border-y border-line/12">
             {#each $cartItems as item (item.slug)}
                 {@const unavailable = isUnavailable(item.slug)}
-                <li class="flex items-center gap-4 py-4">
+                <li class="flex items-center gap-4 border-b border-line/12 py-4 last:border-b-0">
                     <img
                         src={item.image}
                         alt={formatTitle(item.slug)}
-                        class="w-20 h-20 object-cover rounded bg-zinc-200 dark:bg-zinc-800 flex-none {unavailable ? 'grayscale opacity-60' : ''}"
+                        class="h-20 w-20 flex-none border border-line/12 bg-surface-raised object-cover {unavailable ? 'grayscale opacity-50' : ''}"
                     />
-                    <div class="flex-1 min-w-0">
-                        <p class="font-medium text-gray-900 dark:text-white truncate">{formatTitle(item.slug)}</p>
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate text-title {unavailable ? 'text-content-dim line-through' : 'text-content'}">
+                            {formatTitle(item.slug)}
+                        </p>
                         {#if unavailable}
-                            <p class="text-sm text-red-600 dark:text-red-400 mt-1">No longer available — please remove</p>
+                            <!-- Sold out mid-cart is a genuine failure of this
+                                 flow, so it earns the alert hue. A drawing that
+                                 was already sold when you found it does not. -->
+                            <p class="mt-1 font-mono text-label uppercase text-alert">
+                                Sold while in your cart
+                            </p>
                         {:else}
-                            <p class="text-sm text-gray-800 dark:text-white mt-1">
+                            <p class="mt-1 font-mono text-meta text-signal">
                                 {formatPrice(availability[item.slug]?.price_cents ?? item.price)}
                             </p>
                         {/if}
@@ -126,7 +145,7 @@
                     <button
                         type="button"
                         onclick={() => removeFromCart(item.slug)}
-                        class="text-sm text-gray-800 dark:text-white hover:text-red-600 dark:hover:text-red-400 transition-colors flex-none"
+                        class="flex-none font-mono text-label uppercase text-content-dim transition-colors hover:text-alert"
                     >
                         Remove
                     </button>
@@ -134,30 +153,38 @@
             {/each}
         </ul>
 
-        <div class="flex items-center justify-between mb-2 text-lg">
-            <span class="font-medium text-gray-900 dark:text-white">Subtotal</span>
-            <span class="font-semibold text-gray-900 dark:text-white">{formatPrice($cartTotal)}</span>
+        <div class="flex items-baseline justify-between border-b border-line/12 pb-4">
+            <span class="font-mono text-label uppercase text-content-dim">Subtotal</span>
+            <span class="font-mono text-title text-content">{formatPrice($cartTotal)}</span>
         </div>
-        <p class="text-sm text-gray-800 dark:text-white mb-2">
-            Each drawing is a one-of-a-kind original. Free worldwide shipping.
+        <p class="mt-4 font-body text-body text-content-dim">
+            Every drawing here is a one-of-a-kind original. Shipping is free, worldwide.
         </p>
+
         {#if $cartItems.length >= MAX_CART_ITEMS}
-            <p class="text-sm text-amber-600 dark:text-amber-400 mb-4">
-                Cart is full ({MAX_CART_ITEMS} max) — remove an item to add another.
+            <p class="mt-4 font-mono text-label uppercase text-content-dim">
+                Cart is full at {MAX_CART_ITEMS} — remove one to add another.
             </p>
         {/if}
 
         {#if checkoutError}
-            <p class="text-sm text-red-600 dark:text-red-400 mb-4">{checkoutError}</p>
+            <div class="mt-6">
+                <Notice tone="error" label="Checkout failed">{checkoutError}</Notice>
+            </div>
         {/if}
 
         <button
             type="button"
             onclick={handleCheckout}
             disabled={checkingOutLoading || checkingAvailability || anyUnavailable}
-            class="w-full bg-black dark:bg-white text-white dark:text-black py-3 rounded-full font-bold uppercase tracking-widest text-sm hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="mt-8 w-full bg-content py-4 font-mono text-label uppercase text-surface transition-all hover:bg-signal hover:text-surface active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-content"
         >
-            {checkingOutLoading ? 'Redirecting…' : 'Checkout'}
+            {checkingOutLoading ? 'Redirecting to payment…' : 'Continue to payment'}
         </button>
+        {#if anyUnavailable}
+            <p class="mt-3 text-center font-mono text-label uppercase text-alert">
+                Remove the sold drawing to continue
+            </p>
+        {/if}
     {/if}
 </div>

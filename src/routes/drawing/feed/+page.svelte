@@ -2,6 +2,7 @@
     import Feed from '$lib/components/Feed.svelte';
     import Gallery from '$lib/components/Gallery.svelte';
     import Seo from '$lib/components/Seo.svelte';
+    import PageHeader from '$lib/components/PageHeader.svelte';
     import { chronologyKey } from '$lib/utils/chronology';
     import { seededShuffle } from '$lib/utils/shuffle';
     import { viewerOpen } from '$lib/stores/viewer';
@@ -89,6 +90,14 @@
                     (im.notebook ?? '').toLowerCase().includes(q))
         );
     });
+
+    // One place decides segment styling, so the active/inactive rules can't
+    // drift between the three control groups.
+    const SEGMENT = 'border-b-2 px-4 py-2 font-mono text-label uppercase transition-colors';
+    const segment = (active: boolean) =>
+        `${SEGMENT} ${active
+            ? 'border-signal bg-surface-raised text-content'
+            : 'border-transparent text-content-dim hover:text-signal'}`;
 </script>
 
 <Seo
@@ -107,48 +116,41 @@
         onClose={() => (openIndex = null)}
     />
 {:else}
-    <div class="container mx-auto px-4 py-8">
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">All Drawings</h1>
-            <p class="mt-2 text-gray-800 dark:text-white">
-                Every drawing across all notebooks — sort, shuffle or filter by availability.
-            </p>
+    <div class="shell pb-20">
+        <!-- The bit-rule encodes what's actually on screen, so it re-reads on
+             every sort, filter and keystroke. `countMax` pins the bit width to
+             the full set so the rule doesn't resize while you type. -->
+        <PageHeader
+            eyebrow="Original drawings"
+            title="All drawings"
+            count={visible.length}
+            countMax={data.images.length}
+            countUnit="shown"
+        >
+            Every page from every notebook, in one view. Sort it, shuffle it, or narrow
+            it to what's still available.
+        </PageHeader>
 
-            <!-- View toggle: Notebooks ⇄ All Drawings (this page) -->
-            <div class="mt-6 inline-flex rounded-full border border-black/10 dark:border-white/15 p-1 text-sm">
-                <a
-                    href="/drawing"
-                    class="px-4 py-1.5 rounded-full text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors"
-                >
-                    Notebooks
-                </a>
-                <span class="px-4 py-1.5 rounded-full bg-black text-white dark:bg-white dark:text-black font-medium">
-                    All Drawings
-                </span>
-            </div>
+        <!-- View toggle: Notebooks ⇄ All Drawings (this page) -->
+        <div class="mt-2 mb-6 inline-flex border border-line/15">
+            <a
+                href="/drawing"
+                class="border-b-2 border-transparent px-5 py-2 font-mono text-label uppercase text-content-dim transition-colors hover:text-signal"
+            >
+                Notebooks
+            </a>
+            <span class="border-b-2 border-l border-signal border-l-line/15 bg-surface-raised px-5 py-2 font-mono text-label uppercase text-content">
+                All drawings
+            </span>
         </div>
 
         <!-- Filter bar: order + availability + text search -->
-        <div class="mb-6 flex flex-wrap items-center gap-3">
-            <div class="inline-flex rounded-full border border-black/10 dark:border-white/15 p-1 text-sm">
-                <button
-                    type="button"
-                    aria-pressed={sort === 'newest'}
-                    onclick={() => (sort = 'newest')}
-                    class="px-4 py-1.5 rounded-full transition-colors {sort === 'newest'
-                        ? 'bg-black text-white dark:bg-white dark:text-black font-medium'
-                        : 'text-black dark:text-white hover:text-accent dark:hover:text-accent'}"
-                >
+        <div class="mb-8 flex flex-wrap items-center gap-3">
+            <div class="inline-flex border border-line/15">
+                <button type="button" aria-pressed={sort === 'newest'} onclick={() => (sort = 'newest')} class={segment(sort === 'newest')}>
                     Newest
                 </button>
-                <button
-                    type="button"
-                    aria-pressed={sort === 'oldest'}
-                    onclick={() => (sort = 'oldest')}
-                    class="px-4 py-1.5 rounded-full transition-colors {sort === 'oldest'
-                        ? 'bg-black text-white dark:bg-white dark:text-black font-medium'
-                        : 'text-black dark:text-white hover:text-accent dark:hover:text-accent'}"
-                >
+                <button type="button" aria-pressed={sort === 'oldest'} onclick={() => (sort = 'oldest')} class="{segment(sort === 'oldest')} border-l border-l-line/15">
                     Oldest
                 </button>
                 <button
@@ -156,9 +158,7 @@
                     aria-pressed={sort === 'shuffle'}
                     onclick={pickShuffle}
                     title={sort === 'shuffle' ? 'Shuffle again' : 'Random order'}
-                    class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full transition-colors {sort === 'shuffle'
-                        ? 'bg-black text-white dark:bg-white dark:text-black font-medium'
-                        : 'text-black dark:text-white hover:text-accent dark:hover:text-accent'}"
+                    class="{segment(sort === 'shuffle')} inline-flex items-center gap-2 border-l border-l-line/15"
                 >
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -166,7 +166,7 @@
                         viewBox="0 0 24 24"
                         stroke-width="1.5"
                         stroke="currentColor"
-                        class="h-4 w-4"
+                        class="h-3.5 w-3.5"
                         aria-hidden="true"
                     >
                         <path
@@ -179,15 +179,13 @@
                 </button>
             </div>
 
-            <div class="inline-flex rounded-full border border-black/10 dark:border-white/15 p-1 text-sm">
-                {#each AVAILABILITY_OPTIONS as opt}
+            <div class="inline-flex border border-line/15">
+                {#each AVAILABILITY_OPTIONS as opt, i}
                     <button
                         type="button"
                         aria-pressed={availability === opt.value}
                         onclick={() => (availability = opt.value)}
-                        class="px-4 py-1.5 rounded-full transition-colors {availability === opt.value
-                            ? 'bg-black text-white dark:bg-white dark:text-black font-medium'
-                            : 'text-black dark:text-white hover:text-accent dark:hover:text-accent'}"
+                        class="{segment(availability === opt.value)} {i > 0 ? 'border-l border-l-line/15' : ''}"
                     >
                         {opt.label}
                     </button>
@@ -197,22 +195,45 @@
             <input
                 type="search"
                 bind:value={query}
-                placeholder="Search notebook or title…"
+                placeholder="Search notebook or title"
                 aria-label="Search drawings by notebook or title"
-                class="min-w-0 flex-1 sm:flex-none sm:w-64 rounded-full border border-black/10 dark:border-white/15 bg-transparent px-4 py-1.5 text-sm text-gray-900 dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-accent/40"
+                class="min-w-0 flex-1 border border-line/15 bg-transparent px-4 py-2 font-mono text-label uppercase text-content transition-colors placeholder:text-content-dim focus:border-signal focus:outline-none sm:w-64 sm:flex-none"
             />
         </div>
 
         {#if visible.length === 0}
-            <p class="py-16 text-center text-gray-800 dark:text-white">
+            <!-- An empty screen is an invitation to act, so each case says what
+                 to do next rather than only what's missing. -->
+            <div class="border border-line/12 bg-surface-raised px-6 py-16 text-center">
                 {#if query.trim()}
-                    No drawings match “{query}”.
+                    <p class="font-body text-body text-content">No drawing matches “{query}”.</p>
+                    <button
+                        type="button"
+                        onclick={() => (query = '')}
+                        class="mt-3 font-mono text-label uppercase text-signal transition-colors hover:text-signal-strong"
+                    >
+                        Clear the search
+                    </button>
                 {:else if availability === 'sold'}
-                    No drawings have sold yet.
+                    <p class="font-body text-body text-content">Nothing has sold yet — every drawing is still available.</p>
+                    <button
+                        type="button"
+                        onclick={() => (availability = 'available')}
+                        class="mt-3 font-mono text-label uppercase text-signal transition-colors hover:text-signal-strong"
+                    >
+                        Show what's available
+                    </button>
                 {:else}
-                    No drawings are available right now.
+                    <p class="font-body text-body text-content">Every drawing is spoken for right now.</p>
+                    <button
+                        type="button"
+                        onclick={() => (availability = 'all')}
+                        class="mt-3 font-mono text-label uppercase text-signal transition-colors hover:text-signal-strong"
+                    >
+                        Show all drawings
+                    </button>
                 {/if}
-            </p>
+            </div>
         {:else}
             <Gallery images={visible} onOpen={(i) => (openIndex = i)} />
         {/if}

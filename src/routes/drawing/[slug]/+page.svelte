@@ -4,12 +4,16 @@
     import { invalidateAll, replaceState } from "$app/navigation";
     import Gallery from "$lib/components/Gallery.svelte";
     import Seo from "$lib/components/Seo.svelte";
+    import PageHeader from "$lib/components/PageHeader.svelte";
+    import Notice from "$lib/components/Notice.svelte";
     import { removeFromCart } from "$lib/stores/cart";
     import { handleCheckoutReturn, clearPendingCheckout } from "$lib/utils/checkoutReturn";
+    import { formatNotebook } from "$lib/utils/formatNotebook";
 
     let { data } = $props();
 
     let title = $derived($page.params.slug ?? "Gallery");
+    let displayTitle = $derived(formatNotebook(title));
     let showSuccess = $state(false);
 
     onMount(async () => {
@@ -45,26 +49,34 @@
     path={$page.url.pathname}
 />
 
-<div class="container mx-auto px-4 py-8">
-    <div class="mb-8 flex items-baseline gap-4">
-        <a
-            href="/drawing"
-            class="text-sm text-gray-800 dark:text-white hover:text-black dark:hover:text-accent transition-colors"
-            >← Back</a
-        >
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
-            {title}
-        </h1>
-    </div>
-
+<div class="shell pb-20">
     {#if showSuccess}
-        <div class="mb-8 p-4 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-lg border border-green-200 dark:border-green-800 flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p class="font-medium">Thank you for your purchase! You will receive an email confirmation shortly.</p>
+        <div class="pt-8">
+            <Notice label="Payment confirmed">
+                Your drawing is packed and on its way. The receipt is already in your inbox.
+            </Notice>
         </div>
     {/if}
 
-    <Gallery images={data.images} notebookSlug={data.slug} />
+    <div class="pt-8">
+        <a
+            href="/drawing"
+            class="font-mono text-label uppercase text-content-dim transition-colors hover:text-signal"
+            >← All notebooks</a
+        >
+    </div>
+
+    <PageHeader
+        eyebrow="Notebook"
+        title={displayTitle}
+        count={data.images.length}
+        countUnit="pages"
+    >
+        Every page below is the original — one of one. Open any page to see it full
+        size, with its price and availability.
+    </PageHeader>
+
+    <div class="mt-8">
+        <Gallery images={data.images} notebookSlug={data.slug} />
+    </div>
 </div>

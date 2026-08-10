@@ -31,7 +31,7 @@
 		<div
 			role="button"
 			tabindex="0"
-			class="relative cursor-pointer overflow-hidden w-full p-0 border-0 block aspect-[3/5] bg-zinc-200 dark:bg-zinc-800"
+			class="relative block aspect-[3/5] w-full cursor-pointer overflow-hidden border-0 bg-surface-raised p-0"
 			onclick={() => openTile(index)}
 			onkeydown={(e) => {
 				if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTile(index); }

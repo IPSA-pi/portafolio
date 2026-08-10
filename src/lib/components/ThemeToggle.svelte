@@ -8,8 +8,8 @@
 
 <button
   onclick={toggleTheme}
-  class="rounded-full p-2 text-black dark:text-white hover:text-accent dark:hover:text-accent hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-  aria-label="Toggle Dark Mode"
+  class="p-2 text-content hover:text-signal transition-colors"
+  aria-label={$theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
 >
   {#if $theme === 'dark'}
     <!-- Moon icon -->

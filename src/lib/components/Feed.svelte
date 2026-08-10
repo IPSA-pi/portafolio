@@ -316,7 +316,7 @@
 <!-- Close button — outside scroll container, dark bg so it's visible against any image -->
 <button
     onclick={close}
-    class="fixed top-4 right-4 z-50 rounded-full bg-black/60 p-2 text-white backdrop-blur-sm shadow-lg transition hover:bg-black/80"
+    class="fixed top-4 right-4 z-50 border border-white/15 bg-black/60 p-2 text-white shadow-lg backdrop-blur-sm transition hover:border-white/40"
     aria-label="Back to gallery"
 >
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-6 w-6">
@@ -329,13 +329,13 @@
 {#if $cartCount > 0}
     <a
         href="/cart"
-        class="fixed top-4 left-4 z-50 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-2 text-white backdrop-blur-sm shadow-lg transition hover:bg-black/80"
+        class="fixed top-4 left-4 z-50 flex items-center gap-2 border border-white/15 bg-black/60 px-3 py-2 text-white shadow-lg backdrop-blur-sm transition hover:border-white/40"
         aria-label="View cart ({$cartCount} items)"
     >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.836l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 1.994-4.693 2.602-7.152.084-.34-.16-.68-.508-.68H5.106M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
         </svg>
-        <span class="text-sm font-semibold">{$cartCount}</span>
+        <span class="font-mono text-label">{$cartCount}</span>
     </a>
 {/if}
 
@@ -417,7 +417,7 @@
          read as undo/redo. -->
     <button
         onclick={() => rotateBy(-90)}
-        class="flex-none rounded-full bg-white/10 backdrop-blur-sm p-2.5 text-white transition hover:bg-white/20 active:scale-95"
+        class="flex-none border border-white/20 p-2.5 text-white backdrop-blur-sm transition hover:border-white/50 active:scale-95"
         aria-label="Rotate left"
         title="Rotate left (Shift+R)"
     >
@@ -430,7 +430,7 @@
     <!-- Rotate right (clockwise, +90°) -->
     <button
         onclick={() => rotateBy(90)}
-        class="flex-none rounded-full bg-white/10 backdrop-blur-sm p-2.5 text-white transition hover:bg-white/20 active:scale-95"
+        class="flex-none border border-white/20 p-2.5 text-white backdrop-blur-sm transition hover:border-white/50 active:scale-95"
         aria-label="Rotate right"
         title="Rotate right (R)"
     >
@@ -445,7 +445,7 @@
     {#if canDblZoom}
         <button
             onclick={toggleZoomButton}
-            class="flex-none rounded-full bg-white/10 backdrop-blur-sm p-2.5 text-white transition hover:bg-white/20 active:scale-95"
+            class="flex-none border border-white/20 p-2.5 text-white backdrop-blur-sm transition hover:border-white/50 active:scale-95"
             aria-label={zoom === 1 ? 'Zoom in' : 'Zoom out'}
             title={zoom === 1 ? 'Zoom in (Z) — double-click the artwork, then drag to pan' : 'Zoom out (Z)'}
         >
@@ -463,11 +463,11 @@
     {#if currentImage}
         {@const tombstone = formatTombstone(currentImage)}
         <div class="flex-1 min-w-0 text-center select-none pointer-events-none">
-            <p class="text-white text-sm tracking-wide truncate drop-shadow">
+            <p class="truncate font-body text-white drop-shadow">
                 {artworkTitle(currentImage, currentImage.slug)}
             </p>
             {#if tombstone}
-                <p class="text-white/60 text-[10px] tracking-wide truncate drop-shadow">{tombstone}</p>
+                <p class="truncate font-mono text-label uppercase text-white/55 drop-shadow">{tombstone}</p>
             {/if}
         </div>
     {/if}
@@ -475,15 +475,17 @@
     <!-- Buy (or width-reserving spacer so the title stays centred) -->
     <div class="flex-none flex flex-col items-end gap-1" style="min-width: 2.75rem;">
         {#if isPurchasable}
-            <p class="text-white text-[10px] tracking-wide select-none pointer-events-none">Free worldwide shipping</p>
+            <p class="pointer-events-none select-none font-mono text-label uppercase text-white/60">Free worldwide shipping</p>
         {/if}
         <div class="flex items-center gap-2">
             {#if isPurchasable}
                 <button
                     onclick={toggleCart}
-                    class="rounded-full px-3 py-1.5 text-xs font-semibold transition-all active:scale-95 {inCart ? 'bg-white/20 text-white' : 'bg-white/10 text-white hover:bg-white/20'} backdrop-blur-sm"
+                    class="px-4 py-2 font-mono text-label uppercase backdrop-blur-sm transition-all active:scale-95 {inCart
+                        ? 'border border-accent text-accent'
+                        : 'border border-white/20 text-white hover:border-white/50'}"
                 >
-                    {inCart ? 'In cart ✓' : 'Add to cart'}
+                    {inCart ? 'In cart' : 'Add to cart'}
                 </button>
             {/if}
             {#if currentImage && currentProduct}
@@ -501,14 +503,14 @@
                 {#if currentProduct.sold}
                     <button
                         onclick={() => (ownerToast = 'confirm-undo')}
-                        class="rounded-full px-3 py-1.5 text-xs font-semibold bg-white/10 text-white hover:bg-white/20 backdrop-blur-sm transition-all active:scale-95"
+                        class="border border-white/20 px-4 py-2 font-mono text-label uppercase text-white backdrop-blur-sm transition-all hover:border-white/50 active:scale-95"
                     >
                         Sold · undo
                     </button>
                 {:else}
                     <button
                         onclick={() => (ownerToast = 'choose-method')}
-                        class="rounded-full px-3 py-1.5 text-xs font-semibold bg-white/10 text-white hover:bg-white/20 backdrop-blur-sm transition-all active:scale-95"
+                        class="border border-white/20 px-4 py-2 font-mono text-label uppercase text-white backdrop-blur-sm transition-all hover:border-white/50 active:scale-95"
                     >
                         Mark sold
                     </button>
@@ -521,7 +523,7 @@
 {#if cartFullMessage}
     <div
         transition:fade={{ duration: 150 }}
-        class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] bg-black text-white text-sm px-5 py-3 rounded-full shadow-lg border border-white/10 max-w-[90vw] text-center"
+        class="fixed bottom-24 left-1/2 z-[60] max-w-[90vw] -translate-x-1/2 border-l-2 border-alert bg-black px-5 py-3 text-center font-body text-meta text-white shadow-lg"
     >
         {cartFullMessage}
     </div>
@@ -613,7 +615,7 @@
 {#if ownerMessage}
     <div
         transition:fade={{ duration: 150 }}
-        class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] bg-black text-white text-sm px-5 py-3 rounded-full shadow-lg border border-white/10 max-w-[90vw] text-center"
+        class="fixed bottom-24 left-1/2 z-[60] max-w-[90vw] -translate-x-1/2 border-l-2 border-alert bg-black px-5 py-3 text-center font-body text-meta text-white shadow-lg"
     >
         {ownerMessage}
     </div>

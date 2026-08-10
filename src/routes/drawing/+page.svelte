@@ -3,8 +3,11 @@
     import { page } from "$app/stores";
     import { replaceState } from "$app/navigation";
     import Seo from "$lib/components/Seo.svelte";
+    import PageHeader from "$lib/components/PageHeader.svelte";
+    import Notice from "$lib/components/Notice.svelte";
     import { removeFromCart } from "$lib/stores/cart";
     import { clearPendingCheckout } from "$lib/utils/checkoutReturn";
+    import { formatNotebook } from "$lib/utils/formatNotebook";
 
     let { data } = $props();
     let notebooks = $derived(data.notebooks);
@@ -53,61 +56,69 @@
     path="/drawing"
 />
 
-<div class="container mx-auto px-4 py-8">
+<div class="shell pb-20">
     {#if showSuccess}
-        <div class="mb-8 p-4 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-lg border border-green-200 dark:border-green-800 flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p class="font-medium">Thank you for your purchase! You will receive an email confirmation shortly.</p>
+        <div class="pt-8">
+            <Notice label="Payment confirmed">
+                Your drawing is packed and on its way. The receipt is already in your inbox.
+            </Notice>
         </div>
     {:else if showPending}
-        <div class="mb-8 p-4 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 rounded-lg border border-amber-200 dark:border-amber-800 flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p class="font-medium">Your payment is processing — you'll receive an email once it's confirmed.</p>
+        <div class="pt-8">
+            <Notice tone="pending" label="Payment processing">
+                Your bank is still confirming this payment. We'll email you the moment it clears.
+            </Notice>
         </div>
     {/if}
 
-    <div class="mb-12">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
-            Drawings
-        </h1>
-        <p class="mt-2 text-gray-800 dark:text-white">
-            Select a notebook to view.
-        </p>
+    <PageHeader
+        eyebrow="Original drawings"
+        title="Notebooks"
+        count={notebooks.length}
+        countUnit="notebooks"
+    >
+        Each notebook is a physical sketchbook, filled front to back. Open one to see
+        its pages — every page is sold once, as the original.
+    </PageHeader>
 
-        <!-- View toggle: Notebooks (this page) ⇄ All Drawings (flat feed) -->
-        <div class="mt-6 inline-flex rounded-full border border-black/10 dark:border-white/15 p-1 text-sm">
-            <span class="px-4 py-1.5 rounded-full bg-black text-white dark:bg-white dark:text-black font-medium">
-                Notebooks
-            </span>
-            <a
-                href="/drawing/feed"
-                class="px-4 py-1.5 rounded-full text-black dark:text-white hover:text-accent dark:hover:text-accent transition-colors"
-            >
-                All Drawings
-            </a>
-        </div>
+    <!-- View toggle: Notebooks (this page) ⇄ All Drawings (flat feed).
+         Squared segmented control; the active segment is underlined in signal. -->
+    <div class="mt-2 mb-12 inline-flex border border-line/15">
+        <span class="border-b-2 border-signal bg-surface-raised px-5 py-2 font-mono text-label uppercase text-content">
+            Notebooks
+        </span>
+        <a
+            href="/drawing/feed"
+            class="border-b-2 border-transparent border-l border-l-line/15 px-5 py-2 font-mono text-label uppercase text-content-dim transition-colors hover:text-signal"
+        >
+            All drawings
+        </a>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-12">
+    <ul class="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-3 lg:grid-cols-4">
         {#each notebooks as notebook}
-            <a href="/drawing/{notebook.slug}" class="group flex flex-col items-center text-center">
-                <div class="relative w-full max-w-xs md:max-w-[160px] aspect-[3/4]">
-                    <img
-                        src={notebook.cover}
-                        alt="Cover of notebook {notebook.title}"
-                        class="absolute inset-0 w-full h-full object-cover transition-[transform,opacity] duration-500 group-hover:scale-105 drop-shadow-xl opacity-0"
-                        loading="lazy"
-                        onload={(e) => (e.currentTarget as HTMLImageElement).classList.replace('opacity-0', 'opacity-100')}
-                    />
-                </div>
-                <span class="mt-3 text-sm font-medium text-gray-900 dark:text-white group-hover:text-accent transition-colors">
-                    {notebook.title}
-                </span>
-            </a>
+            <li>
+                <a href="/drawing/{notebook.slug}" class="group block">
+                    <!-- Paper card: the cover sits on a raised surface with a
+                         hairline, so a notebook reads as an object rather than
+                         a floating thumbnail. -->
+                    <div class="relative aspect-[3/4] overflow-hidden border border-line/12 bg-surface-raised">
+                        <img
+                            src={notebook.cover}
+                            alt="Cover of notebook {formatNotebook(notebook.slug)}"
+                            class="absolute inset-0 h-full w-full object-cover opacity-0 transition-[transform,opacity] duration-500 group-hover:scale-[1.03]"
+                            loading="lazy"
+                            onload={(e) => (e.currentTarget as HTMLImageElement).classList.replace('opacity-0', 'opacity-100')}
+                        />
+                    </div>
+                    <p class="mt-3 text-title text-content transition-colors group-hover:text-signal">
+                        {formatNotebook(notebook.slug)}
+                    </p>
+                    <p class="mt-1 font-mono text-label uppercase text-content-dim">
+                        {notebook.slug}
+                    </p>
+                </a>
+            </li>
         {/each}
-    </div>
+    </ul>
 </div>

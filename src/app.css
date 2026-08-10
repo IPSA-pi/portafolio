@@ -1,10 +1,77 @@
+/* Self-hosted (no external CDN — the Worker serves these from the bundle).
+   Variable weight axes only; Newsreader's optical-size axis isn't needed at
+   the sizes used here. */
+@import "@fontsource-variable/space-grotesk/wght.css";
+@import "@fontsource-variable/newsreader/wght.css";
+@import "@fontsource-variable/newsreader/wght-italic.css";
+@import "@fontsource/space-mono/400.css";
+@import "@fontsource/space-mono/700.css";
+
 @import "tailwindcss/base";
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+/* ---------------------------------------------------------------------------
+   Design tokens — two materials, not one design inverted.
+   Light mode is sketchbook paper; dark mode is phosphor on ink. They share
+   structure and type but not character.
+
+   Values are space-separated RGB channels so Tailwind can apply the
+   `<alpha-value>` placeholder (see tailwind.config.ts) and `bg-surface/60`
+   style opacity modifiers keep working.
+--------------------------------------------------------------------------- */
 @layer base {
+  :root {
+    --surface:        229 228 224;  /* #E5E4E0 paper stock */
+    --surface-raised: 242 241 238;  /* #F2F1EE */
+    --content:         15  15  14;  /* #0F0F0E ink */
+    --content-dim:    101 101  95;  /* #65655F graphite */
+    --line:            15  15  14;  /* tinted by opacity at use sites */
+    /* Darkened phosphor: #39ff14 on paper fails contrast badly. These three
+       are tuned to clear AA (4.5:1) against BOTH --surface and
+       --surface-raised, since each is used on both grounds. */
+    --signal:          19 117   9;  /* #137509  4.62:1 on paper */
+    --signal-strong:   10  61   4;  /* #0A3D04 */
+    --alert:          188  48  26;  /* #BC301A oxide — genuine errors only */
+  }
+
+  :root.dark {
+    --surface:         11  11  12;  /* #0B0B0C */
+    --surface-raised:  19  19  21;  /* #131315 */
+    --content:        233 233 228;  /* #E9E9E4 bone, not pure white */
+    --content-dim:    138 138 132;  /* #8A8A84 */
+    --line:           233 233 228;
+    --signal:          57 255  20;  /* #39FF14 — the clock's own green, unchanged */
+    --signal-strong:  124 255  99;  /* #7CFF63 */
+    --alert:          224  86  60;  /* #E0563C */
+  }
+
   body {
-    @apply dark:bg-black dark:text-gray-100 transition-colors duration-200;
+    @apply bg-surface text-content font-sans transition-colors duration-200;
+  }
+
+  /* There was no visible focus style anywhere before this. Phosphor is the
+     site's signal color, so it carries focus too. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-signal ring-offset-2 ring-offset-surface;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* One gutter for the whole site. The nav used max-w-7xl with responsive
+     padding while content pages used `container mx-auto px-4`, so nav items
+     and page content never lined up. */
+  .shell {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
   }
 }
 
