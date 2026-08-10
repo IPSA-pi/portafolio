@@ -1,0 +1,27 @@
+name: CI
+
+# Cloudflare's Git integration deploys straight off `main` with no gate of its
+# own, so this is the only thing standing between a type error and production.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      # Build with no secrets on purpose: nothing may read a private env var at
+      # build time (the app uses $env/dynamic/private, which resolves per
+      # request on Workers), so a build that needs one here would be a bug.
+      # standardize-images.js no-ops — the drawing scans it processes are
+      # gitignored and absent in CI.
+      - run: npm run build
