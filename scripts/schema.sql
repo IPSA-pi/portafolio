@@ -24,8 +24,18 @@ CREATE TABLE drawings (
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- No index on `slug` alone: the UNIQUE constraint above already creates one,
+-- and a second btree on the same column would be maintained on every insert,
+-- sale, and reservation for nothing. That unique index is what serves
+-- /api/checkout's `IN (slug, ...)` reservation query.
+--
+-- Nor are there partial indexes on `sold` / `reserved` / `reserved_at`. The
+-- table is in the hundreds of rows, where Postgres correctly prefers a
+-- sequential scan over any index; the reservation query reaches its rows
+-- through the unique slug index and then filters at most 20 of them. Revisit
+-- only if this table ever reaches a scale that makes a seq scan cost real
+-- time — for one-of-a-kind originals, it won't.
 CREATE INDEX idx_drawings_notebook ON drawings (notebook);
-CREATE INDEX idx_drawings_slug     ON drawings (slug);
 CREATE INDEX idx_drawings_order    ON drawings (notebook, display_order);
 
 -- Auto-update updated_at on any row change
@@ -214,4 +224,12 @@ ALTER TABLE drawings
     ADD COLUMN IF NOT EXISTS medium    TEXT,
     ADD COLUMN IF NOT EXISTS width_cm  NUMERIC,
     ADD COLUMN IF NOT EXISTS height_cm NUMERIC;
+*/
+
+-- Migration (DBs created before the redundant slug index was dropped,
+-- 2026-08-09). See the note above the CREATE INDEX block for why. Also kept
+-- as a standalone file:
+-- scripts/migrations/2026-08-09-drop-redundant-slug-index.sql
+/*
+DROP INDEX IF EXISTS idx_drawings_slug;
 */
