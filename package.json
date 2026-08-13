@@ -27,8 +27,8 @@
 		"enrich:dry": "node --env-file=.env.local scripts/enrich-music.js --dry-run",
 		"enrich:spotify": "node --env-file=.env.local scripts/enrich-spotify.js",
 		"enrich:spotify:dry": "node --env-file=.env.local scripts/enrich-spotify.js --dry-run",
-		"enrich:all": "node --env-file=.env.local scripts/enrich-music.js && node --env-file=.env.local scripts/enrich-spotify.js",
-		"enrich:all:prod": "node --env-file=.env.local --env-file=.env.prod scripts/enrich-music.js && node --env-file=.env.local --env-file=.env.prod scripts/enrich-spotify.js"
+		"enrich:all": "node --env-file=.env.local scripts/enrich-music.js; node --env-file=.env.local scripts/enrich-spotify.js",
+		"enrich:all:prod": "node --env-file=.env.local --env-file=.env.prod scripts/enrich-music.js; node --env-file=.env.local --env-file=.env.prod scripts/enrich-spotify.js"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.0",

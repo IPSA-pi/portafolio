@@ -69,6 +69,7 @@ console.log(`${rows.length} releases to check against Spotify`);
 
 let checked = 0;
 let available = 0;
+let failed = 0;
 for (const r of rows) {
     const query = `${r.artist} — ${r.title}`;
     let result;
@@ -81,6 +82,7 @@ for (const r of rows) {
             debug: DEBUG
         });
     } catch (err) {
+        failed++;
         console.error(`  "${query}" — search failed: ${err.message}`);
         continue;
     }
@@ -104,4 +106,13 @@ for (const r of rows) {
     await new Promise((res) => setTimeout(res, 300));
 }
 
-console.log(`\nDone. ${available}/${checked} available on Spotify.${DRY_RUN ? ' (dry run — no rows updated)' : ''}`);
+console.log(
+    `\nDone. ${available}/${checked} available on Spotify, ${failed} failed.${DRY_RUN ? ' (dry run — no rows updated)' : ''}`
+);
+
+// Same reasoning as the Tidal pass: every-row failure is a broken integration,
+// and a silently-green run is how the Tidal endpoint change went unnoticed.
+if (checked === 0 && failed > 0) {
+    console.error(`All ${failed} Spotify searches failed — check the API contract in spotify-client.js.`);
+    process.exit(1);
+}

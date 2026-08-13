@@ -5,11 +5,20 @@
  *
  * Endpoints (token endpoint confirmed against the official
  * @tidal-music/tidal-sdk-web source; the search path's exact casing —
- * `/v2/searchResults/{query}`, camelCase — was confirmed by hitting the live
- * API directly: lowercase `searchresults` 404s with no body, while the
- * camelCase form reaches TIDAL's jsonapi backend and returns real results):
+ * `searchResults`, camelCase — was confirmed by hitting the live API directly:
+ * lowercase `searchresults` 404s with no body, while the camelCase form
+ * reaches TIDAL's jsonapi backend):
  *   Token:  POST https://auth.tidal.com/v1/oauth2/token
- *   Search: GET  https://openapi.tidal.com/v2/searchResults/{query}
+ *   Search: GET  https://openapi.tidal.com/v2/searchResults?filter[query]={q}
+ *
+ * The query is a *filter*, not a path segment. TIDAL used to accept it as the
+ * resource id (`/v2/searchResults/{query}`) and that form now 400s with
+ * `INVALID_RESOURCE_ID` for every query, single words included — the id is a
+ * server-generated opaque string these days. Don't "restore" the path form.
+ * The response body changed shape with it: `data` is an array of one
+ * searchResults object, where it used to be that object directly. Everything
+ * below it — `relationships.albums.data`, the `included` side-load, album
+ * `attributes.externalLinks` — is unchanged.
  */
 
 const AUTH_URL = 'https://auth.tidal.com/v1/oauth2/token';
@@ -163,7 +172,10 @@ function artistsMatch(candidateNames, expectedArtist) {
  * title *and* be credited to the artist we're looking for.
  */
 function findTitleMatches(json, expectedTitle) {
-    const candidateIds = json?.data?.relationships?.albums?.data?.map((d) => d.id) ?? [];
+    // `data` is an array of one searchResults object; read the object form too,
+    // which is what the API returned before the filter[query] move.
+    const root = Array.isArray(json?.data) ? json.data[0] : json?.data;
+    const candidateIds = root?.relationships?.albums?.data?.map((d) => d.id) ?? [];
     const included = json?.included ?? [];
     const albumsById = new Map(included.filter((i) => i.type === 'albums').map((i) => [i.id, i]));
     const artistNamesById = new Map(
@@ -203,7 +215,7 @@ async function fetchAlbumArtists({ token, albumId, countryCode }) {
 
 /** Run one search query, retrying once on a 429, and return the parsed body. */
 async function fetchSearchResults({ token, query, countryCode }) {
-    const url = `${API_BASE}/v2/searchResults/${encodeURIComponent(query)}?countryCode=${countryCode}&include=albums.artists`;
+    const url = `${API_BASE}/v2/searchResults?filter%5Bquery%5D=${encodeURIComponent(query)}&countryCode=${countryCode}&include=albums.artists`;
     const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.api+json' }
     });

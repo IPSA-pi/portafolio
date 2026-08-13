@@ -71,6 +71,7 @@ console.log(`${rows.length} releases to check against Tidal`);
 
 let checked = 0;
 let available = 0;
+let failed = 0;
 for (const r of rows) {
     const query = `${r.artist} — ${r.title}`;
     let result;
@@ -83,6 +84,7 @@ for (const r of rows) {
             debug: DEBUG
         });
     } catch (err) {
+        failed++;
         console.error(`  "${query}" — search failed: ${err.message}`);
         continue;
     }
@@ -107,4 +109,16 @@ for (const r of rows) {
     await new Promise((res) => setTimeout(res, 300));
 }
 
-console.log(`\nDone. ${available}/${checked} available on Tidal.${DRY_RUN ? ' (dry run — no rows updated)' : ''}`);
+console.log(
+    `\nDone. ${available}/${checked} available on Tidal, ${failed} failed.${DRY_RUN ? ' (dry run — no rows updated)' : ''}`
+);
+
+// A run where every single search threw is a broken integration, not a quiet
+// day. TIDAL moved its search endpoint out from under us once already, and
+// because the per-row catch above just continues, the daily workflow reported
+// success for a week while writing nothing. Exit non-zero so it goes red.
+// A partial failure stays green — one flaky search shouldn't page anyone.
+if (checked === 0 && failed > 0) {
+    console.error(`All ${failed} Tidal searches failed — check the API contract in tidal-client.js.`);
+    process.exit(1);
+}

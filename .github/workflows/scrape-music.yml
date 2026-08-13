@@ -32,8 +32,13 @@ jobs:
           TIDAL_CLIENT_ID: ${{ secrets.TIDAL_CLIENT_ID }}
           TIDAL_CLIENT_SECRET: ${{ secrets.TIDAL_CLIENT_SECRET }}
       # Spotify availability pre-check. Skips itself (exit 0) if SPOTIFY secrets
-      # aren't set yet.
-      - run: node scripts/enrich-spotify.js
+      # aren't set yet. Runs even when an earlier step failed (`!cancelled()`):
+      # each enrich script now exits non-zero if every one of its searches
+      # fails, and one dead provider must not skip the other's pre-check. If
+      # the scrape step is what failed, this still does useful work — it
+      # enriches whatever rows are already sitting unchecked.
+      - if: ${{ !cancelled() }}
+        run: node scripts/enrich-spotify.js
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
