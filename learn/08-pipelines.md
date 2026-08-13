@@ -118,9 +118,22 @@ release, which costs the whole point of the list.
 > `false` as three distinct states so an uncertain answer can be re-asked later.
 
 These rules were worked out against Tidal, but every catalog search fails the same way, so they
-live in one shared module (`scripts/match.js`) that the Tidal and Apple Music clients both
-import. Apple's search returns the right album first for "Rrose — Please Touch" and Cardi B's
-"Please Me" second, which is exactly the trap the artist check exists to catch.
+live in one shared module (`scripts/match.js`) that all three clients import. Apple's search
+returns the right album first for "Rrose — Please Touch" and Cardi B's "Please Me" second, which
+is exactly the trap the artist check exists to catch.
+
+The Spotify client was the last to adopt them, and what it cost to find out is the lesson. It had
+shipped with a looser matcher that accepted the first candidate whose *title* matched, with no
+check on who the album was credited to. Re-running the strict rules over rows already marked
+available flipped three of fifty-nine — "A Made Up Sound — Sunday" had been linked to "Sunday
+Drift" by Osmond Beliér, and "Beatrice M. — Midnight Swim" to a "Midnight Swim" by Skye Beatrice.
+Wrong for months, in a column that looked perfectly healthy.
+
+> Concept: **a fix to a rule is not a fix to the data the rule already produced.** The enrich
+> pass only ever revisits rows that are `NULL` or recently `false`, so tightening the matcher
+> would have changed nothing that was already stored — the bad rows were, by construction, the
+> ones marked `true` and never re-asked. That's why the script grew a `--recheck-all` flag. When
+> you correct a heuristic, ask separately what it already wrote, and make re-deriving it possible.
 
 The Apple stage adds one more honesty problem. It queries the public **iTunes Search API**, whose
 catalog is the iTunes Store's — a close but imperfect overlap with Apple Music. So its `false`

@@ -5,7 +5,15 @@
  * Endpoints:
  *   Token:  POST https://accounts.spotify.com/api/token  (Basic auth)
  *   Search: GET  https://api.spotify.com/v1/search?q=...&type=album
+ *
+ * Matching is the shared, conservative ruleset in match.js, the same one the
+ * Tidal and Apple Music clients use. This client originally had its own looser
+ * matcher that accepted the first candidate whose title matched, with no check
+ * on who the album was credited to — which is exactly how a popularity-ranked
+ * search returns a namesake album by the wrong artist and gets believed.
  */
+
+import { artistsMatch, searchQuery, titlesMatch } from './match.js';
 
 const AUTH_URL = 'https://accounts.spotify.com/api/token';
 const API_BASE = 'https://api.spotify.com';
@@ -37,59 +45,58 @@ async function getAccessToken(clientId, clientSecret) {
     return cachedToken.value;
 }
 
-/**
- * Lowercase and collapse to space-separated word tokens. Keeps any Unicode
- * letter or number (`\p{L}\p{N}`) rather than only ASCII `a-z0-9`: a title
- * made entirely of non-ASCII characters — Polar Inertia's "π" — would
- * otherwise normalize to the empty string and never match anything, even when
- * the album is genuinely on Spotify. Mirrors the Tidal client's normalizer.
- */
-function normalize(s) {
-    return s
-        .toLowerCase()
-        .replace(/[^\p{L}\p{N}]+/gu, ' ')
-        .trim()
-        .replace(/\s+/g, ' ');
-}
-
-/**
- * Same asymmetric matching as the Tidal client: the candidate title is allowed
- * to contain extra decoration beyond our expected title, but not the reverse —
- * a short candidate like "Kind" must not match our "Kind 013".
- */
-function titlesMatch(candidateTitle, expectedTitle) {
-    const candidate = normalize(candidateTitle ?? '');
-    const expected = normalize(expectedTitle ?? '');
-    if (!candidate || !expected) return false;
-    return candidate === expected || candidate.includes(expected);
-}
-
-/**
- * Search the Spotify catalog for a release. Returns { available, albumUrl }.
- */
-export async function searchSpotify({ clientId, clientSecret, artist, title, debug = false }) {
-    const token = await getAccessToken(clientId, clientSecret);
-    const query = `${artist} ${title}`;
-
+/** Run one search query, retrying on a 429, and return the parsed body. */
+async function fetchSearchResults({ token, query }) {
     const url = `${API_BASE}/v1/search?${new URLSearchParams({ q: query, type: 'album', limit: '10' })}`;
-    const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` }
-    });
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
 
     if (res.status === 429) {
         const retryAfter = Number(res.headers.get('retry-after')) || 2;
         await new Promise((r) => setTimeout(r, retryAfter * 1000));
-        return searchSpotify({ clientId, clientSecret, artist, title, debug });
+        return fetchSearchResults({ token, query });
     }
     if (!res.ok) {
         throw new Error(`Spotify search failed for "${query}": ${res.status} ${await res.text()}`);
     }
+    return res.json();
+}
 
-    const json = await res.json();
-    if (debug) console.log(JSON.stringify(json, null, 2));
+/**
+ * Search the Spotify catalog for a release and decide if it's genuinely there.
+ * Returns { available, albumUrl }.
+ *
+ * A candidate has to match the release title *and* be credited to the artist
+ * we're looking for. Spotify's search is a loose, popularity-weighted text
+ * match like every other catalog search: for an artist with no matching
+ * release it returns that artist's other albums, and for an unknown artist it
+ * falls back to globally popular records where any common one-word title finds
+ * a namesake. See match.js for the individual rules and the false matches that
+ * motivated each one.
+ */
+export async function searchSpotify({ clientId, clientSecret, artist, title, debug = false }) {
+    const token = await getAccessToken(clientId, clientSecret);
 
-    const items = json?.albums?.items ?? [];
-    const album = items.find((a) => titlesMatch(a.name, title)) ?? null;
+    // A compound release title ("Living In The Zone (Remix) / A New Start")
+    // makes a noisy query and buries the real album, so if the whole title
+    // finds nothing, retry with just the lead segment — same as the other two.
+    const segments = String(title).split(/\s*\/\s*/);
+    const titleQueries = segments.length > 1 ? [title, segments[0]] : [title];
+
+    let album = null;
+    outer: for (const tq of titleQueries) {
+        const json = await fetchSearchResults({ token, query: searchQuery(artist, tq) });
+        if (debug) console.log(JSON.stringify(json, null, 2));
+
+        for (const candidate of json?.albums?.items ?? []) {
+            if (!titlesMatch(candidate.name, title)) continue;
+            const names = (candidate.artists ?? []).map((a) => a.name).filter(Boolean);
+            if (debug) console.log(`  candidate "${candidate.name}" by ${names.join(', ')}`);
+            if (artistsMatch(names, artist)) {
+                album = candidate;
+                break outer;
+            }
+        }
+    }
 
     return {
         available: Boolean(album),

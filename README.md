@@ -304,6 +304,15 @@ Needs `TIDAL_CLIENT_ID`/`TIDAL_CLIENT_SECRET` on top of the Supabase pair — ex
 
 Same shape as the Tidal pass: fills `spotify_available` + `spotify_album_url` where `spotify_available IS NULL`, and re-checks unavailable releases within the same 45-day recheck window (same `released_at` → `created_at` fallback). Same `--dry-run` / `--limit` / `--debug` flags; wrappers are `enrich:spotify` and `enrich:spotify:dry`. Needs `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET`, exits 0 if missing.
 
+Matching now uses the shared strict ruleset (`scripts/match.js`), requiring the credited artist to line up as well as the title. It previously accepted the first title match with no artist check, which linked "A Made Up Sound — Sunday" to "Sunday Drift" by Osmond Beliér.
+
+```sh
+npm run enrich:spotify -- --recheck-all --dry-run   # preview a full re-verification
+npm run enrich:spotify -- --recheck-all             # re-check every row, including `true` ones
+```
+
+`--recheck-all` drops the row filter so already-settled rows are re-asked — the normal predicate never revisits `spotify_available = true`, so a change to the matching rules is otherwise invisible to existing data. It's the flag to reach for after editing `match.js` or a client's candidate selection, and it's Spotify-only for now (the Tidal and Apple passes have always used the strict matcher, so their stored values don't carry this debt).
+
 ### `enrich-apple.js` — Apple Music availability pre-check
 
 Same shape again: fills `apple_available` + `apple_album_url` where `apple_available IS NULL`, same 45-day recheck window, same `--dry-run` / `--limit` / `--debug` flags. Wrappers are `enrich:apple` and `enrich:apple:dry`.
@@ -324,7 +333,7 @@ One caveat worth knowing before trusting a ✗: the Search API covers the **iTun
 - `sources/` — one module per scrape source (`ra.js` — Resident Advisor GraphQL, `nodata.js` — nodata.tv RSS). Each exports `fetch()` returning normalized release objects; to add a source, write a module and list it in `SOURCES` in `scrape-music.js`.
 - `tidal-client.js` / `spotify-client.js` — minimal catalog-search clients: client-credentials auth with token caching, 429 retry, and conservative title matching.
 - `apple-client.js` — the same, over the public iTunes Search API: no auth, bounded 403/429 backoff.
-- `match.js` — the shared title/artist matching rules (Unicode + accent-folding normalization, whole-token containment, artist-joiner splitting). Used by `tidal-client.js` and `apple-client.js`; `spotify-client.js` still has its own looser matcher, since switching it would change existing `spotify_available` values.
+- `match.js` — the shared title/artist matching rules (Unicode + accent-folding normalization, whole-token containment, artist-joiner splitting), used by all three catalog clients. A candidate has to match the release title *and* be credited to the artist we're looking for; every rule in there fixes a specific false match seen in the wild.
 - `rename-map.json` — old→new slug map written by `rename:apply`, read by `seed.js`.
 - `schema.sql` — DDL for `drawings`, `releases`, `orders` plus the `pg_cron` stale-reservation sweep. Run it in the Supabase SQL editor when standing up a project (dev or prod).
 

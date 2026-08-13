@@ -29,6 +29,12 @@ import { searchSpotify } from './spotify-client.js';
 
 const DRY_RUN = process.argv.includes('--dry-run');
 const DEBUG = process.argv.includes('--debug');
+// Re-verify rows that are already settled, including `spotify_available = true`
+// ones the normal predicate never revisits. For use after a change to the
+// matching rules, which is otherwise invisible to existing data: the loose
+// matcher this client used to ship with had linked "A Made Up Sound — Sunday"
+// to "Sunday Drift" by Osmond Beliér, and nothing would ever have re-asked.
+const RECHECK_ALL = process.argv.includes('--recheck-all');
 const limitFlag = process.argv.indexOf('--limit');
 const LIMIT = limitFlag !== -1 ? Number(process.argv[limitFlag + 1]) : 200;
 
@@ -50,15 +56,15 @@ logDbTarget(SUPABASE_URL);
 const RECHECK_DAYS = 45;
 const recheckCutoff = new Date(Date.now() - RECHECK_DAYS * 86_400_000).toISOString().slice(0, 10);
 
-const { data: rows, error } = await supabase
-    .from('releases')
-    .select('id, artist, title')
-    .or(
+let query = supabase.from('releases').select('id, artist, title');
+if (!RECHECK_ALL) {
+    query = query.or(
         `spotify_available.is.null,` +
             `and(spotify_available.is.false,released_at.gte.${recheckCutoff}),` +
             `and(spotify_available.is.false,released_at.is.null,created_at.gte.${recheckCutoff})`
-    )
-    .limit(LIMIT);
+    );
+}
+const { data: rows, error } = await query.limit(LIMIT);
 
 if (error) {
     console.error('Failed to load unenriched releases:', error.message);
