@@ -6,6 +6,7 @@
     import PurchaseButton from './PurchaseButton.svelte';
     import { cartItems, cartCount, addToCart, removeFromCart, MAX_CART_ITEMS } from '$lib/stores/cart';
     import { artworkTitle, artworkAlt, formatTombstone, type ArtworkImage } from '$lib/utils/artwork';
+    import { formatPrice } from '$lib/utils/formatPrice';
 
     interface Props {
         images: ArtworkImage[];
@@ -472,23 +473,62 @@
         </div>
     {/if}
 
-    <!-- Buy (or width-reserving spacer so the title stays centred) -->
+    <!-- Buy (or width-reserving spacer so the title stays centred).
+
+         The owner gets a slimmed bar: no cart button, no Buy, no shipping
+         caption — affordances nobody taps on their own inventory, and three
+         buttons plus the title overflow a portrait phone, pushing "Mark sold"
+         (the one control a booth actually needs) off the edge. The price and
+         the sold/on-hold state stay, as a plain label: the price is what you
+         quote out loud, and "On hold" warns that someone is mid-checkout
+         before you take cash for the same drawing. That label goes *above*
+         the button, in the slot the caption vacated — stacked it costs no
+         horizontal room, so the title keeps room to truncate into instead of
+         collapsing to nothing. -->
     <div class="flex-none flex flex-col items-end gap-1" style="min-width: 2.75rem;">
-        {#if isPurchasable}
+        {#if isPurchasable && !isAdmin}
             <p class="pointer-events-none select-none font-mono text-label uppercase text-white/60">Free worldwide shipping</p>
+        {:else if isAdmin && currentProduct && !currentProduct.sold}
+            <!-- Same state language as PurchaseButton's compact variant:
+                 available carries phosphor, on-hold withholds it. Sold needs no
+                 label — the undo button below it already says "Sold". -->
+            {#if currentProduct.reserved}
+                <p
+                    class="select-none font-mono text-label uppercase text-white/70"
+                    title="In someone's online checkout right now"
+                >On hold</p>
+            {:else if currentProduct.priceId}
+                <p class="pointer-events-none select-none font-mono text-label uppercase text-accent">{formatPrice(currentProduct.price)}</p>
+            {/if}
         {/if}
         <div class="flex items-center gap-2">
-            {#if isPurchasable}
+            {#if isPurchasable && !isAdmin}
+                <!-- Icon-only: the words "Add to cart" plus "Buy · $XX" beside
+                     them overflowed a portrait phone, clipping the price. The
+                     sign carries the action (＋ add / − remove) and the accent
+                     colour carries the state (in cart), so the label lives in
+                     aria-label / title rather than on screen. -->
                 <button
                     onclick={toggleCart}
-                    class="px-4 py-2 font-mono text-label uppercase backdrop-blur-sm transition-all active:scale-95 {inCart
+                    class="flex items-center gap-1 px-3 py-2 backdrop-blur-sm transition-all active:scale-95 {inCart
                         ? 'border border-accent text-accent'
                         : 'border border-white/20 text-white hover:border-white/50'}"
+                    aria-label={inCart ? 'Remove from cart' : 'Add to cart'}
+                    title={inCart ? 'Remove from cart' : 'Add to cart'}
                 >
-                    {inCart ? 'In cart' : 'Add to cart'}
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                        {#if inCart}
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" />
+                        {:else}
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
+                        {/if}
+                    </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.836l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 1.994-4.693 2.602-7.152.084-.34-.16-.68-.508-.68H5.106M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+                    </svg>
                 </button>
             {/if}
-            {#if currentImage && currentProduct}
+            {#if currentImage && currentProduct && !isAdmin}
                 <PurchaseButton
                     priceId={currentProduct.priceId}
                     price={currentProduct.price}
