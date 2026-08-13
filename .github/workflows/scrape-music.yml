@@ -45,3 +45,13 @@ jobs:
           DB_LABEL: prod
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
           SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+      # Apple Music availability pre-check. No secrets: it queries the public
+      # iTunes Search API. Same `!cancelled()` guard as above so a failure
+      # upstream doesn't skip it. Rate-limited, so it walks the backlog 100 rows
+      # per run rather than clearing it in one go.
+      - if: ${{ !cancelled() }}
+        run: node scripts/enrich-apple.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DB_LABEL: prod

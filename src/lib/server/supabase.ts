@@ -47,6 +47,8 @@ export type Release = {
     tidal_available: boolean | null;
     spotify_album_url: string | null;
     spotify_available: boolean | null;
+    apple_album_url: string | null;
+    apple_available: boolean | null;
     created_at: string;
     updated_at: string;
 };
