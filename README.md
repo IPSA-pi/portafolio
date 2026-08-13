@@ -193,7 +193,7 @@ Two pipelines, in order:
 
 ```
 Drawings:   rename → standardize-images → upload → seed → set-price
-New music:  scrape → enrich (Tidal) → enrich:spotify
+New music:  scrape → enrich (Tidal) → enrich:spotify → enrich:apple
 ```
 
 | Script | Wrappers | Writes to |
@@ -206,6 +206,7 @@ New music:  scrape → enrich (Tidal) → enrich:spotify
 | `scrape-music.js` | `scrape`, `scrape:dry`, `scrape:prod` | `releases` table |
 | `enrich-music.js` | `enrich`, `enrich:dry`; in `enrich:all(:prod)` | `releases` Tidal columns |
 | `enrich-spotify.js` | `enrich:spotify`, `enrich:spotify:dry`; in `enrich:all(:prod)` | `releases` Spotify columns |
+| `enrich-apple.js` | `enrich:apple`, `enrich:apple:dry`; in `enrich:all(:prod)` | `releases` Apple columns |
 
 ### `rename.js` — migrate filenames to the current convention
 
@@ -293,8 +294,8 @@ Stage 2 of the music pipeline: searches Tidal for each unchecked release (`tidal
 npm run enrich                       # dev
 npm run enrich:dry                   # search but write nothing
 npm run enrich -- --limit 20 --debug # cap rows (default 200), dump raw API responses
-npm run enrich:all                   # Tidal then Spotify
-npm run enrich:all:prod              # both against prod (there is no standalone enrich:prod)
+npm run enrich:all                   # Tidal, then Spotify, then Apple
+npm run enrich:all:prod              # all three against prod (there is no standalone enrich:prod)
 ```
 
 Needs `TIDAL_CLIENT_ID`/`TIDAL_CLIENT_SECRET` on top of the Supabase pair — exits 0 with a warning if they're missing, so a pipeline run doesn't fail before creds exist. Matching (`scripts/tidal-client.js`) is deliberately conservative — it only accepts an album whose own title matches ours, since Tidal's search happily returns an artist's *other* albums. A ✗ means "not confidently found", not proof of absence. An individual search failure skips the row; it's retried next run because the column stays null.
@@ -303,15 +304,27 @@ Needs `TIDAL_CLIENT_ID`/`TIDAL_CLIENT_SECRET` on top of the Supabase pair — ex
 
 Same shape as the Tidal pass: fills `spotify_available` + `spotify_album_url` where `spotify_available IS NULL`, and re-checks unavailable releases within the same 45-day recheck window (same `released_at` → `created_at` fallback). Same `--dry-run` / `--limit` / `--debug` flags; wrappers are `enrich:spotify` and `enrich:spotify:dry`. Needs `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET`, exits 0 if missing.
 
+### `enrich-apple.js` — Apple Music availability pre-check
+
+Same shape again: fills `apple_available` + `apple_album_url` where `apple_available IS NULL`, same 45-day recheck window, same `--dry-run` / `--limit` / `--debug` flags. Wrappers are `enrich:apple` and `enrich:apple:dry`.
+
+**Needs no credentials at all** — it queries the public iTunes Search API (`itunes.apple.com/search`), so there is nothing to add to `.env.local` or to the repo secrets. Apple's official Music API would be more precise, but it requires a paid Apple Developer Program membership and a signed MusicKit developer token; if that ever happens, `scripts/apple-client.js` is the only file that changes.
+
+Two differences from the other two passes, both because the endpoint is unauthenticated and rate-limited (Apple documents ~20 calls/min and answers a throttle with **403**, not 429): the delay between rows is 1000 ms rather than 300 ms, and the default `--limit` is 100 rather than 200. The pass is meant to walk a backlog across a few nightly runs.
+
+One caveat worth knowing before trusting a ✗: the Search API covers the **iTunes Store** catalog, which overlaps Apple Music heavily but not exactly, so a streaming-only release can be on Apple Music and absent here. `apple_available = false` means "not confidently found in the store catalog" — a slightly weaker claim than the Tidal and Spotify columns make. Matching is the strict Tidal matcher (`scripts/match.js`), requiring both title *and* credited artist to line up: searching "Rrose — Please Touch" returns the right album first and Cardi B's "Please Me" second, and only the artist check rejects the latter.
+
 ### Scheduled runs (CI)
 
-`.github/workflows/scrape-music.yml` runs `scrape → enrich → enrich:spotify` daily at 08:00 UTC against **prod** (plus a manual "Run workflow" button). It injects GitHub repo secrets directly with `DB_LABEL: prod` set inline — it never reads the env files, so local credentials and CI credentials rotate independently. The enrich steps are no-ops until their API secrets are added to the repo.
+`.github/workflows/scrape-music.yml` runs `scrape → enrich → enrich:spotify → enrich:apple` daily at 13:00 UTC (6am Pacific during PDT) against **prod**, plus a manual "Run workflow" button. It injects GitHub repo secrets directly with `DB_LABEL: prod` set inline — it never reads the env files, so local credentials and CI credentials rotate independently. The Tidal and Spotify steps are no-ops until their API secrets are added to the repo; the Apple step needs no secrets and always runs.
 
 ### Supporting modules
 
 - `db-target.js` — prints the `Supabase target: <ref> [<label>]` line; imported by every script above.
 - `sources/` — one module per scrape source (`ra.js` — Resident Advisor GraphQL, `nodata.js` — nodata.tv RSS). Each exports `fetch()` returning normalized release objects; to add a source, write a module and list it in `SOURCES` in `scrape-music.js`.
 - `tidal-client.js` / `spotify-client.js` — minimal catalog-search clients: client-credentials auth with token caching, 429 retry, and conservative title matching.
+- `apple-client.js` — the same, over the public iTunes Search API: no auth, bounded 403/429 backoff.
+- `match.js` — the shared title/artist matching rules (Unicode + accent-folding normalization, whole-token containment, artist-joiner splitting). Used by `tidal-client.js` and `apple-client.js`; `spotify-client.js` still has its own looser matcher, since switching it would change existing `spotify_available` values.
 - `rename-map.json` — old→new slug map written by `rename:apply`, read by `seed.js`.
 - `schema.sql` — DDL for `drawings`, `releases`, `orders` plus the `pg_cron` stale-reservation sweep. Run it in the Supabase SQL editor when standing up a project (dev or prod).
 

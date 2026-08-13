@@ -210,7 +210,8 @@ npm run set-price         # create Stripe product/price + update Supabase
 npm run scrape            # scrape new music from sources
 npm run enrich            # Tidal enrichment
 npm run enrich:spotify    # Spotify enrichment
-npm run enrich:all        # Tidal + Spotify in sequence
+npm run enrich:apple      # Apple Music enrichment (no credentials needed)
+npm run enrich:all        # Tidal + Spotify + Apple in sequence
 ```
 
 Safety rules:
@@ -231,8 +232,9 @@ Safety rules:
 `ra.js` (Resident Advisor GraphQL), `nodata.js` (nodata.tv RSS).
 
 A daily GitHub Actions workflow (`.github/workflows/scrape-music.yml`) runs
-`scrape` + `enrich` + `enrich:spotify` at 08:00 UTC against prod, via repo
-secrets — it doesn't read the env files.
+`scrape` + `enrich` + `enrich:spotify` + `enrich:apple` at 13:00 UTC against
+prod, via repo secrets — it doesn't read the env files. The Apple pass needs no
+secrets (public iTunes Search API), so it's the only one that can't be a no-op.
 
 ## Learn section — `/learn`
 

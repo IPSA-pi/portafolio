@@ -5,7 +5,7 @@ move data *into* it. Two pipelines, each a sequence of stages run in order:
 
 ```
 Drawings:   rename → standardize-images → upload → seed → set-price
-New music:  scrape → enrich (Tidal) → enrich (Spotify)
+New music:  scrape → enrich (Tidal) → enrich (Spotify) → enrich (Apple Music)
 ```
 
 The drawings pipeline is covered in pieces elsewhere ([images](/learn/images) for the media
@@ -89,14 +89,14 @@ nodata.tv releases still land — the daily run degrades instead of dying.
 
 ## Search APIs return answers, not truth
 
-The enrich stages ask Tidal and Spotify "is this release on your platform?" — and the obvious
+The enrich stages ask Tidal, Spotify and Apple Music "is this release on your platform?" — and the obvious
 implementation (search, trust the top hit) is wrong. Catalog search is a loose,
 popularity-weighted text match: for an artist with *no* matching release, it happily returns
 that artist's other albums instead. Trusting it would stamp `available ✓` on releases that
 aren't there.
 
-So the client (`scripts/tidal-client.js`) only accepts a candidate whose **own title matches the
-title we're looking for** — and even that comparison is directional:
+So the client only accepts a candidate whose **own title matches the title we're looking for** —
+and even that comparison is directional:
 
 ```js
 // `candidateTitle` is allowed to be `expectedTitle` plus extra decoration
@@ -117,10 +117,23 @@ release, which costs the whole point of the list.
 > tie breaks toward "no match" — and the schema records `NULL` (never checked), `true`, and
 > `false` as three distinct states so an uncertain answer can be re-asked later.
 
+These rules were worked out against Tidal, but every catalog search fails the same way, so they
+live in one shared module (`scripts/match.js`) that the Tidal and Apple Music clients both
+import. Apple's search returns the right album first for "Rrose — Please Touch" and Cardi B's
+"Please Me" second, which is exactly the trap the artist check exists to catch.
+
+The Apple stage adds one more honesty problem. It queries the public **iTunes Search API**, whose
+catalog is the iTunes Store's — a close but imperfect overlap with Apple Music. So its `false`
+means something slightly weaker than the other two columns' `false` do, and that difference is
+written down in the migration and the client's header rather than left for a future reader to
+discover. A column whose meaning is subtler than its name is fine; a column whose meaning is
+subtler than its name *and undocumented* is a bug waiting to be written.
+
 ## Being a polite API client
 
-Both enrich clients authenticate with the OAuth **client-credentials** grant (an app identity —
-no user login, which is all a catalog search needs), and both are built not to hammer anyone:
+Two of the three enrich clients authenticate with the OAuth **client-credentials** grant (an app
+identity — no user login, which is all a catalog search needs); the Apple one needs no
+credentials at all. All three are built not to hammer anyone:
 
 - **Token caching** — the access token is fetched once and reused until shortly before it
   expires (a 60-second margin, so a token never dies mid-request), instead of re-authenticating
@@ -136,28 +149,49 @@ if (res.status === 429) {
 }
 ```
 
+The Apple client is the interesting variation. Its endpoint is unauthenticated — which sounds
+easier, and is, right up until you notice there's no API key to identify you and therefore no
+generous per-key quota to spend. Apple publishes a limit of roughly 20 calls a minute and signals
+a throttle with **403**, not 429. So that client waits a full second between rows instead of 300
+milliseconds, retries on 403 as well as 429, and — unlike the others — *bounds* its retries:
+
+```js
+if (attempt >= MAX_ATTEMPTS) {
+    throw new Error(`Apple search throttled for "${term}": ${res.status} after ${attempt} attempts`);
+}
+```
+
+Retrying forever is reasonable when a 429 means "you're briefly ahead of your own quota." It's
+the wrong response to a sustained 403, which means you're over a limit that isn't going to move —
+there, spinning quietly is worse than failing loudly.
+
 > Concept: **rate limiting is a contract, not an obstacle.** The server is telling you the pace
 > it can sustain; a well-behaved client caches what's reusable, honors `Retry-After`, and treats
 > 429 as flow control rather than an error. (It's also self-interest — clients that ignore it
-> get their keys throttled or revoked.)
+> get their keys throttled or revoked.) But read *which* signal you're getting: "slow down" and
+> "you can't have this" deserve different code.
 
 ## Scheduling: a robot runs this daily
 
 Nobody runs the music pipeline by hand. A GitHub Actions workflow
-(`.github/workflows/scrape-music.yml`) runs the three stages every morning:
+(`.github/workflows/scrape-music.yml`) runs all four stages every morning:
 
 ```yaml
 on:
   schedule:
-    - cron: '0 8 * * *'     # daily at 08:00 UTC
+    - cron: '0 13 * * *'    # daily at 13:00 UTC = 6am Pacific during PDT
   workflow_dispatch: {}      # plus a manual "Run workflow" button
 ```
 
+(GitHub's cron is UTC-only with no DST handling, so a schedule pinned to a local wall-clock hour
+drifts by an hour twice a year. Pick the offset you can live with and write down which one it is.)
+
 Two details worth copying. First, CI gets its credentials from **repo secrets injected as env
 vars**, never from the gitignored env files — so local credentials and CI credentials can rotate
-independently. Second, the enrich stages **skip themselves cleanly** (exit 0 with a warning) if
-their API keys aren't configured yet — so the pipeline could ship, and run, before every
-integration existed, each stage lighting up when its secrets arrived.
+independently. Second, the credentialed enrich stages **skip themselves cleanly** (exit 0 with a
+warning) if their API keys aren't configured yet — so the pipeline could ship, and run, before
+every integration existed, each stage lighting up when its secrets arrived. (The Apple stage has
+no keys to wait for, so it simply always runs.)
 
 > Concept: **cron + graceful degradation.** A scheduled pipeline should be buildable
 > incrementally: stages that aren't ready yet are no-ops, not failures, and a missing optional

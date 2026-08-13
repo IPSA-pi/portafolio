@@ -27,6 +27,7 @@
     let sourceFilter = $state<'all' | string>('all');
     let availableOnly = $state(false);
     let spotifyOnly = $state(false);
+    let appleOnly = $state(false);
     let selected = new SvelteSet<string>();
     let copied = $state<string | null>(null); // id (or 'selected') most recently copied
     let importNote = $state<string | null>(null);
@@ -67,7 +68,8 @@
                 (statusFilter === 'all' || status === statusFilter) &&
                 (sourceFilter === 'all' || (r.sources ?? [r.source]).includes(sourceFilter)) &&
                 (!availableOnly || r.tidal_available === true) &&
-                (!spotifyOnly || r.spotify_available === true)
+                (!spotifyOnly || r.spotify_available === true) &&
+                (!appleOnly || r.apple_available === true)
             );
         })
     );
@@ -96,6 +98,15 @@
             return r.spotify_album_url;
         }
         return `spotify:search:${encodeURIComponent(`${r.artist} ${r.title}`)}`;
+    }
+
+    // Apple is the exception to the scheme rule above: music.apple.com links are
+    // universal links that already hand off to the Apple Music app when it's
+    // installed, while a `music://` URL just dead-ends in desktop browsers where
+    // nothing registers it. So the stored https URL is the better link as-is.
+    function appleUrl(r: Release): string {
+        if (r.apple_album_url) return r.apple_album_url;
+        return `https://music.apple.com/ca/search?term=${encodeURIComponent(`${r.artist} ${r.title}`)}`;
     }
 
     function ytMusicUrl(r: Release): string {
@@ -218,6 +229,10 @@
                 <label class="flex items-center gap-1.5 text-black dark:text-white">
                     <input type="checkbox" bind:checked={spotifyOnly} class="h-3.5 w-3.5 accent-accent" />
                     Spotify only
+                </label>
+                <label class="flex items-center gap-1.5 text-black dark:text-white">
+                    <input type="checkbox" bind:checked={appleOnly} class="h-3.5 w-3.5 accent-accent" />
+                    Apple only
                 </label>
                 {#if !isAdmin}
                     <!-- Visitor statuses live only in this browser's localStorage;
@@ -355,12 +370,15 @@
                         </div>
 
                         <!-- Actions: links left, status picker pinned to right edge -->
-                        <div class="flex w-full items-center gap-1.5 sm:flex-1">
+                        <!-- Wraps rather than squeezing: with four provider pills the
+                             row no longer fits a narrow viewport, and letting flex
+                             shrink them breaks each label across two lines. -->
+                        <div class="flex w-full flex-wrap items-center gap-1.5 sm:flex-1">
                             <a
                                 href={ytMusicUrl(r)}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black dark:text-white hover:text-accent hover:border-accent transition-colors"
+                                class="shrink-0 whitespace-nowrap rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black dark:text-white hover:text-accent hover:border-accent transition-colors"
                             >
                                 YT Music ↗
                             </a>
@@ -369,7 +387,7 @@
                                     href={tidalUrl(r)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black dark:text-white hover:text-accent hover:border-accent transition-colors"
+                                    class="shrink-0 whitespace-nowrap rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black dark:text-white hover:text-accent hover:border-accent transition-colors"
                                 >
                                     Tidal ✓
                                 </a>
@@ -379,9 +397,19 @@
                                     href={spotifyUrl(r)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    class="rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black dark:text-white hover:text-accent hover:border-accent transition-colors"
+                                    class="shrink-0 whitespace-nowrap rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black dark:text-white hover:text-accent hover:border-accent transition-colors"
                                 >
                                     Spotify ✓
+                                </a>
+                            {/if}
+                            {#if r.apple_available}
+                                <a
+                                    href={appleUrl(r)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="shrink-0 whitespace-nowrap rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black dark:text-white hover:text-accent hover:border-accent transition-colors"
+                                >
+                                    Apple ✓
                                 </a>
                             {/if}
                             {#if isAdmin}

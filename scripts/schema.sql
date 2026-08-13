@@ -108,6 +108,9 @@ CREATE TABLE releases (
     -- Spotify enrichment (same shape as the Tidal pass)
     spotify_available BOOLEAN,
     spotify_album_url TEXT,
+    -- Apple Music enrichment (same shape again; NULL = not yet checked)
+    apple_available  BOOLEAN,
+    apple_album_url  TEXT,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -232,4 +235,13 @@ ALTER TABLE drawings
 -- scripts/migrations/2026-08-09-drop-redundant-slug-index.sql
 /*
 DROP INDEX IF EXISTS idx_drawings_slug;
+*/
+
+-- Migration (DBs whose releases table predates Apple Music enrichment,
+-- 2026-08-13). Also kept as a standalone file:
+-- scripts/migrations/2026-08-13-releases-apple-music.sql
+/*
+ALTER TABLE releases
+    ADD COLUMN IF NOT EXISTS apple_available BOOLEAN,
+    ADD COLUMN IF NOT EXISTS apple_album_url TEXT;
 */
