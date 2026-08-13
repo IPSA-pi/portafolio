@@ -98,12 +98,21 @@ export function containsTokens(haystack, needle) {
  * first place. Short names still match, they just have to match exactly.
  *
  * Compilations credited to "Various Artists" name nobody, so they can't be
- * checked this way and are let through on the title match alone.
+ * checked this way and are let through on the title match alone. That applies
+ * whichever side says it: the platform may credit a compilation to "Various
+ * Artists" while our source lists the contributors, or — just as often — our
+ * source says "Various Artists" while the platform credits every contributor
+ * individually. Checking only the candidate side rejected the latter, which is
+ * how "Various Artists — Paradisi Artificiali" failed against the very album it
+ * names, credited on Spotify to "Agonis, Crossing Avenue, Feral, Polygonia".
  */
 export const ARTIST_JOINERS = /\s*(?:\/|&|\+|,|\bx\b|\bvs\.?\b|\band\b|\bfeat\.?\b|\bft\.?\b|\bwith\b)\s*/i;
 export const MIN_ARTIST_TOKEN_LEN = 3;
+const VARIOUS_ARTISTS = 'various artists';
 
 export function artistsMatch(candidateNames, expectedArtist) {
+    if (normalize(expectedArtist) === VARIOUS_ARTISTS) return true;
+
     const segments = String(expectedArtist ?? '')
         .split(ARTIST_JOINERS)
         .map(normalize)
@@ -113,7 +122,7 @@ export function artistsMatch(candidateNames, expectedArtist) {
     for (const name of candidateNames) {
         const candidate = normalize(name);
         if (!candidate) continue;
-        if (candidate === 'various artists') return true;
+        if (candidate === VARIOUS_ARTISTS) return true;
         for (const segment of segments) {
             if (candidate === segment) return true;
             if (segment.length >= MIN_ARTIST_TOKEN_LEN && containsTokens(candidate, segment)) return true;
