@@ -171,10 +171,45 @@ Examples: `negro_1_01.webp`, `negro_7_15.webp`, `negro_260115_01.webp`
 
 Size variants use a `-` suffix before the size: `negro_1_01-sm.webp`, `negro_1_01-md.webp`, `negro_1_01-lg.webp`
 
+### Scanning and exporting
+
+Everything below happens before the pipeline runs. Get it right here and the rest is automatic; get it wrong and the loss is baked into every derived file.
+
+**Scanner settings**
+
+- **600 DPI, 8-bit, colour (RGB).** Not greyscale — it holds the blue of the ink and the warmth of the paper. 16-bit only if you plan heavy curves work, and even then export 8-bit.
+- **Auto-levels and sharpening off.** Sharpening haloes a ballpoint stroke and can't be undone later.
+- Scanning 4 drawings to a sheet is fine — DPI is per-inch, so each drawing still lands at 600.
+- Output PNG or TIFF. An untagged profile is fine; everything downstream reads untagged RGB as sRGB.
+
+600 DPI is chosen by the print size it supports, not because it's a round number. A 3 × 5 in drawing scans to roughly 1640 × 2530, which a buyer can print at:
+
+| Print DPI | Size | ≈ |
+|---|---|---|
+| 300 (fine-art standard) | 13.9 × 21.4 cm | A5 — 1.8× the original |
+| 240 (good inkjet) | 17.3 × 26.7 cm | between A5 and A4 |
+| 200 | 20.8 × 32.0 cm | A4 |
+| 150 (matted, viewed at arm's length) | 27.7 × 42.7 cm | A3 |
+
+For future notebooks, consider scanning the master pass at **1200 DPI if — and only if — the scanner's *optical* resolution is genuinely 1200** (spec sheets write it as "1200 × 2400 optical"; interpolated figures are just upscaling and buy nothing). It costs 4× the storage and gains nothing today, but originals sell and leave, and a drawing you've mailed to a buyer can never be rescanned.
+
+**Cropping and export**
+
+1. **Flatten before export.** GIMP: Image → Flatten Image. Photoshop: Layer → Flatten Image, or uncheck Transparency in Export As. A scan is opaque, so this is visually a no-op — it just stops the file carrying a dead fourth channel.
+2. **PNG, compression level 9.** GIMP has a 0–9 slider; Photoshop offers Smallest/Slow vs Fastest/Large. This is pure file size at identical pixels — a typical crop goes from 7.7 MB to 3.2 MB.
+3. **Convert to sRGB on export.** Cropping tools tend to stamp their own unnamed profile; naming sRGB explicitly means a print shop never has to guess at colour.
+4. **Crop consistently** — to the paper edge, or to the artwork with a fixed margin. Aspect ratios in `260619` currently span 0.554–0.649 because crops were framed individually, which is why the single notebook-wide `width_cm` / `height_cm` in `scripts/metadata/260619.json` is wrong for many of its drawings.
+5. **Name each crop to its slug** (`260619_01.png`, per the convention above) and save it into `src/lib/assets/drawings/{notebook}/`. No rename step, and the pipeline picks it up as-is.
+
+**Export PNG, not WebP.** `standardize-images.js` accepts `.png` as a source, so the variants get derived from a lossless master in a single encode. Hand it a lossy WebP instead and `-lg` — the file the gallery actually displays full-screen — is a *second* lossy generation over the first. Lossy formats aren't idempotent: re-encoding compounds artifacts, and ballpoint linework is exactly the high-frequency content that suffers. Lossless in, lossy out, once.
+
+The PNGs stay local and are safe to keep there: `.gitignore` covers `/src/lib/assets/drawings`, and `upload.js` matches `.webp` only, so a PNG is never pushed to the public bucket. They double as your print and sale masters.
+
 ### Workflow for new scans
 
 ```sh
-# 1. Name raw scans to the convention above, under src/lib/assets/drawings/{notebook}/
+# 1. Scan, crop, and export per "Scanning and exporting" above —
+#    lossless PNG named to the convention, under src/lib/assets/drawings/{notebook}/
 node scripts/standardize-images.js        # 2. generate -sm/-md/-lg webp variants
 npm run upload                            # 3. push images to Supabase Storage
 npm run seed                              # 4. create/refresh drawings rows

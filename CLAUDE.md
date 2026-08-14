@@ -257,3 +257,8 @@ repo-facing TOC). Cross-chapter links inside chapters use absolute site paths
 
 `npm run build` runs `scripts/standardize-images.js` first, which converts
 source images to WebP. The OG images are the exception.
+
+Drawing sources in `src/lib/assets/drawings/` must be **lossless PNG**, never
+WebP — `standardize-images.js` derives the lossy variants from them, so a lossy
+source means `-lg` is a second generation of loss. Scanner and export settings:
+README → "Scanning and exporting".
