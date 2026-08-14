@@ -20,7 +20,6 @@ export interface ArtworkMeta {
 
 /** An image as the galleries consume it, plus whatever metadata its row has. */
 export type ArtworkImage = {
-    original: string;
     sm: string;
     md: string;
     lg: string;
