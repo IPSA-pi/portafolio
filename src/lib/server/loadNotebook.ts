@@ -35,7 +35,6 @@ function buildImages(drawings: any[]): ArtworkImage[] {
     return drawings.map(d => ({
         slug:     d.slug,
         notebook: d.notebook,
-        original: d.storage_url,
         sm:       variantUrl(d.storage_url, 'sm'),
         md:       variantUrl(d.storage_url, 'md'),
         lg:       variantUrl(d.storage_url, 'lg'),

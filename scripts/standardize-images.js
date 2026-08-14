@@ -23,13 +23,35 @@ async function processImages() {
         const allFiles = await getFiles(ASSETS_DIR);
 
         // Filter for source images
-        const sourceFiles = allFiles.filter(f =>
+        const candidates = allFiles.filter(f =>
             f.match(/\.(png|jpg|jpeg|webp)$/i) &&
             !f.includes('-sm.webp') &&
             !f.includes('-md.webp') &&
             !f.includes('-lg.webp')
         );
 
+        // One source per basename. `drawing_01.png` and `drawing_01.webp` both
+        // target `drawing_01-lg.webp`, and the skip-if-exists check below means
+        // whichever readdir happened to reach first would win — silently, and
+        // differently on another machine. Prefer the lossless PNG master: a
+        // lossy source would make every variant a second generation of loss.
+        const bySource = new Map();
+        for (const filePath of candidates) {
+            const key = path.join(path.dirname(filePath), path.basename(filePath, path.extname(filePath)));
+            const isPng = /\.png$/i.test(filePath);
+            const existing = bySource.get(key);
+
+            if (!existing) {
+                bySource.set(key, filePath);
+                continue;
+            }
+
+            const [winner, shadowed] = isPng ? [filePath, existing] : [existing, filePath];
+            bySource.set(key, winner);
+            console.warn(`  ⚠ two sources for ${path.basename(key)} — using ${path.extname(winner)}, ignoring ${path.basename(shadowed)}`);
+        }
+
+        const sourceFiles = [...bySource.values()];
         console.log(`Found ${sourceFiles.length} source images.`);
 
         for (const filePath of sourceFiles) {

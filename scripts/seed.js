@@ -92,21 +92,33 @@ function artworkMetadata(notebook, slug) {
     return { ...defaults, ...(sidecar.drawings?.[slug] ?? {}) };
 }
 
-// 1. Build rows from filesystem (originals only)
+// 1. Build rows from filesystem (sources only — no variant suffix).
+//    A source is {notebook}_{dd}.png (the lossless master, preferred) or
+//    .webp (legacy); see README → "Scanning and exporting". storage_url always
+//    names the .webp base whichever it was, because loadNotebook derives the
+//    -sm/-md/-lg variants from it by replacing a trailing `.webp` — a .png
+//    value there would resolve every variant to the full-size master.
 const rows = [];
 for (const folder of fs.readdirSync(DRAWINGS_DIR)) {
     const folderPath = path.join(DRAWINGS_DIR, folder);
     if (!fs.statSync(folderPath).isDirectory()) continue;
 
+    // One source per slug. During a re-export a PNG master and its legacy
+    // .webp sit side by side; take the PNG so the count doesn't double-report.
+    const sources = new Map();
     for (const file of fs.readdirSync(folderPath)) {
-        // Originals only: {notebook}_{dd}.webp — no variant suffix
-        const match = file.match(/^(.+)_(\d{2})\.webp$/);
+        const match = file.match(/^(.+)_(\d{2})\.(png|webp)$/);
         if (!match) continue;
 
-        const notebook      = match[1];
-        const drawingNumber = parseInt(match[2]);
-        const slug          = `${notebook}_${match[2]}`;
-        const storageUrl    = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${notebook}/${file}`;
+        const slug = `${match[1]}_${match[2]}`;
+        if (sources.get(slug)?.ext === 'png') continue;
+        sources.set(slug, { notebook: match[1], number: match[2], ext: match[3] });
+    }
+
+    for (const [slug, src] of sources) {
+        const notebook      = src.notebook;
+        const drawingNumber = parseInt(src.number);
+        const storageUrl    = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${notebook}/${slug}.webp`;
         const meta          = artworkMetadata(notebook, slug);
 
         rows.push({
