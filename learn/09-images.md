@@ -26,12 +26,19 @@ The reason is that lossy formats are not idempotent. Encoding a JPEG or a WebP t
 detail to save bytes, and encoding the *result* throws away more — the artifacts compound.
 This is called **generation loss**, and it's the digital cousin of photocopying a photocopy.
 
-This site learned that the hard way. For a while the source images in
-`src/lib/assets/drawings/` were themselves lossy WebP, so `standardize-images.js` was
-re-encoding an already-lossy file to produce `-lg`. Comparing one of those against the true PNG
-crop: **85% of the bytes differ, by up to 30 levels out of 255.** Nobody noticed by eye, which
-is exactly what makes generation loss insidious — each pass looks fine, and the damage is
-cumulative and permanent.
+This site learned that the hard way. The first notebook's source images were themselves lossy
+WebP, so `standardize-images.js` re-encoded an already-lossy file to produce `-lg`. Comparing
+one against the true PNG crop: **85% of the bytes differ, by up to 30 levels out of 255.**
+Nobody noticed by eye, which is exactly what makes generation loss insidious — each pass looks
+fine, and the damage is cumulative and permanent.
+
+The pipeline takes PNG masters now, so it won't happen again. But that first notebook was
+never re-exported, and its `-lg` files are still second-generation today. That's the honest
+shape of this kind of mistake: the fix protects everything *after* it, and the damage already
+done stays done unless someone redoes the manual work by hand. Here it wasn't worth it — the
+difference is invisible at the sizes the gallery actually serves. It's still a permanent
+footnote in the repo, which is a better argument for getting it right the first time than any
+amount of theory.
 
 There's a second reason PNG rather than JPEG for *this* art specifically. JPEG compresses by
 discarding high-frequency detail, so it rings — puts faint halos — around hard edges. A pen

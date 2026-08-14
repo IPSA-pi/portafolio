@@ -258,7 +258,15 @@ repo-facing TOC). Cross-chapter links inside chapters use absolute site paths
 `npm run build` runs `scripts/standardize-images.js` first, which converts
 source images to WebP. The OG images are the exception.
 
-Drawing sources in `src/lib/assets/drawings/` must be **lossless PNG**, never
-WebP — `standardize-images.js` derives the lossy variants from them, so a lossy
-source means `-lg` is a second generation of loss. Scanner and export settings:
-README → "Scanning and exporting".
+Drawing sources in `src/lib/assets/drawings/` should be **lossless PNG** for any
+new notebook — `standardize-images.js` derives the lossy variants from them, so a
+lossy source makes `-lg` a second generation of loss. Scanner and export
+settings: README → "Scanning and exporting".
+
+**`260619` is the exception and stays that way.** Its sources are lossy WebP
+from before the PNG workflow existed, so its `-lg` is a double encode. Re-exporting
+was considered and **declined** (2026-08-13) — the loss isn't visible at gallery
+sizes and the masters are fine for print. Don't propose it again, and don't treat
+the mismatch as a bug. Both formats are supported on purpose: `seed.js` discovers
+`.png` or `.webp`, and `standardize-images.js` only has to choose when one slug
+has both.
