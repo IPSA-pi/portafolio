@@ -1,3 +1,9 @@
+<script lang="ts">
+    // The licence text is shared with the purchase-confirmation email so the
+    // page a buyer can read and the terms they were actually sent cannot drift.
+    import { DIGITAL_LICENSE, DIGITAL_FILE_DESCRIPTION } from '$lib/digitalLicense';
+</script>
+
 <svelte:head>
     <title>Terms of Service | Ian Sebelius</title>
     <meta name="description" content="Terms of service for iansebelius.com — purchase terms, intellectual property, refund policy, and limitations of liability." />
@@ -25,7 +31,7 @@
                     All artwork, images, visual compositions, design elements, and written content on this site are the exclusive intellectual property of Ian Sebelius and are protected by copyright law.
                 </p>
                 <p class="mt-3 font-body text-body text-content">
-                    Purchasing a physical work grants you ownership of that physical object and a <strong>personal, non-commercial, non-transferable license</strong> to display it privately. Purchase does not transfer copyright or any reproduction rights. The following are strictly prohibited without prior written consent:
+                    Purchasing a physical work grants you ownership of that physical object and a <strong>personal, non-commercial, non-transferable license</strong> to display it privately. Purchase does not transfer copyright or any reproduction rights. Except as expressly permitted by the digital-copy licence in section 5, the following are strictly prohibited without prior written consent:
                 </p>
                 <ul class="mt-3 list-inside list-disc space-y-2 font-body text-body text-content marker:text-content-dim">
                     <li>Reproducing, printing, or duplicating any artwork in any medium.</li>
@@ -33,12 +39,18 @@
                     <li>Distributing, reselling, or publicly exhibiting artwork for profit.</li>
                     <li>Creating derivative works based on any artwork sold through this store.</li>
                 </ul>
+                <p class="mt-3 font-body text-body text-content">
+                    Section 5 grants a narrow exception to the first item for the digital copy included with a purchase: you may print it for personal use and share the image on personal social media with credit. The remaining prohibitions apply to the digital copy exactly as they do to the original.
+                </p>
             </div>
 
             <div>
                 <h2 class="text-title text-content">2. Pricing and Availability</h2>
                 <p class="mt-3 font-body text-body text-content">
                     Prices are displayed in Canadian dollars (CAD) and may be updated at any time without prior notice. Each original work is one of a kind and listed as available until sold. In the event of a technical error resulting in a purchase at an incorrect price, the seller reserves the right to cancel the order and issue a full refund.
+                </p>
+                <p class="mt-3 font-body text-body text-content">
+                    Every purchase of an original work also includes, at no additional cost, a high-resolution digital copy of that work. See section 5.
                 </p>
             </div>
 
@@ -64,19 +76,35 @@
                     <strong>All sales are final.</strong> Because each work is an original, one-of-a-kind piece, returns and exchanges are not accepted.
                 </p>
                 <p class="mt-3 font-body text-body text-content">
-                    If your order arrives visibly damaged due to shipping mishandling, please contact <a href="mailto:sebeliusancira@gmail.com" class="text-signal underline transition-colors hover:text-signal-strong">sebeliusancira@gmail.com</a> within <strong>48 hours of delivery</strong> with photographic documentation of the damage and original packaging. Damage claims submitted outside this window cannot be processed. Verified shipping damage will be resolved at the seller's discretion, which may include a partial refund or replacement arrangement.
+                    Digital copies are non-refundable for a different reason: they are delivered immediately on purchase and cannot be returned once downloaded.
+                </p>
+                <p class="mt-3 font-body text-body text-content">
+                    The damage policy below applies to physical works only. If your order arrives visibly damaged due to shipping mishandling, please contact <a href="mailto:sebeliusancira@gmail.com" class="text-signal underline transition-colors hover:text-signal-strong">sebeliusancira@gmail.com</a> within <strong>48 hours of delivery</strong> with photographic documentation of the damage and original packaging. Damage claims submitted outside this window cannot be processed. Verified shipping damage will be resolved at the seller's discretion, which may include a partial refund or replacement arrangement.
                 </p>
             </div>
 
             <div>
-                <h2 class="text-title text-content">5. Payment Processing</h2>
+                <h2 class="text-title text-content">5. Digital Copies</h2>
+                <p class="mt-3 font-body text-body text-content">
+                    Every purchase of an original work includes a free digital copy of that work: {DIGITAL_FILE_DESCRIPTION}. It is delivered as a download link in the purchase-confirmation email, and that link remains valid for one year. If it expires before you have saved the file, contact <a href="mailto:sebeliusancira@gmail.com" class="text-signal underline transition-colors hover:text-signal-strong">sebeliusancira@gmail.com</a> and a new one will be issued.
+                </p>
+                <p class="mt-3 font-body text-body text-content">
+                    A small number of works have no digital copy available. Where that is the case, no download link is included and the purchase price is unaffected.
+                </p>
+                <p class="mt-3 font-body text-body text-content">
+                    Digital copies are licensed, not sold, on these terms: {DIGITAL_LICENSE}
+                </p>
+            </div>
+
+            <div>
+                <h2 class="text-title text-content">6. Payment Processing</h2>
                 <p class="mt-3 font-body text-body text-content">
                     Payments are processed by Stripe, Inc. By completing a purchase, you also agree to <a href="https://stripe.com/legal" class="text-signal underline transition-colors hover:text-signal-strong" target="_blank" rel="noopener">Stripe's Terms of Service</a>. Payment card data never passes through or is stored on this site's servers.
                 </p>
             </div>
 
             <div>
-                <h2 class="text-title text-content">6. Limitation of Liability</h2>
+                <h2 class="text-title text-content">7. Limitation of Liability</h2>
                 <p class="mt-3 font-body text-body text-content">
                     To the fullest extent permitted by applicable law, Ian Sebelius shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of this site or any purchase made through it. This includes, without limitation, damages resulting from:
                 </p>
@@ -92,14 +120,14 @@
             </div>
 
             <div>
-                <h2 class="text-title text-content">7. Governing Law</h2>
+                <h2 class="text-title text-content">8. Governing Law</h2>
                 <p class="mt-3 font-body text-body text-content">
                     These terms are governed by the laws of the <strong>Province of British Columbia, Canada</strong>, without regard to conflict of law principles. Any disputes arising from these terms or a purchase shall be resolved in the courts of that jurisdiction.
                 </p>
             </div>
 
             <div>
-                <h2 class="text-title text-content">8. Changes to These Terms</h2>
+                <h2 class="text-title text-content">9. Changes to These Terms</h2>
                 <p class="mt-3 font-body text-body text-content">
                     These terms may be revised at any time. The effective date at the top of this page reflects the most recent update. Continued use of the site after any revision constitutes acceptance of the updated terms.
                 </p>

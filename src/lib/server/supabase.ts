@@ -18,6 +18,11 @@ export type Drawing = {
     medium: string | null;
     width_cm: number | null;
     height_cm: number | null;
+    // Digital copy. `digital_object_path` points into the PRIVATE
+    // `drawings-masters` bucket — never serialize it to the client, and never
+    // build a public URL from it. A row can deliver a file iff it is non-null;
+    // availability is derived from that, not stored as a third flag.
+    digital_object_path: string | null;
     sold: boolean;
     reserved: boolean;
     reserved_at: string | null;
@@ -75,8 +80,12 @@ type Database = {
                 Row: Drawing;
                 // The artwork-metadata columns stay optional on insert: the seed
                 // supplies them, but /admin/drawings registers rows without any.
-                Insert: Omit<Drawing, 'id' | 'created_at' | 'updated_at' | 'title' | 'year' | 'medium' | 'width_cm' | 'height_cm'> &
-                    Partial<Pick<Drawing, 'id' | 'created_at' | 'updated_at' | 'title' | 'year' | 'medium' | 'width_cm' | 'height_cm'>>;
+                // `digital_object_path` is optional for a stronger reason — it
+                // is owned by upload-masters and the owner, so no insert path
+                // should be able to name it, and an upsert that omitted it
+                // must leave whatever is there untouched.
+                Insert: Omit<Drawing, 'id' | 'created_at' | 'updated_at' | 'title' | 'year' | 'medium' | 'width_cm' | 'height_cm' | 'digital_object_path'> &
+                    Partial<Pick<Drawing, 'id' | 'created_at' | 'updated_at' | 'title' | 'year' | 'medium' | 'width_cm' | 'height_cm' | 'digital_object_path'>>;
                 Update: Partial<Omit<Drawing, 'id'>>;
                 Relationships: [];
             };

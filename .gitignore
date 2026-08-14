@@ -18,6 +18,10 @@ Thumbs.db
 # Drawing scans — served from Supabase Storage, never bundled
 /src/lib/assets/drawings
 
+# High-resolution PNG masters for the digital copy — uploaded to a private
+# Supabase bucket by scripts/upload-masters.js, never committed or served
+/masters
+
 # Editor
 /.vscode
 

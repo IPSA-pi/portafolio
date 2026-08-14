@@ -1,0 +1,32 @@
+-- 2026-08-13 — Digital file column on `drawings`.
+--
+-- What: adds one nullable column backing the high-resolution digital copy —
+-- `digital_object_path`, where the finished PNG master lives inside the PRIVATE
+-- `drawings-masters` bucket.
+--
+-- Why: every buyer of a physical drawing now gets the high-resolution file free,
+-- delivered as a one-year signed URL in the confirmation email the webhook
+-- already sends.
+--
+-- This file originally also added `digital_url`, a Gumroad deep link for a
+-- paid listing. It was removed before the file ever ran on prod: the paid file
+-- sells through Stripe Managed Payments instead (owner decision 2026-10-01),
+-- so nothing would ever have read it. A dev DB that ran the earlier version
+-- still has the column; 2026-10-01-digital-sale.sql drops it.
+--
+-- Availability is derived, never stored: a row can deliver a file iff
+-- `digital_object_path IS NOT NULL`. Do not add a third boolean to keep in sync.
+--
+-- The column is owned by `npm run upload-masters` / the owner, NOT by
+-- `npm run seed` — seed's upsert payload never mentions it, so PostgREST's
+-- ON CONFLICT DO UPDATE leaves it alone on re-seed.
+--
+-- It is nullable: with all-null values the confirmation email renders exactly
+-- as it does today, with no download section. Two of the 25 drawings
+-- (negro_1_94, negro_1_95) have no PNG master and stay that way.
+--
+-- How to run: paste into the Supabase SQL editor — DEV first. Prod stays
+-- untouched until the owner decides to roll it out. Idempotent (IF NOT EXISTS).
+
+ALTER TABLE drawings
+    ADD COLUMN IF NOT EXISTS digital_object_path TEXT;  -- e.g. 260619/260619_01.png

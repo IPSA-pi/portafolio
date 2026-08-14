@@ -164,10 +164,37 @@ Two concepts that are easy to conflate:
   image per notebook at `static/og/[slug].jpg`.
 - **Drawing** — an individual piece within a notebook. Stored in Supabase
   `drawings` table with columns: `slug`, `notebook`, `storage_url`,
-  `stripe_price_id`, `price_cents`, `sold`, `reserved`, `display_order`.
+  `stripe_price_id`, `price_cents`, `sold`, `reserved`, `display_order`,
+  `digital_object_path`.
 
 Drawing images are served from Supabase storage (not `static/`), with four
 size variants derived by suffix: original, `-sm.webp`, `-md.webp`, `-lg.webp`.
+
+### Digital copies
+
+Every buyer of a physical drawing gets the high-resolution file free, as a
+one-year signed URL in the confirmation email. Two buckets, and the distinction
+is the whole security model:
+
+- **`drawings`** (public) — the WebP variants the gallery serves.
+- **`drawings-masters`** (**private**) — the finished PNG masters.
+  `digital_object_path` names an object in here. It is read only by the webhook,
+  passed only to `createSignedUrl`, and must never be serialized to a client or
+  turned into a public URL.
+
+`npm run upload-masters -- --notebook <nb>` finishes and uploads them (flatten,
+named sRGB, max lossless compression; the scanned density tag is preserved as-is)
+and writes `digital_object_path`. Availability is derived from that column being
+non-null — do not add a boolean. Not every drawing has one, and the null path is
+normal: the email simply renders no download section.
+
+Signing is **non-fatal by design** (`signDownloads` in the webhook). The product
+is the original; the file rides along. A sale that is already recorded must never
+500 because a bonus link couldn't be signed.
+
+Licence text lives in `src/lib/digitalLicense.ts` and is imported by both the
+confirmation email and `/terms`, so what a buyer is shown at purchase and what
+the legal page says cannot drift.
 
 Post-purchase flow, single-item (notebook page): Stripe redirects to
 `/drawing/[notebook_slug]?success=...&drawing=...&session_id=...`.
@@ -200,6 +227,7 @@ scripts".
 ```bash
 npm run seed              # seed drawings to Supabase
 npm run upload            # upload drawing assets
+npm run upload-masters    # finish + upload PNG masters to the PRIVATE bucket
 npm run set-price         # create Stripe product/price + update Supabase
 npm run scrape            # scrape new music from sources
 npm run enrich            # Tidal enrichment
@@ -211,8 +239,9 @@ npm run enrich:all        # Tidal + Spotify + Apple in sequence
 Safety rules:
 
 - All of the above hit the **dev** DB. The `:prod` variants (`seed:prod`,
-  `upload:prod`, `set-price:prod`, `scrape:prod`, `enrich:all:prod`) are the
-  only local path to production — never run one unprompted.
+  `upload:prod`, `upload-masters:prod`, `set-price:prod`, `scrape:prod`,
+  `enrich:all:prod`) are the only local path to production — never run one
+  unprompted.
 - `delete-drawing.js` is destructive and deliberately has no wrapper, no
   dry-run, and no `:prod` variant; a prod deletion is a manual, careful,
   hand-assembled command.

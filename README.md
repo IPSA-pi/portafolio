@@ -226,6 +226,7 @@ node scripts/standardize-images.js        # 2. generate -sm/-md/-lg webp variant
 npm run upload                            # 3. push images to Supabase Storage
 npm run seed                              # 4. create/refresh drawings rows
 npm run set-price -- --notebook negro_7 150   # 5. (optional) list for sale, $150 CAD
+npm run upload-masters -- --notebook negro_7  # 6. (optional) PNG masters for the free digital copy
 ```
 
 Steps 3–5 hit the dev database by default; repeat with the `:prod` wrappers to publish. Flags, safety notes, and per-script details in [Data-pipeline scripts](#data-pipeline-scripts) below.
@@ -277,6 +278,24 @@ npm run upload:prod
 ```
 
 Needs `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`. Idempotent: existing files are skipped unless `--force`. Exits 1 if anything failed — check the `Uploaded / Skipped / Failed` summary line.
+
+### `upload-masters.js` — push PNG masters to the **private** bucket
+
+Finishes the high-resolution PNG masters that back the free digital copy and uploads them to `drawings-masters`, recording `digital_object_path` on each row. Run after `seed` — it only touches slugs that already have a drawings row, and warns rather than uploading an orphan.
+
+Finishing is: flatten the (opaque) alpha channel, convert to a **named** sRGB profile so print shops don't guess, and re-encode losslessly at maximum compression. Typically 7.7 MB → 3.2 MB at identical pixels. The scanned density tag is preserved exactly, so a print dialog defaults to the drawing's real physical size.
+
+```sh
+npm run upload-masters -- --notebook 260619                  # from masters/260619/
+npm run upload-masters -- --notebook 260619 --dir /path/to/scans
+npm run upload-masters -- --notebook 260619 --dry-run
+npm run upload-masters -- --notebook 260619 --force          # replace existing
+npm run upload-masters:prod -- --notebook 260619
+```
+
+Sources default to a gitignored `masters/<notebook>/`. Filenames may be either `<slug>.png` (`260619_01.png`) or bare `<NN>.png` (`01.png`) — the slug comes from `--notebook` either way, so a folder of scans works untouched. Finished PNGs are also written to a `finished/` subdirectory next to the sources — a local copy of exactly what was uploaded.
+
+> **The `drawings-masters` bucket must be private.** Nothing writes a public URL for it; the webhook mints a one-year signed URL per sale instead. Create it as private in the Supabase dashboard before the first run.
 
 ### `seed.js` — build the `drawings` table from filesystem + Stripe
 
