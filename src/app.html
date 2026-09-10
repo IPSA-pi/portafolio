@@ -22,5 +22,16 @@
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>
+		<!-- Cloudflare Web Analytics. Installed by hand on purpose: automatic edge
+		     injection never fired here, because every page is served by the Worker
+		     rather than a conventional proxied origin. The zone's RUM setting is
+		     therefore "Enable with JS Snippet installation". The token is public —
+		     it ships in the HTML of every page — so it belongs in source, not in an
+		     env var. Cookieless: sets nothing on the visitor's device. -->
+		<script
+			type="module"
+			src="https://static.cloudflareinsights.com/beacon.min.js"
+			data-cf-beacon='{"token": "d7bfb4ad5936488cab88411e13440a8b"}'
+		></script>
 	</body>
 </html>
