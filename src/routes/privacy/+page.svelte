@@ -9,7 +9,7 @@
         <a href="/" class="text-sm text-gray-800 dark:text-white hover:text-black dark:hover:text-accent transition-colors">← Back</a>
 
         <h1 class="mt-6 text-3xl font-bold text-gray-900 dark:text-white">Privacy Policy</h1>
-        <p class="mt-2 text-sm text-gray-800 dark:text-white">Effective date: July 1, 2026</p>
+        <p class="mt-2 text-sm text-gray-800 dark:text-white">Effective date: September 10, 2026</p>
 
         <p class="mt-6 text-gray-700 dark:text-white leading-relaxed">
             This site is operated by Ian Sebelius (<em>iansebelius.com</em>). This policy explains what personal information is collected when you visit or make a purchase, how it is used, and who it is shared with.
@@ -53,6 +53,7 @@
                     <li><strong>Stripe</strong> — payment processing.</li>
                     <li><strong>Resend</strong> — transactional email delivery (order confirmations, shipping updates).</li>
                     <li><strong>Supabase</strong> — secure database and file storage hosting your order records and artwork assets.</li>
+                    <li><strong>Cloudflare</strong> — site hosting and delivery, plus privacy-preserving visitor analytics. The analytics are aggregate and cookieless: nothing is stored on your device, you are not fingerprinted, and you are not tracked across other websites.</li>
                 </ul>
                 <p class="mt-3 text-gray-700 dark:text-white leading-relaxed">
                     No data is sold to advertisers or shared with any other third parties.
@@ -62,7 +63,7 @@
             <div>
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">4. Cookies and Local Storage</h2>
                 <p class="mt-3 text-gray-700 dark:text-white leading-relaxed">
-                    This site uses <strong>no advertising, analytics, or cross-site tracking cookies</strong>, and therefore shows no cookie-consent banner. It stores only the strictly necessary and functional items listed below. All are first-party (set by this site), stay on your device or this site's own systems, and are never used to profile you or shared with advertisers.
+                    This site uses <strong>no advertising, analytics, or cross-site tracking cookies</strong>, and therefore shows no cookie-consent banner. The visitor analytics described above are cookieless and store nothing on your device. It stores only the strictly necessary and functional items listed below. All are first-party (set by this site), stay on your device or this site's own systems, and are never used to profile you or shared with advertisers.
                 </p>
                 <ul class="mt-3 space-y-2 text-gray-700 dark:text-white leading-relaxed list-disc list-inside">
                     <li><strong><code>session_seed</code> (cookie)</strong> — a random number that keeps the artwork shuffled in a consistent order for you as you browse. Contains no personal information and expires when you close your browser.</li>
