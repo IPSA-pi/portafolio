@@ -310,28 +310,38 @@ async function fulfillOrder(session: any) {
     // throwing, so we don't return a false 500 for an already-recorded sale.
     // Promise.allSettled (rather than sequential awaits) so a slow/failed
     // customer email doesn't delay or block the artist notification.
-    const emailSends: Promise<unknown>[] = [];
+    // Labelled so a failure names which email was lost: the buyer's confirmation
+    // and the artist notification have different consequences, and an unlabelled
+    // log leaves the owner unable to tell whether the buyer heard anything.
+    const emailSends: { label: string; send: Promise<{ error: unknown }> }[] = [];
     if (customerEmail) {
-        emailSends.push(getResend().emails.send({
+        emailSends.push({ label: 'customer confirmation', send: getResend().emails.send({
             from:    'Ian Sebelius <no-reply@iansebelius.com>',
             to:      customerEmail,
             subject: soldSlugs.length > 1 ? `Your original drawings (${soldSlugs.length})` : `Your original drawing — ${soldSlugs[0]}`,
             html:    buildCustomerEmail(customerName, emailItems),
-        }));
+        }) });
     }
-    emailSends.push(getResend().emails.send({
+    emailSends.push({ label: 'artist notification', send: getResend().emails.send({
         from:    'Store <no-reply@iansebelius.com>',
         to:      'sebeliusancira@gmail.com',
         subject: soldSlugs.length > 1 ? `Sold: ${soldSlugs.length} drawings` : `Sold: ${soldSlugs[0]}`,
         html:    artistNotificationEmail(emailItems, customerName, customerEmail ?? 'unknown', shippingAddress, amountTotal),
-    }));
+    }) });
 
-    const results = await Promise.allSettled(emailSends);
-    for (const result of results) {
+    const results = await Promise.allSettled(emailSends.map((e) => e.send));
+    results.forEach((result, i) => {
+        const { label } = emailSends[i];
+        // Resend resolves with an `error` field rather than rejecting — the same
+        // shape the collision alert above already guards against. Checking only
+        // for `rejected` here let every send failure pass silently, which is the
+        // one thing this block exists to prevent. Check both.
         if (result.status === 'rejected') {
-            console.error(`Error sending fulfillment email for ${soldSlugs.join(', ')}:`, result.reason);
+            console.error(`Error sending ${label} for ${soldSlugs.join(', ')}:`, result.reason);
+        } else if (result.value?.error) {
+            console.error(`Error sending ${label} for ${soldSlugs.join(', ')}:`, result.value.error);
         }
-    }
+    });
 }
 
 export const POST = async ({ request }) => {
