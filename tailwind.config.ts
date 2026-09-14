@@ -30,6 +30,13 @@ export default {
         'label':      ['0.6875rem',                   { lineHeight: '1',    letterSpacing: '0.18em' }],
       },
 
+      // Hairlines are drawn at 12% (`border-line/12`), and the default opacity
+      // scale jumps from 10 to 15. Without this step the modifier generates no
+      // CSS at all and the border falls back to preflight's gray.
+      opacity: {
+        12: '0.12',
+      },
+
       colors: {
         surface: {
           DEFAULT: token('surface'),

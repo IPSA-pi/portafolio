@@ -55,7 +55,7 @@
                     <li>
                         <a
                             href="/learn/{chapter.slug}"
-                            class="group block border border-line/15 bg-surface-raised p-4 transition-colors hover:border-line/30"
+                            class="group block border border-line/12 bg-surface-raised p-4 transition-colors hover:border-line/30"
                         >
                             <span class="flex items-baseline gap-3">
                                 {#if part.title !== 'Appendix'}
