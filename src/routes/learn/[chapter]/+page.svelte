@@ -37,7 +37,7 @@
                prose-headings:font-sans prose-table:font-sans
                prose-headings:scroll-mt-24 prose-a:text-signal hover:prose-a:text-signal-strong
                prose-pre:rounded-none prose-pre:border prose-pre:border-line/15 prose-pre:p-4 prose-pre:overflow-x-auto
-               prose-code:before:content-none prose-code:after:content-none"
+               prose-code:before:content-none prose-code:after:content-none max-sm:prose-code:[overflow-wrap:anywhere]"
     >
         {@html data.html}
     </article>
