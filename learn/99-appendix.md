@@ -37,7 +37,7 @@ suggestions for where to go next.
 | **`srcset` / `sizes`** | `<img>` attributes declaring which size variants of an image exist and how wide it will display, so the browser can download the smallest file that looks sharp. |
 | **Rate limiting / 429** | A server telling a client to slow down (`429 Too Many Requests`, often with a `Retry-After` header); polite clients wait and retry. |
 | **Cron** | The classic schedule syntax for recurring jobs — `0 8 * * *` means "daily at 08:00" — used by the GitHub Actions workflow that runs the music pipeline. |
-| **Natural key** | Identifying a record by its real-world content (like `artist|title`) instead of an arbitrary id — how scraped releases from different sources get deduplicated. |
+| **Natural key** | Identifying a record by its real-world content (like `artist\|title`) instead of an arbitrary id — how scraped releases from different sources get deduplicated. |
 
 ## Where to go next
 
