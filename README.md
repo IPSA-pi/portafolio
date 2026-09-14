@@ -151,6 +151,18 @@ Emails are sent from `no-reply@iansebelius.com`. Verify the domain in the [Resen
 - [ ] **`pg_cron` sweep** — the stale-reservation cleanup job from `scripts/schema.sql` is installed on the live database (backstop for a missed `expired` webhook).
 - [ ] **Cloudflare Access** — the `/admin` Access application exists and `CF_ACCESS_TEAM_DOMAIN` / `CF_ACCESS_AUD` are set.
 
+## Analytics
+
+Visitor numbers come from Cloudflare Web Analytics: Cloudflare dashboard → **Analytics → Web Analytics → iansebelius.com**. The beacon is a static `<script>` tag near the end of `src/app.html`. The site token is in that tag, not in an env var, because it's public and ships in every page anyway. The zone is set to "Enable with JS Snippet installation" because Cloudflare's automatic edge injection never fired for this Worker-served site (see the comment in `app.html`). If automatic injection is ever switched back on and starts working, remove the tag so pageviews aren't counted twice.
+
+It's cookieless (no cookies, no local storage, no fingerprinting), so no consent banner is needed. It's disclosed as a processor in the privacy policy (`src/routes/privacy/`). Ad blockers suppress some share of the beacon, so treat the numbers as a floor.
+
+Campaign links (Instagram bio, newsletters, posters/QR codes) should carry UTM parameters, so a campaign can be told apart from ordinary traffic. This is also the input the deferred "UTM → sale attribution" idea would build on:
+
+```
+https://iansebelius.com/drawing?utm_source=instagram&utm_campaign=fall-fair-2026
+```
+
 ## Adding new drawings
 
 ### Naming convention
