@@ -47,7 +47,7 @@ export default {
         alert:  token('alert'),
 
         // Legacy accent, kept verbatim for surfaces outside this pass's scope
-        // (/learn, /new-music, /about, /admin). In-scope code uses `signal`.
+        // (/new-music, /about, /admin). In-scope code uses `signal`.
         accent: {
           DEFAULT: '#39ff14',
           hover:   '#2de010',
