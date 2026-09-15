@@ -20,15 +20,16 @@
     {/if}
 </svelte:head>
 
-<!--
-  Full-width solid background blocks the layout's fixed background video so the
-  text stays readable, matching /learn and /privacy.
--->
-<div class="min-h-screen bg-gray-100 dark:bg-neutral-950">
-    <div class="container mx-auto px-4 py-16 max-w-3xl">
+<!-- No page background of its own: the layout's <main> already paints
+     bg-surface here, which blocks the background video. The reading column
+     sits inside .shell without re-centering, so it aligns with the nav logo. -->
+<div class="shell pb-20">
+    <div class="max-w-3xl pt-10">
         {#if !data.published}
+            <!-- Same hairline-with-edge panel as Notice, kept inline so the
+                 draft copy stays exactly as written. -->
             <p
-                class="mb-8 rounded-md border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-neutral-900 dark:text-white"
+                class="mb-8 border border-line/12 border-l-2 border-l-signal bg-surface-raised px-5 py-4 font-body text-body text-content"
             >
                 <strong>Draft — only you can see this.</strong> Edit the text in
                 <code>src/lib/about.ts</code>, then set
@@ -36,23 +37,21 @@
             </p>
         {/if}
 
-        <h1 class="text-3xl font-bold text-neutral-900 dark:text-white">{about.name}</h1>
-        <p class="mt-2 text-sm uppercase tracking-widest text-neutral-800 dark:text-white">
+        <h1 class="text-display text-content">{about.name}</h1>
+        <p class="mt-3 font-mono text-label uppercase text-content-dim">
             {about.role}{#if about.role && about.location}&nbsp;&middot;&nbsp;{/if}{about.location}
         </p>
 
         <section class="mt-8 space-y-4">
             {#each about.bio as paragraph}
-                <p class="text-neutral-800 dark:text-white leading-relaxed">{paragraph}</p>
+                <p class="max-w-prose font-body text-body text-content">{paragraph}</p>
             {/each}
         </section>
 
-        <hr class="my-10 border-neutral-200 dark:border-neutral-800" />
+        <hr class="my-10 border-line/12" />
 
         <section>
-            <h2
-                class="text-sm font-semibold uppercase tracking-widest text-neutral-800 dark:text-white"
-            >
+            <h2 class="font-mono text-label uppercase text-content-dim">
                 Contact
             </h2>
 
@@ -66,7 +65,7 @@
                             stroke-width="1.5"
                             stroke="currentColor"
                             aria-hidden="true"
-                            class="w-5 h-5 shrink-0 text-neutral-800 dark:text-white"
+                            class="h-5 w-5 shrink-0 text-content-dim"
                         >
                             <path
                                 stroke-linecap="round"
@@ -76,7 +75,7 @@
                         </svg>
                         <a
                             href="mailto:{about.email}"
-                            class="text-accent hover:text-accent-hover underline break-all"
+                            class="break-all text-signal underline transition-colors hover:text-signal-strong"
                         >
                             {about.email}
                         </a>
@@ -92,7 +91,7 @@
                             stroke-width="1.5"
                             stroke="currentColor"
                             aria-hidden="true"
-                            class="w-5 h-5 shrink-0 text-neutral-800 dark:text-white"
+                            class="h-5 w-5 shrink-0 text-content-dim"
                         >
                             <rect x="3" y="3" width="18" height="18" rx="5" />
                             <circle cx="12" cy="12" r="4" />
@@ -108,7 +107,7 @@
                             href={instagramUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            class="text-accent hover:text-accent-hover underline"
+                            class="text-signal underline transition-colors hover:text-signal-strong"
                         >
                             @{about.instagram}
                         </a>
@@ -124,7 +123,7 @@
                             stroke-width="1.5"
                             stroke="currentColor"
                             aria-hidden="true"
-                            class="w-5 h-5 shrink-0 text-neutral-800 dark:text-white"
+                            class="h-5 w-5 shrink-0 text-content-dim"
                         >
                             <path
                                 stroke-linecap="round"
@@ -137,21 +136,24 @@
                                 d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
                             />
                         </svg>
-                        <span class="text-neutral-800 dark:text-white">{about.location}</span>
+                        <span class="text-content">{about.location}</span>
                     </li>
                 {/if}
             </ul>
 
             {#if about.contactNote}
-                <p class="mt-6 text-sm text-neutral-800 dark:text-white leading-relaxed">
+                <p class="mt-6 max-w-prose font-body text-body text-content-dim">
                     {about.contactNote}
                 </p>
             {/if}
         </section>
 
-        <hr class="my-10 border-neutral-200 dark:border-neutral-800" />
+        <hr class="my-10 border-line/12" />
 
-        <a href="/drawing" class="text-accent hover:text-accent-hover underline">
+        <a
+            href="/drawing"
+            class="font-mono text-label uppercase text-signal transition-colors hover:text-signal-strong"
+        >
             See the drawings &rarr;
         </a>
     </div>
