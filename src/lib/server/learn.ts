@@ -84,6 +84,16 @@ export async function renderChapter(file: string): Promise<string | null> {
                     (external ? ' target="_blank" rel="noopener noreferrer"' : '');
                 return `<a href="${finalHref}"${attrs}>${inner}</a>`;
             }
+        },
+        hooks: {
+            // A table can't shrink below its longest unbreakable cell (a long
+            // code path), so on a phone it pushed the whole page sideways. Give
+            // each table its own horizontal scroller, the way <pre> already has.
+            postprocess(html) {
+                return html
+                    .replaceAll('<table>', '<div class="overflow-x-auto"><table>')
+                    .replaceAll('</table>', '</table></div>');
+            }
         }
     });
 

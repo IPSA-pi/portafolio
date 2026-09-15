@@ -75,17 +75,29 @@
   }
 }
 
-/* Tailwind Typography's dark palette (`dark:prose-invert`) renders body copy at
-   neutral-300 and its secondary text dimmer still. Push the readable parts to
-   white so the /learn chapters match the rest of the site in dark mode. Higher
-   specificity than `.prose-invert`, so these win. */
-.dark .prose {
-  --tw-prose-invert-body: #fff;
-  --tw-prose-invert-lead: #fff;
-  --tw-prose-invert-counters: #fff;
-  --tw-prose-invert-bullets: #fff;
-  --tw-prose-invert-quotes: #fff;
-  --tw-prose-invert-captions: #fff;
+/* Tailwind Typography's palette, re-pointed at the design tokens for the /learn
+   chapters. The tokens already flip with the theme, so this one block covers
+   light and dark and `dark:prose-invert` isn't needed. Body copy is `content`
+   (bone in dark mode, not pure white), matching the rest of the site.
+   `.prose.prose-site` outranks the plugin's `.prose` defaults. Links are set
+   per page with `prose-a:` utilities (they need a hover state). Code blocks are
+   left alone: Shiki inlines its own colors. */
+.prose.prose-site {
+  --tw-prose-body:          rgb(var(--content));
+  --tw-prose-headings:      rgb(var(--content));
+  --tw-prose-lead:          rgb(var(--content-dim));
+  --tw-prose-bold:          rgb(var(--content));
+  --tw-prose-counters:      rgb(var(--content-dim));
+  --tw-prose-bullets:       rgb(var(--content-dim));
+  --tw-prose-hr:            rgb(var(--line) / 0.12);
+  --tw-prose-quotes:        rgb(var(--content));
+  --tw-prose-quote-borders: rgb(var(--line) / 0.15);
+  --tw-prose-captions:      rgb(var(--content-dim));
+  --tw-prose-kbd:           rgb(var(--content));
+  --tw-prose-kbd-shadows:   rgb(var(--line) / 0.1);
+  --tw-prose-code:          rgb(var(--content));
+  --tw-prose-th-borders:    rgb(var(--line) / 0.15);
+  --tw-prose-td-borders:    rgb(var(--line) / 0.12);
 }
 
 html, body {
