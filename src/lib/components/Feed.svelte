@@ -7,6 +7,7 @@
     import { cartItems, cartCount, addToCart, removeFromCart, MAX_CART_ITEMS } from '$lib/stores/cart';
     import { artworkTitle, artworkAlt, formatTombstone, type ArtworkImage } from '$lib/utils/artwork';
     import { formatPrice } from '$lib/utils/formatPrice';
+    import { formatNotebook } from '$lib/utils/formatNotebook';
 
     interface Props {
         images: ArtworkImage[];
@@ -413,7 +414,10 @@
      Below sm the bar wraps: the title takes its own centred row above the
      buttons, because on a portrait phone rotate + cart + Buy left it one
      character wide ("F…"). From sm up it's a single row again. -->
+<!-- onfocusin: tabbing into the bar reveals it, so a keyboard user never
+     lands on a control that's still faded out. -->
 <div
+    onfocusin={showControls}
     class="fixed inset-x-0 bottom-0 z-50 flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-12 bg-gradient-to-t from-black/70 via-black/40 to-transparent transition-opacity duration-300 {controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}"
 >
     <!-- Rotate left (counter-clockwise, −90°). A near-full circle with the arrow
@@ -472,6 +476,20 @@
             </p>
             {#if tombstone}
                 <p class="truncate font-mono text-label uppercase text-white/55 drop-shadow">{tombstone}</p>
+            {/if}
+            <!-- All Drawings mixes every notebook, so say which one this page
+                 came from. Not in a notebook's own viewer: you're already
+                 there. White-on-artwork like the tombstone rather than the
+                 page tokens, since content-dim is graphite in light mode and
+                 would vanish on this black bar. pointer-events-auto because the
+                 caption block itself lets taps through to the artwork. -->
+            {#if mode === 'all' && currentImage.notebook}
+                <a
+                    href="/drawing/{currentImage.notebook}"
+                    class="pointer-events-auto mt-1 inline-block font-mono text-label uppercase text-white/55 drop-shadow transition-colors hover:text-accent focus-visible:text-accent"
+                >
+                    Part of {formatNotebook(currentImage.notebook)} →
+                </a>
             {/if}
         </div>
     {/if}
