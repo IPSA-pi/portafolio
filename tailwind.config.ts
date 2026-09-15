@@ -53,8 +53,10 @@ export default {
         },
         alert:  token('alert'),
 
-        // Legacy accent, kept verbatim for surfaces outside this pass's scope
-        // (/new-music, /about, /admin). In-scope code uses `signal`.
+        // Legacy accent (the clock's raw #39ff14). Referenced ONLY by
+        // PurchaseButton.svelte and Feed.svelte, whose buy controls sit on the
+        // artwork, not on paper. Everything else uses `signal`, which is tuned
+        // for contrast on both grounds. Don't add new uses.
         accent: {
           DEFAULT: '#39ff14',
           hover:   '#2de010',
