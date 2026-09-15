@@ -35,20 +35,21 @@
 
     const STATUSES: ReleaseStatus[] = ['new', 'liked', 'queued', 'unavailable', 'dismissed'];
 
-    // Badge text stays on the plain foreground colour — the accent green is
-    // ~1.4:1 on a light background, so the tint alone carries the status.
+    // Badge text stays on the plain foreground token; the tint carries the
+    // status. liked/queued keep their pink/emerald hues on purpose. The rest
+    // use tokens, so they flip with the theme.
     const STATUS_STYLES: Record<ReleaseStatus, string> = {
-        new: 'bg-accent/15 text-black dark:text-white',
+        new: 'bg-signal/15 text-content',
         liked: 'bg-pink-500/15 text-pink-500',
         queued: 'bg-emerald-500/15 text-emerald-500',
-        unavailable: 'bg-neutral-500/15 text-neutral-800 dark:text-white',
-        dismissed: 'bg-neutral-500/10 text-neutral-800 dark:text-white line-through'
+        unavailable: 'bg-content-dim/15 text-content',
+        dismissed: 'bg-content-dim/10 text-content line-through'
     };
 
     // Visitor statuses reuse the owner palette where the meaning matches;
     // "heard" reads as settled/neutral, like the owner's "unavailable".
     const VISITOR_STATUS_STYLES: Record<VisitorStatus, string> = {
-        heard: 'bg-neutral-500/15 text-neutral-800 dark:text-white',
+        heard: 'bg-content-dim/15 text-content',
         liked: STATUS_STYLES.liked,
         queued: STATUS_STYLES.queued,
         dismissed: STATUS_STYLES.dismissed
@@ -183,21 +184,24 @@
     path="/new-music"
 />
 
-<div class="min-h-screen bg-gray-100 dark:bg-neutral-950">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+<!-- No page background of its own: the layout's <main> already paints
+     bg-surface on this route. The column sits inside .shell without
+     re-centering, so it aligns with the nav logo. -->
+<div class="shell pb-20">
+    <div class="max-w-5xl pt-10">
         <header class="mb-6 flex flex-wrap items-end justify-between gap-3">
             <div>
-                <h1 class="text-2xl font-bold tracking-tight text-black dark:text-white">New Music</h1>
-                <p class="text-sm text-black dark:text-white">
+                <h1 class="text-display text-content">New Music</h1>
+                <p class="mt-2 font-mono text-label uppercase text-content-dim">
                     {filtered.length} of {releases.length} releases
                 </p>
             </div>
 
             <!-- Filters -->
-            <div class="flex flex-wrap items-center gap-2 text-sm">
+            <div class="flex flex-wrap items-center gap-2 text-meta">
                 <select
                     bind:value={statusFilter}
-                    class="rounded-md border border-black/10 dark:border-white/15 bg-white dark:bg-neutral-900 px-2 py-1 text-black dark:text-white"
+                    class="border border-line/15 bg-surface-raised px-2 py-1 text-content"
                 >
                     <option value="all">All statuses</option>
                     {#if isAdmin}
@@ -214,7 +218,7 @@
                 {#if sources.length > 1}
                     <select
                         bind:value={sourceFilter}
-                        class="rounded-md border border-black/10 dark:border-white/15 bg-white dark:bg-neutral-900 px-2 py-1 text-black dark:text-white"
+                        class="border border-line/15 bg-surface-raised px-2 py-1 text-content"
                     >
                         <option value="all">All sources</option>
                         {#each sources as s}
@@ -222,32 +226,32 @@
                         {/each}
                     </select>
                 {/if}
-                <label class="flex items-center gap-1.5 text-black dark:text-white">
-                    <input type="checkbox" bind:checked={availableOnly} class="h-3.5 w-3.5 accent-accent" />
+                <label class="flex items-center gap-1.5 text-content">
+                    <input type="checkbox" bind:checked={availableOnly} class="h-3.5 w-3.5 accent-signal" />
                     Tidal only
                 </label>
-                <label class="flex items-center gap-1.5 text-black dark:text-white">
-                    <input type="checkbox" bind:checked={spotifyOnly} class="h-3.5 w-3.5 accent-accent" />
+                <label class="flex items-center gap-1.5 text-content">
+                    <input type="checkbox" bind:checked={spotifyOnly} class="h-3.5 w-3.5 accent-signal" />
                     Spotify only
                 </label>
-                <label class="flex items-center gap-1.5 text-black dark:text-white">
-                    <input type="checkbox" bind:checked={appleOnly} class="h-3.5 w-3.5 accent-accent" />
+                <label class="flex items-center gap-1.5 text-content">
+                    <input type="checkbox" bind:checked={appleOnly} class="h-3.5 w-3.5 accent-signal" />
                     Apple only
                 </label>
                 {#if !isAdmin}
                     <!-- Visitor statuses live only in this browser's localStorage;
                          export/import is the recovery path across devices/wipes. -->
-                    <span class="flex items-center gap-2 text-xs text-black dark:text-white">
+                    <span class="flex items-center gap-3 font-mono text-label uppercase text-content-dim">
                         <button
                             onclick={exportWorklist}
-                            class="hover:text-accent transition-colors underline underline-offset-2"
+                            class="underline underline-offset-2 transition-colors hover:text-signal"
                             title="Download your statuses as a backup file"
                         >
                             Export
                         </button>
                         <button
                             onclick={() => importInput?.click()}
-                            class="hover:text-accent transition-colors underline underline-offset-2"
+                            class="underline underline-offset-2 transition-colors hover:text-signal"
                             title="Restore statuses from a backup file"
                         >
                             Import
@@ -270,19 +274,19 @@
         <!-- Batch bar -->
         {#if selected.size > 0}
             <div
-                class="sticky top-16 z-10 mb-3 flex items-center justify-between gap-3 rounded-lg border border-accent/30 bg-accent/10 px-4 py-2 text-sm backdrop-blur-sm"
+                class="sticky top-16 z-10 mb-3 flex items-center justify-between gap-3 border border-line/12 border-l-2 border-l-signal bg-surface-raised px-4 py-2"
             >
-                <span class="text-black dark:text-white">{selected.size} selected</span>
+                <span class="font-mono text-label uppercase text-content">{selected.size} selected</span>
                 <div class="flex items-center gap-2">
                     <button
                         onclick={copySelected}
-                        class="rounded-md bg-accent px-3 py-1 font-medium text-white hover:bg-accent-hover transition-colors"
+                        class="bg-signal px-3 py-1.5 font-mono text-label uppercase text-surface transition-colors hover:bg-signal-strong"
                     >
                         {copied === 'selected' ? 'Copied!' : 'Copy all'}
                     </button>
                     <button
                         onclick={() => selected.clear()}
-                        class="text-black dark:text-white hover:text-accent transition-colors"
+                        class="font-mono text-label uppercase text-content-dim transition-colors hover:text-signal"
                     >
                         Clear
                     </button>
@@ -292,7 +296,7 @@
 
         <!-- List -->
         {#if filtered.length === 0}
-            <p class="py-16 text-center text-black dark:text-white">
+            <p class="py-16 text-center font-body text-body text-content-dim">
                 {#if releases.length === 0}
                     No releases. Run <code class="font-mono">npm run scrape</code> to populate.
                 {:else}
@@ -303,9 +307,9 @@
             <ul class="space-y-2">
                 {#each filtered as r (r.id)}
                     <li
-                        class="group flex flex-col gap-2 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-3 transition-opacity sm:flex-row sm:items-start sm:gap-4"
+                        class="group flex flex-col gap-2 border border-line/12 bg-surface-raised p-3 transition-opacity sm:flex-row sm:items-start sm:gap-4"
                         class:ring-1={isAdmin && r.status === 'new'}
-                        class:ring-accent={isAdmin && r.status === 'new'}
+                        class:ring-signal={isAdmin && r.status === 'new'}
                         class:opacity-50={!isAdmin &&
                             (visitorStatus(r.id) === 'heard' || visitorStatus(r.id) === 'dismissed')}
                     >
@@ -313,7 +317,7 @@
                             type="checkbox"
                             checked={selected.has(r.id)}
                             onchange={() => toggle(r.id)}
-                            class="h-4 w-4 shrink-0 accent-accent"
+                            class="h-4 w-4 shrink-0 accent-signal"
                             aria-label="Select {label(r)}"
                         />
 
@@ -321,16 +325,16 @@
                         <div class="min-w-0 flex-1">
                             <div class="flex items-start justify-between gap-2">
                                 <div class="min-w-0">
-                                    <p class="truncate font-semibold text-black dark:text-white">{r.title}</p>
-                                    <p class="truncate text-sm text-black dark:text-white">{r.artist}</p>
+                                    <p class="truncate font-medium text-content">{r.title}</p>
+                                    <p class="truncate text-meta text-content">{r.artist}</p>
                                     {#if r.label || r.release_year}
-                                        <p class="mt-0.5 text-xs text-black dark:text-white">
+                                        <p class="mt-1 font-mono text-label uppercase text-content-dim">
                                             {#if r.label}
                                                 <a
                                                     href="https://www.discogs.com/search?q={encodeURIComponent(r.label)}&type=label"
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    class="hover:text-accent transition-colors"
+                                                    class="transition-colors hover:text-signal"
                                                 >{r.label}</a>{#if r.release_year} · {/if}
                                             {/if}
                                             {#if r.release_year}{r.release_year}{/if}
@@ -339,18 +343,18 @@
                                     {#if r.genre?.length}
                                         <div class="mt-1.5 flex flex-wrap gap-1">
                                             {#each r.genre as g}
-                                                <span class="rounded px-1.5 py-0.5 text-[10px] bg-black/5 dark:bg-white/10 text-black dark:text-white">{g}</span>
+                                                <span class="border border-line/12 px-1.5 py-0.5 font-mono text-[10px] text-content-dim">{g}</span>
                                             {/each}
                                         </div>
                                     {/if}
                                 </div>
                                 <div class="shrink-0 flex flex-col items-end gap-1.5 pt-0.5">
                                     {#if isAdmin}
-                                        <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {STATUS_STYLES[r.status]}">{r.status}</span>
+                                        <span class="px-1.5 py-0.5 font-mono text-[11px] {STATUS_STYLES[r.status]}">{r.status}</span>
                                     {:else if $musicWorklist[r.id]}
-                                        <span class="rounded px-1.5 py-0.5 text-[11px] font-medium {VISITOR_STATUS_STYLES[$musicWorklist[r.id]]}">{$musicWorklist[r.id]}</span>
+                                        <span class="px-1.5 py-0.5 font-mono text-[11px] {VISITOR_STATUS_STYLES[$musicWorklist[r.id]]}">{$musicWorklist[r.id]}</span>
                                     {/if}
-                                    <span class="text-[10px] text-black/65 dark:text-white/65 leading-none">
+                                    <span class="font-mono text-[10px] leading-none text-content-dim">
                                         {#each r.sources ?? [r.source] as s, i}
                                             {#if i > 0}<span> · </span>{/if}
                                             {#if r.source_url?.includes(s)}
@@ -358,7 +362,7 @@
                                                     href={r.source_url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    class="hover:text-accent transition-colors"
+                                                    class="transition-colors hover:text-signal"
                                                 >{s}</a>
                                             {:else}
                                                 {s}
@@ -378,7 +382,7 @@
                                 href={ytMusicUrl(r)}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                class="shrink-0 whitespace-nowrap rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black dark:text-white hover:text-accent hover:border-accent transition-colors"
+                                class="shrink-0 whitespace-nowrap border border-line/15 px-2 py-1 font-mono text-label uppercase text-content transition-colors hover:border-signal hover:text-signal"
                             >
                                 YT Music ↗
                             </a>
@@ -387,7 +391,7 @@
                                     href={tidalUrl(r)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    class="shrink-0 whitespace-nowrap rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black dark:text-white hover:text-accent hover:border-accent transition-colors"
+                                    class="shrink-0 whitespace-nowrap border border-line/15 px-2 py-1 font-mono text-label uppercase text-content transition-colors hover:border-signal hover:text-signal"
                                 >
                                     Tidal ✓
                                 </a>
@@ -397,7 +401,7 @@
                                     href={spotifyUrl(r)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    class="shrink-0 whitespace-nowrap rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black dark:text-white hover:text-accent hover:border-accent transition-colors"
+                                    class="shrink-0 whitespace-nowrap border border-line/15 px-2 py-1 font-mono text-label uppercase text-content transition-colors hover:border-signal hover:text-signal"
                                 >
                                     Spotify ✓
                                 </a>
@@ -407,7 +411,7 @@
                                     href={appleUrl(r)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    class="shrink-0 whitespace-nowrap rounded-md border border-black/10 dark:border-white/15 px-2 py-1 text-xs text-black dark:text-white hover:text-accent hover:border-accent transition-colors"
+                                    class="shrink-0 whitespace-nowrap border border-line/15 px-2 py-1 font-mono text-label uppercase text-content transition-colors hover:border-signal hover:text-signal"
                                 >
                                     Apple ✓
                                 </a>
@@ -416,7 +420,7 @@
                                 <select
                                     value={r.status}
                                     onchange={(e) => setStatus(r, e.currentTarget.value as ReleaseStatus)}
-                                    class="ml-auto rounded-md border border-black/10 dark:border-white/15 bg-white dark:bg-neutral-900 px-1.5 py-1 text-xs text-black dark:text-white"
+                                    class="ml-auto border border-line/15 bg-surface px-1.5 py-1 text-meta text-content"
                                     aria-label="Set status"
                                 >
                                     {#each STATUSES as s}
@@ -431,7 +435,7 @@
                                             r.id,
                                             (e.currentTarget.value || null) as VisitorStatus | null
                                         )}
-                                    class="ml-auto rounded-md border border-black/10 dark:border-white/15 bg-white dark:bg-neutral-900 px-1.5 py-1 text-xs text-black dark:text-white"
+                                    class="ml-auto border border-line/15 bg-surface px-1.5 py-1 text-meta text-content"
                                     title="Remembered on this device"
                                     aria-label="Set status"
                                 >
