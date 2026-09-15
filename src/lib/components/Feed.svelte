@@ -409,9 +409,12 @@
 </div>
 
 <!-- Floating controls: rotate · title · buy. Overlay the artwork on a soft
-     bottom gradient and auto-hide after idle. Driven by the current slide. -->
+     bottom gradient and auto-hide after idle. Driven by the current slide.
+     Below sm the bar wraps: the title takes its own centred row above the
+     buttons, because on a portrait phone rotate + cart + Buy left it one
+     character wide ("F…"). From sm up it's a single row again. -->
 <div
-    class="fixed inset-x-0 bottom-0 z-50 flex items-center gap-3 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-12 bg-gradient-to-t from-black/70 via-black/40 to-transparent transition-opacity duration-300 {controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}"
+    class="fixed inset-x-0 bottom-0 z-50 flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-12 bg-gradient-to-t from-black/70 via-black/40 to-transparent transition-opacity duration-300 {controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}"
 >
     <!-- Rotate left (counter-clockwise, −90°). A near-full circle with the arrow
          head sitting on its rim reads as "spin", where the old hooked arrow
@@ -463,7 +466,7 @@
     <!-- Title (+ tombstone, when the drawing has metadata) -->
     {#if currentImage}
         {@const tombstone = formatTombstone(currentImage)}
-        <div class="flex-1 min-w-0 text-center select-none pointer-events-none">
+        <div class="order-first basis-full min-w-0 text-center select-none pointer-events-none sm:order-none sm:basis-auto sm:flex-1">
             <p class="truncate font-body text-white drop-shadow">
                 {artworkTitle(currentImage, currentImage.slug)}
             </p>
@@ -485,7 +488,7 @@
          the button, in the slot the caption vacated — stacked it costs no
          horizontal room, so the title keeps room to truncate into instead of
          collapsing to nothing. -->
-    <div class="flex-none flex flex-col items-end gap-1" style="min-width: 2.75rem;">
+    <div class="ml-auto flex-none flex flex-col items-end gap-1 sm:ml-0" style="min-width: 2.75rem;">
         {#if isPurchasable && !isAdmin}
             <p class="pointer-events-none select-none font-mono text-label uppercase text-white/60">Free worldwide shipping</p>
         {:else if isAdmin && currentProduct && !currentProduct.sold}
