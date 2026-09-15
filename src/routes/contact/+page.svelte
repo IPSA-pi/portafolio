@@ -10,22 +10,22 @@
     description="Get in touch with Ian Sebelius — commissions, shipping questions, or an order you've already placed."
 />
 
-<div class="min-h-screen bg-gray-100 dark:bg-neutral-950 py-16 px-4">
-    <div class="max-w-2xl mx-auto px-8 py-12">
+<div class="shell pb-20">
+    <div class="max-w-2xl pt-10">
 
-        <a href="/" class="text-sm text-gray-800 dark:text-white hover:text-black dark:hover:text-accent transition-colors">← Back</a>
+        <a href="/" class="font-mono text-label uppercase text-content-dim transition-colors hover:text-signal">← Back</a>
 
-        <h1 class="mt-6 text-3xl font-bold text-gray-900 dark:text-white">Contact</h1>
+        <h1 class="mt-6 text-display text-content">Contact</h1>
 
-        <p class="mt-6 text-gray-700 dark:text-white leading-relaxed">
+        <p class="mt-6 max-w-prose font-body text-body text-content-dim">
             For commissions, shipping questions, or an order you've already placed,
             email is the fastest way to reach me.
         </p>
 
-        <p class="mt-6 text-lg">
+        <p class="mt-6 text-title">
             <a
                 href="mailto:{EMAIL}"
-                class="underline text-gray-900 dark:text-white hover:text-black dark:hover:text-accent transition-colors"
+                class="break-all text-signal underline transition-colors hover:text-signal-strong"
             >{EMAIL}</a>
         </p>
 
