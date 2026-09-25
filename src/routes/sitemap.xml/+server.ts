@@ -1,7 +1,6 @@
 import { SITE_URL } from '$lib/seo';
 import { loadNotebookCards } from '$lib/server/loadNotebook';
 import { chapters } from '$lib/learn/chapters';
-import { ABOUT_PUBLISHED } from '$lib/about';
 
 // Static, publicly-indexable pages. Deliberately excludes:
 // - /admin/* (owner-only, gated by Cloudflare Access)
@@ -29,9 +28,6 @@ export const GET = async () => {
     const notebooks = await loadNotebookCards();
     const paths = [
         ...STATIC_PATHS,
-        // Only advertise /about once it's published — while it's a draft it
-        // 404s for everyone but the owner.
-        ...(ABOUT_PUBLISHED ? ['/about'] : []),
         ...chapters.map((c) => `/learn/${c.slug}`),
         ...notebooks.map((n) => `/drawing/${n.slug}`),
     ];

@@ -2,12 +2,17 @@
     import Seo from '$lib/components/Seo.svelte';
 
     const EMAIL = 'iansebelius@gmail.com';
+    const INSTAGRAM = 'iansebelius';
+    const LOCATION = 'Victoria, BC';
+
+    const linkClass =
+        'underline text-gray-900 dark:text-white hover:text-black dark:hover:text-accent transition-colors';
 </script>
 
 <Seo
     title="Contact"
     path="/contact"
-    description="Get in touch with Ian Sebelius — commissions, shipping questions, or an order you've already placed."
+    description="Contact Ian Sebelius — {LOCATION}."
 />
 
 <div class="min-h-screen bg-gray-100 dark:bg-neutral-950 py-16 px-4">
@@ -17,17 +22,18 @@
 
         <h1 class="mt-6 text-3xl font-bold text-gray-900 dark:text-white">Contact</h1>
 
-        <p class="mt-6 text-gray-700 dark:text-white leading-relaxed">
-            For commissions, shipping questions, or an order you've already placed,
-            email is the fastest way to reach me.
-        </p>
-
-        <p class="mt-6 text-lg">
-            <a
-                href="mailto:{EMAIL}"
-                class="underline text-gray-900 dark:text-white hover:text-black dark:hover:text-accent transition-colors"
-            >{EMAIL}</a>
-        </p>
+        <ul class="mt-8 space-y-3 text-lg text-gray-900 dark:text-white">
+            <li><a href="mailto:{EMAIL}" class={linkClass}>{EMAIL}</a></li>
+            <li>
+                <a
+                    href="https://instagram.com/{INSTAGRAM}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class={linkClass}
+                >@{INSTAGRAM}</a>
+            </li>
+            <li>{LOCATION}</li>
+        </ul>
 
     </div>
 </div>

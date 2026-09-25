@@ -6,7 +6,6 @@
   import { isFullscreen } from "$lib/stores/fullscreen";
   import { viewerOpen } from "$lib/stores/viewer";
   import { cartCount } from "$lib/stores/cart";
-  import { ABOUT_PUBLISHED } from "$lib/about";
 
   interface Props {
     children?: import("svelte").Snippet;
@@ -61,11 +60,6 @@
     { href: '/learn', label: 'Learn' },
     { href: '/new-music', label: 'New Music' },
     { href: '/text2binary', label: 'Text2Binary' },
-    // About stays hidden until ABOUT_PUBLISHED is flipped in src/lib/about.ts —
-    // except for the owner, who sees it flagged as a draft.
-    ...(ABOUT_PUBLISHED || data?.isAdmin
-      ? [{ href: '/about', label: ABOUT_PUBLISHED ? 'About' : 'About (draft)' }]
-      : []),
     // Owner-only hub (behind Cloudflare Access); only listed for the owner.
     ...(data?.isAdmin ? [{ href: '/admin', label: 'Admin' }] : []),
   ]);
@@ -212,9 +206,6 @@
   <div class="shell py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
     <p class="font-mono text-label uppercase text-content-dim">&copy; {new Date().getFullYear()} Ian Sebelius</p>
     <div class="flex flex-wrap justify-center gap-x-6 gap-y-2">
-      {#if ABOUT_PUBLISHED}
-        <a href="/about" class="font-mono text-label uppercase text-content-dim hover:text-signal transition-colors">About</a>
-      {/if}
       <a href="/contact" class="font-mono text-label uppercase text-content-dim hover:text-signal transition-colors">Contact</a>
       <a href="/privacy" class="font-mono text-label uppercase text-content-dim hover:text-signal transition-colors">Privacy</a>
       <a href="/terms" class="font-mono text-label uppercase text-content-dim hover:text-signal transition-colors">Terms</a>
