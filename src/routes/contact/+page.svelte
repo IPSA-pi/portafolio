@@ -6,7 +6,7 @@
     const LOCATION = 'Victoria, BC';
 
     const linkClass =
-        'underline text-gray-900 dark:text-white hover:text-black dark:hover:text-accent transition-colors';
+        'break-all text-signal underline transition-colors hover:text-signal-strong';
 </script>
 
 <Seo
@@ -15,14 +15,14 @@
     description="Contact Ian Sebelius — {LOCATION}."
 />
 
-<div class="min-h-screen bg-gray-100 dark:bg-neutral-950 py-16 px-4">
-    <div class="max-w-2xl mx-auto px-8 py-12">
+<div class="shell pb-20">
+    <div class="max-w-2xl pt-10">
 
-        <a href="/" class="text-sm text-gray-800 dark:text-white hover:text-black dark:hover:text-accent transition-colors">← Back</a>
+        <a href="/" class="font-mono text-label uppercase text-content-dim transition-colors hover:text-signal">← Back</a>
 
-        <h1 class="mt-6 text-3xl font-bold text-gray-900 dark:text-white">Contact</h1>
+        <h1 class="mt-6 text-display text-content">Contact</h1>
 
-        <ul class="mt-8 space-y-3 text-lg text-gray-900 dark:text-white">
+        <ul class="mt-8 space-y-3 text-title text-content">
             <li><a href="mailto:{EMAIL}" class={linkClass}>{EMAIL}</a></li>
             <li>
                 <a

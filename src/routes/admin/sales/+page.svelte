@@ -62,32 +62,34 @@
 </svelte:head>
 
 {#snippet tile(label: string, value: string, sub?: string)}
-    <div class="rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-4">
-        <div class="text-xs uppercase tracking-wide text-black dark:text-white">{label}</div>
-        <div class="mt-1 text-2xl font-bold tabular-nums text-black dark:text-white">{value}</div>
-        {#if sub}<div class="mt-0.5 text-xs text-black dark:text-white">{sub}</div>{/if}
+    <div class="border border-line/12 bg-surface-raised p-4">
+        <div class="font-mono text-label uppercase text-content-dim">{label}</div>
+        <div class="mt-2 font-mono text-2xl tabular-nums text-content">{value}</div>
+        {#if sub}<div class="mt-1 text-meta text-content-dim">{sub}</div>{/if}
     </div>
 {/snippet}
 
-<div class="min-h-screen bg-gray-100 dark:bg-neutral-950">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+<!-- No page background of its own: the layout's <main> already paints
+     bg-surface here. Left-aligned inside .shell so it lines up with the nav. -->
+<div class="shell pb-20">
+    <div class="max-w-4xl pt-10">
         <header class="mb-6 flex items-end justify-between gap-3">
             <div>
-                <a href="/admin" class="text-xs text-black dark:text-white hover:text-accent">← Admin</a>
-                <h1 class="text-2xl font-bold tracking-tight text-black dark:text-white">Sales</h1>
-                <p class="text-sm text-black dark:text-white">Revenue, orders &amp; inventory.</p>
+                <a href="/admin" class="font-mono text-label uppercase text-content-dim transition-colors hover:text-signal">← Admin</a>
+                <h1 class="mt-3 text-display text-content">Sales</h1>
+                <p class="mt-2 text-meta text-content-dim">Revenue, orders &amp; inventory.</p>
             </div>
             <button
                 onclick={downloadCsv}
                 disabled={!data.csv}
-                class="shrink-0 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-2 text-sm font-medium text-black dark:text-white hover:border-accent transition-colors disabled:opacity-40 disabled:hover:border-black/10"
+                class="shrink-0 border border-line/15 bg-surface-raised px-3 py-2 font-mono text-label uppercase text-content transition-colors hover:border-signal disabled:opacity-40 disabled:hover:border-line/15"
             >
                 Export CSV
             </button>
         </header>
 
         {#if !data.ok}
-            <p class="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
+            <p class="mb-6 border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
                 Couldn't load some data — showing what's available. Check the server logs.
             </p>
         {/if}
@@ -110,11 +112,11 @@
 
         <!-- Inventory by notebook -->
         <section class="mb-8">
-            <h2 class="mb-2 text-sm font-semibold text-black dark:text-white">Inventory by notebook</h2>
-            <div class="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900">
-                <table class="w-full text-sm">
+            <h2 class="mb-3 font-mono text-label uppercase text-content-dim">Inventory by notebook</h2>
+            <div class="overflow-x-auto border border-line/12 bg-surface-raised">
+                <table class="w-full text-meta">
                     <thead>
-                        <tr class="border-b border-black/10 dark:border-white/10 text-left text-xs uppercase tracking-wide text-black dark:text-white">
+                        <tr class="border-b border-line/12 text-left font-mono text-label uppercase text-content-dim">
                             <th class="px-3 py-2 font-medium">Notebook</th>
                             <th class="px-3 py-2 font-medium text-right">Total</th>
                             <th class="px-3 py-2 font-medium text-right">Sold</th>
@@ -125,8 +127,8 @@
                     </thead>
                     <tbody>
                         {#each data.inventory as n (n.notebook)}
-                            <tr class="border-b border-black/5 dark:border-white/5 last:border-0 text-black dark:text-white">
-                                <td class="px-3 py-2 font-medium text-black dark:text-white">{n.notebook}</td>
+                            <tr class="border-b border-line/5 last:border-0 text-content">
+                                <td class="px-3 py-2 font-medium text-content">{n.notebook}</td>
                                 <td class="px-3 py-2 text-right tabular-nums">{n.total}</td>
                                 <td class="px-3 py-2 text-right tabular-nums">{n.sold}</td>
                                 <td class="px-3 py-2 text-right tabular-nums">{n.forSale}</td>
@@ -140,52 +142,52 @@
                                 </td>
                             </tr>
                         {:else}
-                            <tr><td colspan="6" class="px-3 py-6 text-center text-black dark:text-white">No drawings yet.</td></tr>
+                            <tr><td colspan="6" class="px-3 py-6 text-center text-content-dim">No drawings yet.</td></tr>
                         {/each}
                     </tbody>
                 </table>
             </div>
             {#if kpis.unlisted > 0}
-                <p class="mt-2 text-xs text-black dark:text-white">
+                <p class="mt-2 text-meta text-content-dim">
                     {kpis.unlisted} unlisted drawing{kpis.unlisted === 1 ? '' : 's'} have no price — set one with
-                    <code class="text-black dark:text-white">scripts/set-price.js</code> to list them.
+                    <code class="font-mono text-content">scripts/set-price.js</code> to list them.
                 </p>
             {/if}
         </section>
 
         <!-- Recent orders -->
         <section>
-            <h2 class="mb-2 text-sm font-semibold text-black dark:text-white">Recent orders</h2>
+            <h2 class="mb-3 font-mono text-label uppercase text-content-dim">Recent orders</h2>
             <ul class="space-y-2">
                 {#each data.recentOrders as o (o.sessionId)}
-                    <li class="rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-4">
+                    <li class="border border-line/12 bg-surface-raised p-4">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
                                 {#if o.manual}
-                                    <span class="inline-flex items-center rounded-full bg-black/5 dark:bg-white/10 px-2 py-0.5 text-xs font-medium text-black dark:text-white">
+                                    <span class="inline-flex items-center border border-line/15 px-2 py-0.5 font-mono text-label uppercase text-content">
                                         In person · {o.paymentMethod === 'etransfer' ? 'e-transfer' : 'cash'}
                                     </span>
                                 {:else}
-                                    <div class="font-semibold text-black dark:text-white truncate">
+                                    <div class="truncate font-medium text-content">
                                         {o.customerName || 'Unknown buyer'}
                                     </div>
                                     {#if o.customerEmail}
-                                        <div class="text-xs text-black dark:text-white truncate">{o.customerEmail}</div>
+                                        <div class="truncate text-meta text-content-dim">{o.customerEmail}</div>
                                     {/if}
                                 {/if}
                             </div>
                             <div class="shrink-0 text-right">
-                                <div class="font-semibold tabular-nums text-black dark:text-white">{formatPrice(o.amount)}</div>
-                                <div class="text-xs text-black dark:text-white">{formatDate(o.createdAt)}</div>
+                                <div class="font-mono tabular-nums text-content">{formatPrice(o.amount)}</div>
+                                <div class="mt-1 text-meta text-content-dim">{formatDate(o.createdAt)}</div>
                             </div>
                         </div>
                         <div class="mt-2 flex flex-wrap gap-1">
                             {#each o.slugs as slug (slug)}
-                                <span class="rounded bg-black/5 dark:bg-white/10 px-1.5 py-0.5 text-xs text-black dark:text-white">{slug}</span>
+                                <span class="border border-line/12 px-1.5 py-0.5 font-mono text-xs text-content-dim">{slug}</span>
                             {/each}
                         </div>
                         {#if o.address}
-                            <div class="mt-2 text-xs text-black dark:text-white">{o.address}</div>
+                            <div class="mt-2 text-meta text-content-dim">{o.address}</div>
                         {/if}
                         {#if o.shippedAt}
                             <div class="mt-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
@@ -200,24 +202,24 @@
                                 <input
                                     bind:value={tracking[o.sessionId]}
                                     placeholder="Tracking number or link"
-                                    class="min-w-0 flex-1 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-950 px-2.5 py-1.5 text-xs text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:border-accent focus:outline-none"
+                                    class="min-w-0 flex-1 border border-line/15 bg-surface px-2.5 py-1.5 text-meta text-content placeholder:text-content-dim focus:border-signal focus:outline-none"
                                 />
                                 <button
                                     onclick={() => markShipped(o.sessionId)}
                                     disabled={shipping[o.sessionId]}
-                                    class="shrink-0 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-2.5 py-1.5 text-xs font-medium text-black dark:text-white hover:border-accent transition-colors disabled:opacity-40"
+                                    class="shrink-0 border border-line/15 bg-surface-raised px-2.5 py-1.5 font-mono text-label uppercase text-content transition-colors hover:border-signal disabled:opacity-40"
                                 >
                                     {shipping[o.sessionId] ? 'Shipping…' : 'Mark shipped'}
                                 </button>
                             </div>
-                            <p class="mt-1 text-[11px] text-black dark:text-white">Emails the buyer their tracking info.</p>
+                            <p class="mt-1 text-[11px] text-content-dim">Emails the buyer their tracking info.</p>
                             {#if shipError[o.sessionId]}
-                                <p class="mt-1 text-xs text-red-600 dark:text-red-400">{shipError[o.sessionId]}</p>
+                                <p class="mt-1 text-meta text-alert">{shipError[o.sessionId]}</p>
                             {/if}
                         {/if}
                     </li>
                 {:else}
-                    <li class="rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 p-6 text-center text-sm text-black dark:text-white">
+                    <li class="border border-line/12 bg-surface-raised p-6 text-center font-body text-body text-content-dim">
                         No orders yet.
                     </li>
                 {/each}
