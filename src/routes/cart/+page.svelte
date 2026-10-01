@@ -4,6 +4,7 @@
     import { cartItems, cartTotal, removeFromCart, MAX_CART_ITEMS } from '$lib/stores/cart';
     import { formatTitle } from '$lib/utils/formatTitle';
     import { formatPrice } from '$lib/utils/formatPrice';
+    import { INTERNATIONAL_SALES_EMAIL, internationalMailto } from '$lib/shipping';
     import { handleCheckoutReturn, setPendingCheckout } from '$lib/utils/checkoutReturn';
     import Seo from '$lib/components/Seo.svelte';
     import PageHeader from '$lib/components/PageHeader.svelte';
@@ -158,7 +159,8 @@
             <span class="font-mono text-title text-content">{formatPrice($cartTotal)}</span>
         </div>
         <p class="mt-4 font-body text-body text-content-dim">
-            Every drawing here is a one-of-a-kind original. Shipping is free, worldwide.
+            Every drawing here is a one-of-a-kind original. Shipping is free within Canada.
+            Outside Canada? Email <a href={internationalMailto()} class="text-signal underline transition-colors hover:text-signal-strong">{INTERNATIONAL_SALES_EMAIL}</a>.
         </p>
 
         {#if $cartItems.length >= MAX_CART_ITEMS}

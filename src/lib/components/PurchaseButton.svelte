@@ -2,6 +2,7 @@
     import { fade } from 'svelte/transition';
     import { setPendingCheckout } from '$lib/utils/checkoutReturn';
     import { formatPrice } from '$lib/utils/formatPrice';
+    import { internationalMailto } from '$lib/shipping';
 
     interface Props {
         priceId: string;
@@ -123,7 +124,8 @@
                     Buy the original · {formattedPrice}
                 {/if}
             </button>
-            <p class="font-mono text-label uppercase text-white/60">Free worldwide shipping</p>
+            <p class="font-mono text-label uppercase text-white/60">Free shipping in Canada</p>
+            <a href="{internationalMailto(slug)}" class="pointer-events-auto font-mono text-label text-white/60 underline underline-offset-2 hover:text-white">Outside Canada? Email me</a>
         {/if}
     </div>
 {/if}

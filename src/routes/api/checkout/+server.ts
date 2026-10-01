@@ -122,10 +122,11 @@ export const POST = async ({ request, url }) => {
                 },
                 client_reference_id:  drawingSlugs[0],
                 shipping_address_collection: {
-                    allowed_countries: [
-                        'US', 'CA', 'GB', 'FR', 'DE', 'IT', 'ES', 'MX',
-                        'JP', 'AR', 'BR', 'CL', 'CO', 'EC', 'PE', 'PY', 'UY', 'BO',
-                    ],
+                    // Canada only. Keep in sync with the copy that says so:
+                    // Feed.svelte + PurchaseButton.svelte captions, the cart
+                    // page sentence, and /terms §3 (all point international
+                    // buyers at $lib/shipping's email).
+                    allowed_countries: ['CA'],
                 },
                 expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
             });

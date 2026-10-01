@@ -117,6 +117,12 @@ It's public (footer link + sitemap entry) — there's no draft gate and no
   time — so a stale/replayed session id can never release a *different*,
   newer buyer's live hold, and a paid session's reservation is never
   released by the cancel endpoint
+- **Shipping:** online checkout is **Canada-only** (`allowed_countries:
+  ['CA']`, owner decision 2026-09-14). Buyers elsewhere email
+  `INTERNATIONAL_SALES_EMAIL` from `src/lib/shipping.ts` (the one place the
+  address lives; `internationalMailto(slug?)` builds the link). Copy that must
+  change with the country list: Feed + PurchaseButton captions, the cart
+  sentence, `/terms` §3
 - **Metadata contract:** `metadata.slugs` is the JSON-encoded array of every
   slug in the session (what a cart checkout actually needs); `metadata.slug`
   is kept as the first slug for backward compat with older sessions.
