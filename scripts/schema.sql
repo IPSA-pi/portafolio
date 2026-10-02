@@ -21,6 +21,12 @@ CREATE TABLE drawings (
     -- `drawings-masters` bucket (never the public one); a row can deliver a
     -- file iff it is non-null. Written by upload-masters/the owner, not by seed.
     digital_object_path TEXT,                          -- e.g. 260619/260619_01.png
+    -- Paid digital file (Stripe Managed Payments). Listed for sale iff
+    -- digital_object_path IS NOT NULL AND digital_stripe_price_id IS NOT NULL
+    -- AND digital_price_cents > 0 — derived, never stored.
+    digital_stripe_product_id TEXT,
+    digital_stripe_price_id   TEXT,
+    digital_price_cents       INT,                     -- e.g. 2500 = $25.00 CAD
     sold             BOOLEAN     NOT NULL DEFAULT false,
     reserved         BOOLEAN     NOT NULL DEFAULT false,
     reserved_at      TIMESTAMPTZ,
@@ -172,6 +178,11 @@ CREATE TABLE orders (
     -- NULL = card via Stripe. Paired with stripe_session_id prefixed 'manual_'
     -- for in-person orders; shipped_at is set immediately (handover time).
     payment_method     TEXT,
+    -- kind = 'original' | 'digital'; digital rows have null
+    -- shipping_address/shipped_at and amount_total = digital_price_cents,
+    -- pre-tax.
+    kind               TEXT        NOT NULL DEFAULT 'original'
+                       CONSTRAINT orders_kind_check CHECK (kind IN ('original', 'digital')),
     created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (stripe_session_id, drawing_slug)
 );
@@ -239,6 +250,24 @@ ALTER TABLE drawings
 /*
 ALTER TABLE drawings
     ADD COLUMN IF NOT EXISTS digital_object_path TEXT;
+*/
+
+-- Migration (DBs whose tables predate the paid digital file, 2026-10-01).
+-- Also drops digital_url, which only a dev DB ever had. Also kept as a
+-- standalone file:
+-- scripts/migrations/2026-10-01-digital-sale.sql
+/*
+ALTER TABLE drawings
+    ADD COLUMN IF NOT EXISTS digital_stripe_product_id TEXT,
+    ADD COLUMN IF NOT EXISTS digital_stripe_price_id   TEXT,
+    ADD COLUMN IF NOT EXISTS digital_price_cents       INT;
+
+ALTER TABLE drawings
+    DROP COLUMN IF EXISTS digital_url;
+
+ALTER TABLE orders
+    ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'original'
+        CONSTRAINT orders_kind_check CHECK (kind IN ('original', 'digital'));
 */
 
 -- Migration (DBs created before the redundant slug index was dropped,
