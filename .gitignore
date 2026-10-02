@@ -43,3 +43,4 @@ vite.config.ts.timestamp-*
 
 # Local task queue for agent sessions
 /TASKS.md
+/TASKS-archive.md
