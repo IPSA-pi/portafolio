@@ -55,7 +55,7 @@ Later files win, so `.env.prod` overrides the Supabase pair and `DB_LABEL` while
 
 **The overlay swaps Stripe too.** `.env.prod` carries the live `STRIPE_SECRET_KEY`, so a `:prod` run is fully prod: prod database + live Stripe. Conversely, everything default is fully sandboxed — dev database + test Stripe. Never cross the streams: a test price ID written into the prod database breaks live checkout.
 
-**Check the target lines.** Every data-pipeline script prints its Supabase target before writing anything, and the two Stripe-using scripts (`seed`, `set-price`) print the Stripe mode as well (derived from the key prefix — the key itself is never printed):
+**Check the target lines.** Every data-pipeline script prints its Supabase target before writing anything, and the three Stripe-using scripts (`seed`, `set-price`, `set-digital-price`) print the Stripe mode as well (derived from the key prefix — the key itself is never printed):
 
 ```
 Supabase target: xxxxxxxxxxxx [DEV]
@@ -241,6 +241,7 @@ Two pipelines, in order:
 
 ```
 Drawings:   rename → standardize-images → upload → seed → set-price
+              … → upload-masters → set-digital-price
 New music:  scrape → enrich (Tidal) → enrich:spotify → enrich:apple
 ```
 
@@ -250,6 +251,7 @@ New music:  scrape → enrich (Tidal) → enrich:spotify → enrich:apple
 | `upload.js` | `upload`, `upload:prod` | Storage `drawings` bucket |
 | `seed.js` | `seed`, `seed:dry`, `seed:prod` | `drawings` table |
 | `set-price.js` | `set-price`, `set-price:prod` | Stripe products + prices, `drawings` table |
+| `set-digital-price.js` | `set-digital-price`, `set-digital-price:prod` | Stripe products + prices (digital file), `drawings` digital columns |
 | `delete-drawing.js` | *none — manual on purpose* | deletes `drawings` rows + storage files |
 | `scrape-music.js` | `scrape`, `scrape:dry`, `scrape:prod` | `releases` table |
 | `enrich-music.js` | `enrich`, `enrich:dry`; in `enrich:all(:prod)` | `releases` Tidal columns |
@@ -329,6 +331,19 @@ Two flags shape the batch modes. `--unpriced` narrows the selection to drawings 
 Needs `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`. Prices are always `cad` — a mixed-currency cart fails at Stripe session creation, so never create prices in anything else. The `:prod` wrapper swaps in the **live** Stripe key along with the prod database; confirm the `Stripe target: [LIVE]` startup line matches your intent.
 
 Write order is deliberate: Supabase is updated before the new price becomes the product default, and a failed Supabase write deactivates the just-created Stripe price so re-runs don't accumulate orphans. Failures are per-drawing — the script keeps going and reports `success/total` at the end; re-run for the stragglers.
+
+### `set-digital-price.js` — create a Stripe product + CAD price for the paid digital file
+
+Same shape as `set-price.js`, but for the high-resolution file sold on its own. Prices one drawing, a notebook (`--notebook`), or everything (`--all`); creates a separate Stripe product (`metadata.kind = 'digital'`, tax code `txcd_10505001`, `tax_behavior: 'exclusive'`, `cad`) and mirrors `digital_stripe_product_id` / `digital_stripe_price_id` / `digital_price_cents` into Supabase.
+
+```sh
+npm run set-digital-price -- 260619_01 10                  # one drawing, $10 CAD
+npm run set-digital-price -- --notebook 260619 10 --dry-run
+npm run set-digital-price -- --all --unpriced 10           # backfill only
+npm run set-digital-price:prod -- --notebook 260619 10
+```
+
+Drawings with no `digital_object_path` are skipped and listed — run `upload-masters` first. **Sold drawings are not skipped**: the file sells independently of the original. The product uses `metadata.drawing_slug`, never `metadata.slug`, and `seed.js` ignores any product with `kind: 'digital'`, so the two never cross-link. Write order, failure handling and `--unpriced` / `--dry-run` behave exactly as for `set-price.js`; check the `Stripe target` line before any `:prod` run.
 
 ### `delete-drawing.js` — remove drawings everywhere (destructive)
 
@@ -444,6 +459,7 @@ scripts/                      # Data-pipeline scripts — see the section above
   upload.js                   # Uploads drawing images to Supabase Storage
   seed.js                     # Seeds drawings table from filesystem + Stripe
   set-price.js                # Creates Stripe product + CAD price, updates Supabase
+  set-digital-price.js        # Same, for the paid digital file (digital_* columns)
   delete-drawing.js           # Deletes drawings from DB + Storage (manual only)
   scrape-music.js             # Scrapes new releases into the releases table
   enrich-music.js             # Tidal availability pre-check

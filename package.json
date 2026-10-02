@@ -22,6 +22,8 @@
 		"seed:prod": "node --env-file=.env.local --env-file=.env.prod scripts/seed.js",
 		"set-price": "node --env-file=.env.local scripts/set-price.js",
 		"set-price:prod": "node --env-file=.env.local --env-file=.env.prod scripts/set-price.js",
+		"set-digital-price": "node --env-file=.env.local scripts/set-digital-price.js",
+		"set-digital-price:prod": "node --env-file=.env.local --env-file=.env.prod scripts/set-digital-price.js",
 		"scrape": "node --env-file=.env.local scripts/scrape-music.js",
 		"scrape:dry": "node scripts/scrape-music.js --dry-run",
 		"scrape:prod": "node --env-file=.env.local --env-file=.env.prod scripts/scrape-music.js",

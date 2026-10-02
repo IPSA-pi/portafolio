@@ -175,6 +175,8 @@ let stripeLinked = 0;
 let page = await stripe.products.list({ limit: 100, active: true, expand: ['data.default_price'] });
 while (true) {
     for (const product of page.data) {
+        // Digital-file products belong to set-digital-price.js, never to a physical row.
+        if (product.metadata?.kind === 'digital') continue;
         const oldSlug = product.metadata?.slug;
         if (!oldSlug) continue;
 
