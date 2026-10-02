@@ -168,6 +168,11 @@
                                         In person · {o.paymentMethod === 'etransfer' ? 'e-transfer' : 'cash'}
                                     </span>
                                 {:else}
+                                    {#if o.digital}
+                                        <span class="mb-1 inline-flex items-center border border-line/15 px-2 py-0.5 font-mono text-label uppercase text-content">
+                                            Digital
+                                        </span>
+                                    {/if}
                                     <div class="truncate font-medium text-content">
                                         {o.customerName || 'Unknown buyer'}
                                     </div>
@@ -186,10 +191,12 @@
                                 <span class="border border-line/12 px-1.5 py-0.5 font-mono text-xs text-content-dim">{slug}</span>
                             {/each}
                         </div>
-                        {#if o.address}
+                        {#if o.address && !o.digital}
                             <div class="mt-2 text-meta text-content-dim">{o.address}</div>
                         {/if}
-                        {#if o.shippedAt}
+                        {#if o.digital}
+                            <!-- Delivered by email at fulfillment; nothing to ship. -->
+                        {:else if o.shippedAt}
                             <div class="mt-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                                 {#if o.manual}
                                     Sold in person {formatDate(o.shippedAt)}

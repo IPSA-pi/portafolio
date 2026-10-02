@@ -34,6 +34,8 @@ export type RecentOrder = {
     // null/empty for these (see /admin/drawings/sold).
     manual: boolean;
     paymentMethod: string | null;
+    // Paid digital file (orders.kind = 'digital') — nothing to ship, no address.
+    digital: boolean;
 };
 
 export const load: PageServerLoad = async () => {
@@ -98,6 +100,7 @@ export const load: PageServerLoad = async () => {
                     trackingNumber: o.tracking_number ?? null,
                     manual: o.stripe_session_id.startsWith('manual_'),
                     paymentMethod: o.payment_method ?? null,
+                    digital: o.kind === 'digital',
                 } as RecentOrder);
             g.slugs.push(o.drawing_slug);
             g.amount += o.amount_total ?? 0;
@@ -204,8 +207,9 @@ function buildOrdersCsv(orders: Array<{
     shipped_at?: string | null;
     tracking_number?: string | null;
     payment_method?: string | null;
+    kind?: string | null;
 }>): string {
-    const header = ['date', 'session_id', 'slug', 'amount_cad', 'customer_name', 'customer_email', 'address', 'shipped_at', 'tracking_number', 'payment_method'];
+    const header = ['date', 'session_id', 'slug', 'amount_cad', 'customer_name', 'customer_email', 'address', 'shipped_at', 'tracking_number', 'payment_method', 'kind'];
     const rows = orders.map((o) => [
         o.created_at,
         o.stripe_session_id,
@@ -217,6 +221,7 @@ function buildOrdersCsv(orders: Array<{
         o.shipped_at ?? '',
         o.tracking_number ?? '',
         o.payment_method ?? '',
+        o.kind ?? 'original',
     ]);
     return [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n');
 }
