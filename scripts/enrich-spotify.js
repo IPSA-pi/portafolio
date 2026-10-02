@@ -11,6 +11,9 @@
  * enrich. Rows without a released_at fall back to created_at (when the
  * scraper first saw them). Older "unavailable" rows are left alone.
  *
+ * Selection lives in enrich-rows.js: never-checked rows first (newest first),
+ * then re-checks with whatever room is left under --limit, oldest-touched first.
+ *
  * Usage:
  *   node --env-file=.env.local scripts/enrich-spotify.js
  *   node --env-file=.env.local scripts/enrich-spotify.js --dry-run
@@ -25,6 +28,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { logDbTarget } from './db-target.js';
+import { loadRowsToCheck } from './enrich-rows.js';
 import { searchSpotify } from './spotify-client.js';
 
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -56,15 +60,9 @@ logDbTarget(SUPABASE_URL);
 const RECHECK_DAYS = 45;
 const recheckCutoff = new Date(Date.now() - RECHECK_DAYS * 86_400_000).toISOString().slice(0, 10);
 
-let query = supabase.from('releases').select('id, artist, title');
-if (!RECHECK_ALL) {
-    query = query.or(
-        `spotify_available.is.null,` +
-            `and(spotify_available.is.false,released_at.gte.${recheckCutoff}),` +
-            `and(spotify_available.is.false,released_at.is.null,created_at.gte.${recheckCutoff})`
-    );
-}
-const { data: rows, error } = await query.limit(LIMIT);
+const { data: rows, error } = RECHECK_ALL
+    ? await supabase.from('releases').select('id, artist, title').limit(LIMIT)
+    : await loadRowsToCheck(supabase, 'spotify_available', LIMIT, recheckCutoff);
 
 if (error) {
     console.error('Failed to load unenriched releases:', error.message);

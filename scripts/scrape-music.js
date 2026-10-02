@@ -27,8 +27,11 @@ import { createClient } from '@supabase/supabase-js';
 import { logDbTarget } from './db-target.js';
 import nodata from './sources/nodata.js';
 import ra from './sources/ra.js';
+import boomkat from './sources/boomkat.js';
 
-const SOURCES = [nodata, ra];
+// boomkat last: on a release also listed by nodata/RA, their richer metadata
+// (catalogue number, year) wins the in-batch merge.
+const SOURCES = [nodata, ra, boomkat];
 const DRY_RUN = process.argv.includes('--dry-run');
 
 /** Global dedupe key, normalized across all sources. */

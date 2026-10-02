@@ -11,6 +11,9 @@
  * yet at first enrich. Rows without a released_at fall back to created_at (when
  * the scraper first saw them). Older "unavailable" rows are left alone.
  *
+ * Selection lives in enrich-rows.js: never-checked rows first (newest first),
+ * then re-checks with whatever room is left under --limit, oldest-touched first.
+ *
  * Unlike the other two passes this one needs no API credentials — see the
  * header of apple-client.js for why, and for the catalog caveat that comes
  * with it.
@@ -27,6 +30,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { logDbTarget } from './db-target.js';
+import { loadRowsToCheck } from './enrich-rows.js';
 import { searchAppleMusic } from './apple-client.js';
 
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -55,15 +59,7 @@ logDbTarget(SUPABASE_URL);
 const RECHECK_DAYS = 45;
 const recheckCutoff = new Date(Date.now() - RECHECK_DAYS * 86_400_000).toISOString().slice(0, 10);
 
-const { data: rows, error } = await supabase
-    .from('releases')
-    .select('id, artist, title')
-    .or(
-        `apple_available.is.null,` +
-            `and(apple_available.is.false,released_at.gte.${recheckCutoff}),` +
-            `and(apple_available.is.false,released_at.is.null,created_at.gte.${recheckCutoff})`
-    )
-    .limit(LIMIT);
+const { data: rows, error } = await loadRowsToCheck(supabase, 'apple_available', LIMIT, recheckCutoff);
 
 if (error) {
     console.error('Failed to load unenriched releases:', error.message);

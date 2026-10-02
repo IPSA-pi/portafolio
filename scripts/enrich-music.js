@@ -13,6 +13,9 @@
  * created_at (when the scraper first saw them). Older "unavailable" rows are
  * left alone — they're genuinely not on streaming — so re-running stays cheap.
  *
+ * Selection lives in enrich-rows.js: never-checked rows first (newest first),
+ * then re-checks with whatever room is left under --limit, oldest-touched first.
+ *
  * Usage:
  *   node --env-file=.env.local scripts/enrich-music.js
  *   node --env-file=.env.local scripts/enrich-music.js --dry-run
@@ -27,6 +30,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { logDbTarget } from './db-target.js';
+import { loadRowsToCheck } from './enrich-rows.js';
 import { searchTidal } from './tidal-client.js';
 
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -52,15 +56,7 @@ logDbTarget(SUPABASE_URL);
 const RECHECK_DAYS = 45;
 const recheckCutoff = new Date(Date.now() - RECHECK_DAYS * 86_400_000).toISOString().slice(0, 10);
 
-const { data: rows, error } = await supabase
-    .from('releases')
-    .select('id, artist, title')
-    .or(
-        `tidal_available.is.null,` +
-            `and(tidal_available.is.false,released_at.gte.${recheckCutoff}),` +
-            `and(tidal_available.is.false,released_at.is.null,created_at.gte.${recheckCutoff})`
-    )
-    .limit(LIMIT);
+const { data: rows, error } = await loadRowsToCheck(supabase, 'tidal_available', LIMIT, recheckCutoff);
 
 if (error) {
     console.error('Failed to load unenriched releases:', error.message);
