@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import { getStripe } from '$lib/server/stripe';
 import { getSupabase } from '$lib/server/supabase';
 import { getSlugsFromSession } from '$lib/server/checkoutSlugs';
+import { digitalListing } from '$lib/server/digital';
 import { displayOrder } from '$lib/utils/shuffle';
 import { chronologyKey } from '$lib/utils/chronology';
 import type { ArtworkImage } from '$lib/utils/artwork';
@@ -15,8 +16,12 @@ function variantUrl(storageUrl: string, variant: 'sm' | 'md' | 'lg'): string {
 // drawing in the table, so the unread columns (id, drawing_number,
 // stripe_product_id, reserved_at, created_at, updated_at) are pure transfer
 // cost. Keep this in sync when either builder starts reading a new column.
+//
+// `digital_object_path` is selected for the Listed rule only (digitalListing,
+// in buildProducts). It names an object in the private masters bucket: it is
+// read here and never emitted — neither builder may copy it into its output.
 const GALLERY_COLUMNS =
-    'slug, notebook, storage_url, display_order, stripe_price_id, price_cents, sold, reserved, title, year, medium, width_cm, height_cm';
+    'slug, notebook, storage_url, display_order, stripe_price_id, price_cents, sold, reserved, title, year, medium, width_cm, height_cm, digital_stripe_price_id, digital_price_cents, digital_object_path';
 
 // Public gallery reads are effectively static between sales. `max-age=0` keeps
 // the buyer's own browser revalidating — so a drawing they just bought never
@@ -28,8 +33,9 @@ const GALLERY_COLUMNS =
 export const GALLERY_CACHE_CONTROL = 'public, max-age=0, s-maxage=60, stale-while-revalidate=300';
 
 // Artwork metadata rides the images array rather than `products`: `products`
-// only has entries for Stripe-priced drawings, and Gallery never receives it
-// at all. Every field is nullable — most rows carry none.
+// only has entries for drawings with something to sell (see buildProducts),
+// and Gallery never receives it at all. Every field is nullable — most rows
+// carry none.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildImages(drawings: any[]): ArtworkImage[] {
     return drawings.map(d => ({
@@ -46,18 +52,36 @@ function buildImages(drawings: any[]): ArtworkImage[] {
     }));
 }
 
+type GalleryProduct = {
+    priceId:      string | null;
+    price:        number | null;
+    sold:         boolean;
+    reserved:     boolean;
+    digitalPrice: number | null;
+};
+
+// An entry exists when there is something to sell: the original is priced, or
+// its digital file is Listed — the two are independent, so either half can be
+// null. A file keeps selling after the original is sold or while it is on
+// hold, which is why `digitalPrice` ignores both flags.
+//
+// Only the file's price is emitted. `digital_object_path` is read by
+// digitalListing for the Listed rule and goes no further; the digital Stripe
+// price id stays server-side too (/api/checkout/digital looks it up by slug).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildProducts(drawings: any[]) {
-    const products: Record<string, { priceId: string; price: number; sold: boolean; reserved: boolean }> = {};
+    const products: Record<string, GalleryProduct> = {};
     for (const d of drawings) {
-        if (d.stripe_price_id && d.price_cents) {
-            products[d.slug] = {
-                priceId:  d.stripe_price_id,
-                price:    d.price_cents,
-                sold:     d.sold,
-                reserved: d.reserved && !d.sold,
-            };
-        }
+        const original = Boolean(d.stripe_price_id && d.price_cents);
+        const digital = digitalListing(d);
+        if (!original && !digital) continue;
+        products[d.slug] = {
+            priceId:      original ? d.stripe_price_id : null,
+            price:        original ? d.price_cents : null,
+            sold:         d.sold,
+            reserved:     d.reserved && !d.sold,
+            digitalPrice: digital ? digital.priceCents : null,
+        };
     }
     return products;
 }

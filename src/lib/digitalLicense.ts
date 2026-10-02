@@ -21,6 +21,12 @@ export const DIGITAL_LICENSE =
 // elsewhere. What the file adds is losslessness, a print-ready density tag, a
 // named colour profile, and the licence above.
 export const DIGITAL_FILE_DESCRIPTION =
-    'a lossless PNG at full scan resolution (around 1640 × 2530 pixels, tagged ' +
-    '600 DPI), which prints cleanly at postcard size and enlarges to roughly A5 at ' +
+    'a lossless PNG at full scan resolution (around 2500 × 1650 pixels, orientation varies by ' +
+    'drawing, tagged 600 DPI), which prints cleanly at postcard size and enlarges to roughly A5 at ' +
     '300 DPI';
+
+// Who the buyer's receipt says sold a paid digital file. Under Stripe Managed
+// Payments, Stripe/Link is the merchant of record, so say it identically on
+// /terms, the download page and the delivery email.
+export const DIGITAL_SELLER_NOTE =
+    'Digital files are sold through Link, LLC, a Stripe company, as merchant of record.';

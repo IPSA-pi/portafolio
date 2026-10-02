@@ -23,6 +23,12 @@ export type Drawing = {
     // build a public URL from it. A row can deliver a file iff it is non-null;
     // availability is derived from that, not stored as a third flag.
     digital_object_path: string | null;
+    // Paid digital file (Part P). Written by set-digital-price.js, never by
+    // seed. "Listed" is derived from these plus digital_object_path — see
+    // digitalListing() in digital.ts, the only place that rule lives.
+    digital_stripe_product_id: string | null;
+    digital_stripe_price_id: string | null;
+    digital_price_cents: number | null;
     sold: boolean;
     reserved: boolean;
     reserved_at: string | null;
@@ -70,6 +76,9 @@ export type Order = {
     shipped_at: string | null;
     tracking_number: string | null;
     payment_method: string | null;
+    // 'digital' rows have null shipping_address/shipped_at; amount_total is
+    // digital_price_cents, pre-tax. Defaults to 'original' in the DB.
+    kind: 'original' | 'digital';
     created_at: string;
 };
 
@@ -83,9 +92,11 @@ type Database = {
                 // `digital_object_path` is optional for a stronger reason — it
                 // is owned by upload-masters and the owner, so no insert path
                 // should be able to name it, and an upsert that omitted it
-                // must leave whatever is there untouched.
-                Insert: Omit<Drawing, 'id' | 'created_at' | 'updated_at' | 'title' | 'year' | 'medium' | 'width_cm' | 'height_cm' | 'digital_object_path'> &
-                    Partial<Pick<Drawing, 'id' | 'created_at' | 'updated_at' | 'title' | 'year' | 'medium' | 'width_cm' | 'height_cm' | 'digital_object_path'>>;
+                // must leave whatever is there untouched. The three digital_*
+                // price columns are owned by set-digital-price.js, not by seed,
+                // for the same reason.
+                Insert: Omit<Drawing, 'id' | 'created_at' | 'updated_at' | 'title' | 'year' | 'medium' | 'width_cm' | 'height_cm' | 'digital_object_path' | 'digital_stripe_product_id' | 'digital_stripe_price_id' | 'digital_price_cents'> &
+                    Partial<Pick<Drawing, 'id' | 'created_at' | 'updated_at' | 'title' | 'year' | 'medium' | 'width_cm' | 'height_cm' | 'digital_object_path' | 'digital_stripe_product_id' | 'digital_stripe_price_id' | 'digital_price_cents'>>;
                 Update: Partial<Omit<Drawing, 'id'>>;
                 Relationships: [];
             };
@@ -97,10 +108,11 @@ type Database = {
             };
             orders: {
                 Row: Order;
-                // shipped_at/tracking_number/payment_method stay optional on insert — the
-                // webhook writes order rows without them (unshipped, card payment).
-                Insert: Omit<Order, 'id' | 'created_at' | 'shipped_at' | 'tracking_number' | 'payment_method'> &
-                    Partial<Pick<Order, 'id' | 'created_at' | 'shipped_at' | 'tracking_number' | 'payment_method'>>;
+                // shipped_at/tracking_number/payment_method/kind stay optional on insert — the
+                // webhook writes order rows without them (unshipped, card payment, kind
+                // defaulting to 'original').
+                Insert: Omit<Order, 'id' | 'created_at' | 'shipped_at' | 'tracking_number' | 'payment_method' | 'kind'> &
+                    Partial<Pick<Order, 'id' | 'created_at' | 'shipped_at' | 'tracking_number' | 'payment_method' | 'kind'>>;
                 Update: Partial<Omit<Order, 'id'>>;
                 Relationships: [];
             };

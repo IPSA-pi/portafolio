@@ -45,7 +45,7 @@ Two Supabase projects, two env files:
 | `.env.local` | dev `SUPABASE_URL` + key, `DB_LABEL=dev`, **test** Stripe key, Resend/Tidal/Spotify creds | `npm run dev`, every default script wrapper |
 | `.env.prod` | prod `SUPABASE_URL` + key, `DB_LABEL=prod`, **live** Stripe key — nothing else | `:prod` script wrappers only |
 
-Both are gitignored. The safe database is the default everywhere: nothing loads `.env.prod` implicitly, so the only way a local run touches production is an explicit `:prod` wrapper (`seed:prod`, `upload:prod`, `set-price:prod`, `scrape:prod`, `enrich:all:prod`), which layers a second `--env-file` on top:
+Both are gitignored. The safe database is the default everywhere: nothing loads `.env.prod` implicitly, so the only way a local run touches production is an explicit `:prod` wrapper (`seed:prod`, `upload:prod`, `upload-masters:prod`, `set-price:prod`, `set-digital-price:prod`, `scrape:prod`, `enrich:all:prod`), which layers a second `--env-file` on top:
 
 ```sh
 node --env-file=.env.local --env-file=.env.prod scripts/seed.js
@@ -138,6 +138,8 @@ In the [Stripe Dashboard](https://dashboard.stripe.com/webhooks), add a webhook 
 
 The two `async_payment_*` events matter for delayed payment methods (bank transfer, OXXO) that settle after the redirect. Copy the signing secret and set it as `STRIPE_WEBHOOK_SECRET` in Cloudflare.
 
+One endpoint serves both products. A paid event whose session has `metadata.kind = 'digital'` (the paid digital file, created by `/api/checkout/digital`) goes to `fulfillDigitalOrder`: it writes a `kind = 'digital'` row to `orders` and emails the buyer (a link to the download page) and the owner. Everything else is a physical order (marks sold, writes the row, emails, includes the free file link). Both are idempotent on replay (`stripe events resend <evt>` writes and sends nothing twice). The `expired` / `async_payment_failed` events only ever release physical reservations; a digital session holds none. No new events or env vars are needed for digital files.
+
 ### Resend domain
 
 Emails are sent from `no-reply@iansebelius.com`. Verify the domain in the [Resend dashboard](https://resend.com/domains) and add the required DNS records to Cloudflare DNS.
@@ -147,6 +149,10 @@ Emails are sent from `no-reply@iansebelius.com`. Verify the domain in the [Resen
 - [ ] **Stripe live keys** — `STRIPE_SECRET_KEY` set to `sk_live_...` in the Worker, and in `.env.prod` so `set-price:prod` / `seed:prod` hit the live Stripe account.
 - [ ] **Live products/prices in CAD** — re-run `set-price.js` against the live Stripe account so every for-sale drawing has a live `stripe_price_id`. All prices are **CAD**; never mix currencies (a mixed-currency cart fails at Stripe session creation).
 - [ ] **Live webhook** — add the endpoint above in live mode with all four events, and set its signing secret as `STRIPE_WEBHOOK_SECRET`.
+- [ ] **Managed Payments (paid digital files)** — in the live Dashboard, Settings → Managed Payments: accept the terms and submit for eligibility review (the long pole; do it first). Keep **"Enable by default" off** (the physical checkout must never be an MP session — the digital endpoint turns MP on per session), refund requests on **"Email me for approval"**, and **"Include tax in prices" = No** (tax added on top). Status reads "Inactive" until an eligible product exists.
+- [ ] **Tax codes** — the preset tax category stays **General – Tangible Goods** (`txcd_99999999`; it covers the physical originals). The digital code `txcd_10505001` is written per product by `set-digital-price`, which is what Managed Payments reads; don't set the preset to the digital code.
+- [ ] **Support email** — Business details carries an address you watch: Link escalations and refund approvals go there, and with no reply in 48 h Stripe may refund. Also confirm the statement descriptor, terms (`/terms`) and privacy (`/privacy`) URLs, and CAD settlement.
+- [ ] **Migration + live digital products** — run `scripts/migrations/2026-10-01-digital-sale.sql` in the **prod** SQL editor *before* deploying the digital-file branch (the gallery loader names the new columns), then `npm run set-digital-price:prod -- --notebook 260619 10`. Nothing is purchasable until the deploy.
 - [ ] **Resend domain verified** — `iansebelius.com` verified so mail delivers to real buyers (test mode only delivers to verified addresses).
 - [ ] **`pg_cron` sweep** — the stale-reservation cleanup job from `scripts/schema.sql` is installed on the live database (backstop for a missed `expired` webhook).
 - [ ] **Cloudflare Access** — the `/admin` Access application exists and `CF_ACCESS_TEAM_DOMAIN` / `CF_ACCESS_AUD` are set.
@@ -226,10 +232,11 @@ node scripts/standardize-images.js        # 2. generate -sm/-md/-lg webp variant
 npm run upload                            # 3. push images to Supabase Storage
 npm run seed                              # 4. create/refresh drawings rows
 npm run set-price -- --notebook negro_7 150   # 5. (optional) list for sale, $150 CAD
-npm run upload-masters -- --notebook negro_7  # 6. (optional) PNG masters for the free digital copy
+npm run upload-masters -- --notebook negro_7  # 6. (optional) PNG masters: free copy with an original, and the paid file
+npm run set-digital-price -- --notebook negro_7 10  # 7. (optional) list the paid digital file, $10 CAD
 ```
 
-Steps 3–5 hit the dev database by default; repeat with the `:prod` wrappers to publish. Flags, safety notes, and per-script details in [Data-pipeline scripts](#data-pipeline-scripts) below.
+Steps 3–7 hit the dev database by default; repeat with the `:prod` wrappers to publish. Flags, safety notes, and per-script details in [Data-pipeline scripts](#data-pipeline-scripts) below.
 
 ## Data-pipeline scripts
 
@@ -249,6 +256,7 @@ New music:  scrape → enrich (Tidal) → enrich:spotify → enrich:apple
 |---|---|---|
 | `rename.js` | `rename`, `rename:apply` | filesystem only |
 | `upload.js` | `upload`, `upload:prod` | Storage `drawings` bucket |
+| `upload-masters.js` | `upload-masters`, `upload-masters:prod` | Storage `drawings-masters` (private), `drawings.digital_object_path` |
 | `seed.js` | `seed`, `seed:dry`, `seed:prod` | `drawings` table |
 | `set-price.js` | `set-price`, `set-price:prod` | Stripe products + prices, `drawings` table |
 | `set-digital-price.js` | `set-digital-price`, `set-digital-price:prod` | Stripe products + prices (digital file), `drawings` digital columns |
@@ -283,7 +291,7 @@ Needs `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`. Idempotent: existing files a
 
 ### `upload-masters.js` — push PNG masters to the **private** bucket
 
-Finishes the high-resolution PNG masters that back the free digital copy and uploads them to `drawings-masters`, recording `digital_object_path` on each row. Run after `seed` — it only touches slugs that already have a drawings row, and warns rather than uploading an orphan.
+Finishes the high-resolution PNG masters that back both the free digital copy (with an original) and the paid digital file, and uploads them to `drawings-masters`, recording `digital_object_path` on each row. Run after `seed` — it only touches slugs that already have a drawings row, and warns rather than uploading an orphan.
 
 Finishing is: flatten the (opaque) alpha channel, convert to a **named** sRGB profile so print shops don't guess, and re-encode losslessly at maximum compression. Typically 7.7 MB → 3.2 MB at identical pixels. The scanned density tag is preserved exactly, so a print dialog defaults to the drawing's real physical size.
 
@@ -343,7 +351,7 @@ npm run set-digital-price -- --all --unpriced 10           # backfill only
 npm run set-digital-price:prod -- --notebook 260619 10
 ```
 
-Drawings with no `digital_object_path` are skipped and listed — run `upload-masters` first. **Sold drawings are not skipped**: the file sells independently of the original. The product uses `metadata.drawing_slug`, never `metadata.slug`, and `seed.js` ignores any product with `kind: 'digital'`, so the two never cross-link. Write order, failure handling and `--unpriced` / `--dry-run` behave exactly as for `set-price.js`; check the `Stripe target` line before any `:prod` run.
+A drawing is *listed* for sale (digital button shown) once it has a master, a Stripe price and a positive `digital_price_cents`; that is derived, never stored, and independent of `sold`. Drawings with no `digital_object_path` are skipped and listed — run `upload-masters` first. **Sold drawings are not skipped**: the file sells independently of the original. The product uses `metadata.drawing_slug`, never `metadata.slug`, and `seed.js` ignores any product with `kind: 'digital'`, so the two never cross-link (that guard in `seed.js` must stay). Write order, failure handling and `--unpriced` / `--dry-run` behave exactly as for `set-price.js`; check the `Stripe target` line before any `:prod` run. Digital checkouts run through Stripe Managed Payments: the buyer sees their local currency and tax on top, but the price and settlement are CAD.
 
 ### `delete-drawing.js` — remove drawings everywhere (destructive)
 
@@ -430,6 +438,7 @@ src/
       [slug]/
         +page.server.ts       # Loads drawings from Supabase
         +page.svelte          # Gallery grid
+      digital/                # Download page for a paid digital file (session id = credential)
     cart/                      # Client-side cart review page (localStorage)
     learn/                    # Learn section: index + [chapter] pages, prerendered
     new-music/                # Public read-only curated release list
@@ -440,6 +449,7 @@ src/
       checkout/               # Stripe checkout session creation (1–20 drawings)
         cancel/               # Best-effort reservation release on back-out
         session-status/       # Public { paid, slugs } lookup for a session
+        digital/              # Managed Payments session for the paid digital file
       drawings/status/        # Public sold/reserved/price lookup for a slug list
       webhook/                # Stripe webhook (marks sold, writes orders, emails)
   lib/
@@ -450,6 +460,9 @@ src/
       resend.ts               # Resend client
       reservations.ts         # STALE_RESERVATION_MS + shared reservation release
       checkoutSlugs.ts        # The one reader of a session's slug metadata
+      digital.ts              # The "Listed" rule for the paid digital file
+      digitalDelivery.ts      # Signed-URL minting + download section (free copy and paid file)
+      digitalOrders.ts        # Webhook fulfillment for digital sessions
       access.ts               # Cloudflare Access JWT verification
     stores/                   # Theme, fullscreen, cart state
     utils/                    # formatPrice (CAD), checkoutReturn, shuffle, …
@@ -457,6 +470,7 @@ scripts/                      # Data-pipeline scripts — see the section above
   standardize-images.js       # Generates sm/md/lg webp variants (also runs in build)
   rename.js                   # One-time filename migration (+ rename-map.json)
   upload.js                   # Uploads drawing images to Supabase Storage
+  upload-masters.js           # Finishes + uploads PNG masters to the private bucket
   seed.js                     # Seeds drawings table from filesystem + Stripe
   set-price.js                # Creates Stripe product + CAD price, updates Supabase
   set-digital-price.js        # Same, for the paid digital file (digital_* columns)
@@ -470,7 +484,7 @@ scripts/                      # Data-pipeline scripts — see the section above
 learn/                        # Learn-section chapters (one .md per chapter) — see LEARN.md
 ```
 
-The `orders` table (see `scripts/schema.sql`) is the durable record of each sale — one row per sold drawing, written by the webhook at fulfillment independently of whether the confirmation emails succeed.
+The `orders` table (see `scripts/schema.sql`) is the durable record of each sale — one row per sold drawing, written by the webhook at fulfillment independently of whether the confirmation emails succeed. `kind` is `original` or `digital`; a digital row has no shipping address and its `amount_total` is the file's pre-tax price.
 
 ## Admin panel
 

@@ -50,6 +50,10 @@ Stripe key along with the prod Supabase pair — a `:prod` run is fully prod.
 | `CF_ACCESS_AUD` | owner-JWT verification (the Access application's Audience/AUD tag) |
 | `ADMIN_DEV_BYPASS` | set to `1` locally to unlock `/admin` without Cloudflare Access |
 
+**No new environment variables** for the paid digital file: it uses the same
+Stripe, Supabase and Resend keys, and Managed Payments is Dashboard state, not
+config.
+
 **Scripts only (not in Workers runtime):**
 
 | Variable | Used by |
@@ -106,9 +110,31 @@ It's public (footer link + sitemap entry) — there's no draft gate and no
   showing a purchase-confirmed banner
 - `src/routes/api/drawings/status/+server.ts` — public sold/reserved/price
   lookup for a slug list, used by the cart page to re-check availability
+- `src/routes/api/checkout/digital/+server.ts` — the paid digital file.
+  Body `{ slugs, notebookSlug? }` (1–20, deduped; `notebookSlug` is only used
+  if it matches a notebook of the requested drawings, else the cancel URL falls
+  back to `/drawing/feed`). **No Supabase writes** — nothing is reserved. Any
+  slug that isn't Listed → 409 `{ error, unavailable }`; a Stripe failure → 500.
+  Creates a **Managed Payments** session (`managed_payments: { enabled: true }`,
+  per session — the Dashboard's "Enable by default" stays off so the physical
+  checkout is never MP). MP forbids `shipping_address_collection`,
+  `automatic_tax`, `expires_at`, `payment_method_types`, `invoice_creation` and
+  `payment_intent_data`; the endpoint's comment lists them — don't add one.
+  Success URL is `/drawing/digital?session_id=…`
 - `src/routes/api/webhook/+server.ts` — handles `checkout.session.completed`
   (only when `payment_status === 'paid'`), `async_payment_succeeded`,
-  `async_payment_failed`, and `expired`
+  `async_payment_failed`, and `expired`. Paid events branch on
+  `isDigitalSession(session)`: digital → `fulfillDigitalOrder`
+  (`src/lib/server/digitalOrders.ts`), else `fulfillOrder`. `expired` /
+  `async_payment_failed` have no digital branch — release is a no-op for a
+  digital session by the metadata contract. `fulfillDigitalOrder` is the
+  opposite of the physical path on failure: its **idempotency is the `orders`
+  unique constraint** (`upsert … ignoreDuplicates` on `stripe_session_id,
+  drawing_slug`), the insert comes first, and a failed insert or read → 500 so
+  Stripe retries (nothing has happened yet). Once the row is in, emails go
+  through `allSettled` with labelled failure logging and can't 500. Known gap:
+  if the insert commits but its response is lost, the retry sees a replay and
+  sends no email (fix needs a delivery-marker column; TASKS P14)
 - `src/lib/server/reservations.ts` — `STALE_RESERVATION_MS` (35 min, the
   single source of truth for "how old is a dead reservation") and
   `releaseSessionReservations(session)`, shared by the webhook and the
@@ -123,29 +149,48 @@ It's public (footer link + sitemap entry) — there's no draft gate and no
   address lives; `internationalMailto(slug?)` builds the link). Copy that must
   change with the country list: Feed + PurchaseButton captions, the cart
   sentence, `/terms` §3
-- **Metadata contract:** `metadata.slugs` is the JSON-encoded array of every
-  slug in the session (what a cart checkout actually needs); `metadata.slug`
-  is kept as the first slug for backward compat with older sessions.
+- **Metadata contract — two disjoint key sets.** Physical sessions:
+  `metadata.slugs` is the JSON-encoded array of every slug in the session
+  (what a cart checkout actually needs); `metadata.slug` is kept as the first
+  slug for backward compat with older sessions.
   `src/lib/server/checkoutSlugs.ts`'s `getSlugsFromSession(session)` is the
   one place that reads this — falls back to the legacy single-slug field if
   `slugs` is missing or unparseable. `client_reference_id` is also just the
-  first slug, not the full cart
+  first slug, not the full cart. Digital sessions: `metadata.kind = 'digital'`
+  plus `metadata.digital_slugs` (JSON array), read only through
+  `isDigitalSession` / `getDigitalSlugsFromSession`; `client_reference_id` is
+  `digital:<first slug>`. **A digital session must never carry `slug`/`slugs`**:
+  those mean "physical drawings this session reserved", and
+  `releaseSessionReservations` releases by slug, so a digital session carrying
+  them could release another buyer's live hold. Keep `getSlugsFromSession`
+  blind to `digital_slugs`. Must not change for the digital feature (check
+  `git diff --stat main..HEAD -- <path>` is empty): `reservations.ts`,
+  `api/checkout/+server.ts`, `api/checkout/cancel/+server.ts`,
+  `api/drawings/status/+server.ts`, and `getSlugsFromSession`
 - **Success/cancel URLs** differ by flow: a single drawing bought with
   notebook context (the notebook page's Buy button) keeps
   `/drawing/[notebook]?success=…` / `?canceled=…`; everything else (a
   multi-item cart, or a single item with no notebook context) routes
-  through `/drawing?success=…` / `/cart?canceled=…`
+  through `/drawing?success=…` / `/cart?canceled=…`. Digital sessions are a
+  third shape: success `/drawing/digital?session_id=…`, cancel
+  `/drawing/[notebookSlug]` (or `/drawing/feed`)
 - **Orders table** (`scripts/schema.sql`, service-role only): one row per
   sold drawing, written at webhook fulfillment alongside the sold-update and
   the confirmation emails. Durable in a way the emails aren't — a Resend
   failure doesn't lose the buyer's details. `amount_total` is per-drawing
-  (that row's price), not the session total
+  (that row's price), not the session total. `kind` is `'original'` (default)
+  or `'digital'` (CHECK-constrained); a digital row has null
+  `shipping_address` / `shipped_at` and `amount_total` = `digital_price_cents`,
+  **pre-tax** — the session's own `amount_total` includes tax Stripe withholds,
+  so never read it for revenue. Admin sales shows a "Digital" chip, no address
+  and no ship control for these, a `kind` CSV column, and its "drawings sold"
+  tile counts originals only
 
 ## Currency
 
 All prices are **CAD** (owner decision — never mix currencies across
 `stripe_price_id`s, or a mixed-currency cart 500s at Stripe session
-creation). Three places encode this and must stay in sync:
+creation). Four places encode this and must stay in sync:
 
 - `src/lib/utils/formatPrice.ts` — the full (non-compact) format uses
   `Intl.NumberFormat('en-CA', { currency: 'CAD' })`. The compact badge
@@ -154,6 +199,17 @@ creation). Three places encode this and must stay in sync:
 - `src/routes/api/webhook/+server.ts` — the confirmation email formats the
   amount with `en-CA` / `CAD`.
 - `scripts/set-price.js` — creates Stripe prices with `currency: 'cad'`.
+- `scripts/set-digital-price.js` — same for the digital file's prices, plus
+  `tax_behavior: 'exclusive'`.
+
+Digital files differ in one way: under Managed Payments, Stripe/Link is the
+merchant of record and **presents the buyer's local currency** (MXN, EUR, USD…)
+at Checkout, but the price is CAD and it **settles in CAD** — the webhook's
+`currency` is always `cad`. Tax is added **on top** by buyer location (Dashboard
+"Include tax in prices" = No, and every price is `exclusive`), so the net is a
+flat CAD price; whether tax is collected at all is Stripe's call by country
+(sandbox collected no MX IVA — verify live, TASKS P13). Never add
+`automatic_tax` to a session; MP forbids it.
 
 ## Drawing data model
 
@@ -165,36 +221,71 @@ Two concepts that are easy to conflate:
 - **Drawing** — an individual piece within a notebook. Stored in Supabase
   `drawings` table with columns: `slug`, `notebook`, `storage_url`,
   `stripe_price_id`, `price_cents`, `sold`, `reserved`, `display_order`,
-  `digital_object_path`.
+  `digital_object_path`, `digital_stripe_product_id`,
+  `digital_stripe_price_id`, `digital_price_cents`. The three digital price
+  columns are owned by `set-digital-price`, not `seed` (they're in the Insert
+  omit-list beside `digital_object_path`).
 
 Drawing images are served from Supabase storage (not `static/`), with four
 size variants derived by suffix: original, `-sm.webp`, `-md.webp`, `-lg.webp`.
 
-### Digital copies
+### Digital files
 
-Every buyer of a physical drawing gets the high-resolution file free, as a
-one-year signed URL in the confirmation email. Two buckets, and the distinction
-is the whole security model:
+A drawing's high-resolution PNG is delivered two ways: **free** with the
+physical original, and **paid** on its own. Two buckets, and the distinction is
+the whole security model:
 
 - **`drawings`** (public) — the WebP variants the gallery serves.
 - **`drawings-masters`** (**private**) — the finished PNG masters.
-  `digital_object_path` names an object in here. It is read only by the webhook,
+  `digital_object_path` names an object in here. It is read only server-side,
   passed only to `createSignedUrl`, and must never be serialized to a client or
-  turned into a public URL.
+  turned into a public URL. `loadNotebook` does select it (for the Listed rule)
+  on a publicly cached loader — safe only while `buildImages`/`buildProducts`
+  never spread a row; grep the SSR HTML and `__data.json` after touching them.
 
 `npm run upload-masters -- --notebook <nb>` finishes and uploads them (flatten,
 named sRGB, max lossless compression; the scanned density tag is preserved as-is)
-and writes `digital_object_path`. Availability is derived from that column being
-non-null — do not add a boolean. Not every drawing has one, and the null path is
-normal: the email simply renders no download section.
+and writes `digital_object_path`. Not every drawing has one, and the null path
+is normal.
 
-Signing is **non-fatal by design** (`signDownloads` in the webhook). The product
-is the original; the file rides along. A sale that is already recorded must never
-500 because a bonus link couldn't be signed.
+**Free copy** (buyer of the original): a one-year signed URL in the physical
+confirmation email (`signDownloads` / `buildDownloadSection` in
+`src/lib/server/digitalDelivery.ts`, shared with the paid path). Signing is
+**non-fatal by design**: the product is the original; the file rides along. A
+sale that is already recorded must never 500 because a bonus link couldn't be
+signed. No path → the email simply renders no download section.
 
-Licence text lives in `src/lib/digitalLicense.ts` and is imported by both the
-confirmation email and `/terms`, so what a buyer is shown at purchase and what
-the legal page says cannot drift.
+**Paid file** (anyone, worldwide, via Managed Payments): *Listed* ⇔
+`digital_object_path IS NOT NULL AND digital_stripe_price_id IS NOT NULL AND
+digital_price_cents > 0`. Derived, never stored — do not add a boolean.
+`digitalListing(row)` in `src/lib/server/digital.ts` is the only place the rule
+lives, and it never returns the path. Listing is independent of `sold` /
+`reserved`: the file sells whether or not the original has. Gallery: the
+"Digital file · $X" button in `PurchaseButton` (an entry exists when the
+original is priced **or** the file is listed; cart, shipping captions and the
+Available/Sold filter key off the *original* being priced). The button never
+touches the cart or `setPendingCheckout` — **the cart skips digital**.
+`set-digital-price` creates the products (`tax_code: txcd_10505001`,
+`metadata.kind = 'digital'`, `metadata.drawing_slug` — never `metadata.slug`,
+which `seed` matches physical products on).
+
+**Download page** `/drawing/digital?session_id=…` (`src/routes/drawing/digital/`):
+the session id is the bearer credential, so the page 404s unless it names a
+**paid digital** session (`orders` row with `kind = 'digital'`, else a Stripe
+retrieve fallback; a physical, unpaid or garbage id → 404; a Stripe outage → 500,
+not a 404, since the buyer just paid). It mints **1-hour** signed URLs
+(`&download=` so the button saves) on every load, returns titles, tombstones and
+URLs only, sends `cache-control: no-store` and `noindex`, and stays valid after
+the email: the delivery email links this page, not a file. A refunded sale keeps
+its page (accepted for v1). The Cloudflare Web Analytics beacon reports this URL
+including `session_id` — accepted (owner decision 2026-10-01).
+
+Licence and seller text live in `src/lib/digitalLicense.ts`
+(`DIGITAL_LICENSE`, `DIGITAL_FILE_DESCRIPTION`, `DIGITAL_SELLER_NOTE`),
+imported by the confirmation emails, the download page and `/terms`, so what a
+buyer is shown at purchase and what the legal page says cannot drift. (`/terms`
+§4's merchant-of-record refund sentence is literal copy — keep it in step by
+hand.)
 
 Post-purchase flow, single-item (notebook page): Stripe redirects to
 `/drawing/[notebook_slug]?success=...&drawing=...&session_id=...`.
@@ -211,6 +302,13 @@ showing the confirmation banner — unlike the notebook page, there's no
 server-rendered optimistic state to fall back on — then removes exactly the
 purchased slugs from the cart store (not the whole cart, which may hold
 items added since checkout started).
+
+Post-purchase flow, digital file: Stripe redirects to
+`/drawing/digital?session_id=…`, a server-rendered page that verifies and signs
+as above. It has no optimistic-sold step, calls no `session-status`, and never
+touches the cart store. The webhook writes the `kind = 'digital'` order row and
+sends the emails (customer: link to the page + licence, no amounts, "not a
+receipt — Link sends that"; artist: per-row prices) in parallel.
 
 Cart contents live client-side only, in `src/lib/stores/cart.ts`
 (localStorage, key `cart:v1`, capped at `MAX_CART_ITEMS` = 20 to match
@@ -229,6 +327,7 @@ npm run seed              # seed drawings to Supabase
 npm run upload            # upload drawing assets
 npm run upload-masters    # finish + upload PNG masters to the PRIVATE bucket
 npm run set-price         # create Stripe product/price + update Supabase
+npm run set-digital-price # same for the paid digital file (digital_* columns)
 npm run scrape            # scrape new music from sources
 npm run enrich            # Tidal enrichment
 npm run enrich:spotify    # Spotify enrichment
@@ -239,15 +338,20 @@ npm run enrich:all        # Tidal + Spotify + Apple in sequence
 Safety rules:
 
 - All of the above hit the **dev** DB. The `:prod` variants (`seed:prod`,
-  `upload:prod`, `upload-masters:prod`, `set-price:prod`, `scrape:prod`,
-  `enrich:all:prod`) are the only local path to production — never run one
+  `upload:prod`, `upload-masters:prod`, `set-price:prod`,
+  `set-digital-price:prod`, `scrape:prod`, `enrich:all:prod`) are the only local path to production — never run one
   unprompted.
 - `delete-drawing.js` is destructive and deliberately has no wrapper, no
   dry-run, and no `:prod` variant; a prod deletion is a manual, careful,
   hand-assembled command.
 - `seed` preserves DB-side `sold` / `reserved` / `display_order` (and the
   Stripe link, when its Stripe scan finds none) on rows that already exist —
-  keep it that way; the webhook records sales in Supabase only.
+  keep it that way; the webhook records sales in Supabase only. Its Stripe
+  scan also skips any product with `metadata.kind === 'digital'`, so a digital
+  product can never be linked to a drawing row as its original — keep that guard.
+- `set-digital-price` skips drawings with no `digital_object_path` (run
+  `upload-masters` first) and does **not** skip sold ones. Like `set-price`, it
+  prints `Stripe target`; `:prod` swaps in the live key.
 - `scrape` is insert-only (never clobbers the owner's `status`); the enrich
   passes only fill still-null availability columns.
 

@@ -49,15 +49,18 @@
         return Number.isFinite(k) ? k : -1;
     }
 
-    // Availability comes from the products map: only priced (listed) drawings
-    // have an entry, and `reserved` is an active checkout hold. So "available"
-    // means listed, unsold and un-held; an unlisted drawing matches neither
-    // filter and shows only under "All".
+    // Availability is about the *original*. The products map also has entries
+    // for drawings whose only offer is the digital file (priceId null), so the
+    // filter keys off priceId rather than the entry existing; `reserved` is an
+    // active checkout hold. "Available" means priced, unsold and un-held; a
+    // drawing with no priced original matches neither filter and shows only
+    // under "All".
     function matchesAvailability(slug: string): boolean {
         if (availability === 'all') return true;
         const p = data.products[slug];
-        if (availability === 'sold') return !!p?.sold;
-        return !!p && !p.sold && !p.reserved;
+        if (!p || p.priceId === null) return false;
+        if (availability === 'sold') return p.sold;
+        return !p.sold && !p.reserved;
     }
 
     // Ordering happens before filtering so that narrowing the list never
