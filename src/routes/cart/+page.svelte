@@ -4,7 +4,9 @@
     import { cartItems, cartTotal, removeFromCart, MAX_CART_ITEMS } from '$lib/stores/cart';
     import { formatTitle } from '$lib/utils/formatTitle';
     import { formatPrice } from '$lib/utils/formatPrice';
-    import { INTERNATIONAL_SALES_EMAIL, internationalMailto } from '$lib/shipping';
+    import { ELSEWHERE, HOME_COUNTRY, INTERNATIONAL_STANDARD_CENTS, internationalMailto } from '$lib/shipping';
+    import { shipTo } from '$lib/stores/shipTo';
+    import ShipToPicker from '$lib/components/ShipToPicker.svelte';
     import { handleCheckoutReturn, setPendingCheckout } from '$lib/utils/checkoutReturn';
     import Seo from '$lib/components/Seo.svelte';
     import PageHeader from '$lib/components/PageHeader.svelte';
@@ -52,7 +54,7 @@
     let anyUnavailable = $derived($cartItems.some((i) => isUnavailable(i.slug)));
 
     async function handleCheckout() {
-        if (checkingOutLoading || anyUnavailable || $cartItems.length === 0) return;
+        if (checkingOutLoading || anyUnavailable || $cartItems.length === 0 || $shipTo === ELSEWHERE) return;
         checkingOutLoading = true;
         checkoutError = null;
 
@@ -60,7 +62,7 @@
             const response = await fetch('/api/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ slugs: $cartItems.map((i) => i.slug) }),
+                body: JSON.stringify({ slugs: $cartItems.map((i) => i.slug), country: $shipTo }),
             });
 
             const data = await response.json();
@@ -154,14 +156,26 @@
             {/each}
         </ul>
 
-        <div class="flex items-baseline justify-between border-b border-line/12 pb-4">
-            <span class="font-mono text-label uppercase text-content-dim">Subtotal</span>
-            <span class="font-mono text-title text-content">{formatPrice($cartTotal)}</span>
+        <div class="border-b border-line/12 pb-5">
+            <ShipToPicker slugs={$cartItems.map((i) => i.slug)} />
         </div>
+
+        <!-- Shipping is one fee per order, and abroad the buyer picks standard
+             or registered at Stripe — so this shows the lower one as "from"
+             and leaves the total to Checkout rather than guess it. -->
+        <dl class="grid grid-cols-[1fr_auto] items-baseline gap-y-2 border-b border-line/12 py-4">
+            <dt class="font-mono text-label uppercase text-content-dim">Subtotal</dt>
+            <dd class="text-right font-mono text-title text-content">{formatPrice($cartTotal)}</dd>
+            {#if $shipTo !== ELSEWHERE}
+                <dt class="font-mono text-label uppercase text-content-dim">Shipping</dt>
+                <dd class="text-right font-mono text-meta text-content">
+                    {$shipTo === HOME_COUNTRY ? 'Free' : `from ${formatPrice(INTERNATIONAL_STANDARD_CENTS)}`}
+                </dd>
+            {/if}
+        </dl>
         <p class="mt-4 font-body text-body text-content-dim">
             Every drawing here is a one-of-a-kind original, and comes with a free
-            high-resolution digital copy. Shipping is free within Canada.
-            Outside Canada? Email <a href={internationalMailto()} class="text-signal underline transition-colors hover:text-signal-strong">{INTERNATIONAL_SALES_EMAIL}</a>.
+            high-resolution digital copy.
         </p>
 
         {#if $cartItems.length >= MAX_CART_ITEMS}
@@ -176,14 +190,25 @@
             </div>
         {/if}
 
-        <button
-            type="button"
-            onclick={handleCheckout}
-            disabled={checkingOutLoading || checkingAvailability || anyUnavailable}
-            class="mt-8 w-full bg-content py-4 font-mono text-label uppercase text-surface transition-all hover:bg-signal hover:text-surface active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-content"
-        >
-            {checkingOutLoading ? 'Redirecting to payment…' : 'Continue to payment'}
-        </button>
+        {#if $shipTo === ELSEWHERE}
+            <!-- No online checkout for this destination: the same button
+                 slot hands the cart to an email instead. -->
+            <a
+                href={internationalMailto($cartItems.map((i) => i.slug))}
+                class="mt-8 block w-full bg-content py-4 text-center font-mono text-label uppercase text-surface transition-all hover:bg-signal hover:text-surface active:scale-[0.99]"
+            >
+                Email this order
+            </a>
+        {:else}
+            <button
+                type="button"
+                onclick={handleCheckout}
+                disabled={checkingOutLoading || checkingAvailability || anyUnavailable}
+                class="mt-8 w-full bg-content py-4 font-mono text-label uppercase text-surface transition-all hover:bg-signal hover:text-surface active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-content"
+            >
+                {checkingOutLoading ? 'Redirecting to payment…' : 'Continue to payment'}
+            </button>
+        {/if}
         {#if anyUnavailable}
             <p class="mt-3 text-center font-mono text-label uppercase text-alert">
                 Remove the sold drawing to continue

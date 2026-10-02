@@ -60,6 +60,29 @@ export function formatTombstone(meta: ArtworkMeta): string {
 }
 
 /**
+ * One line for a whole page of drawings: 'Ballpoint pen on paper · roughly
+ * 7.6 × 12.7 cm'. The gallery pages say this once instead of the viewer
+ * repeating it under every drawing.
+ *
+ * A part appears only when EVERY drawing has it and they all agree — a line
+ * above a grid is a claim about all of it, so a mixed or partly-unlabelled
+ * set drops that part rather than describe some drawings wrongly. null when
+ * nothing is shared. "roughly": the pages are hand-trimmed notebook leaves,
+ * and the sidecar records the nominal size.
+ */
+export function summarizeMaterial(items: ArtworkMeta[]): string | null {
+    if (items.length === 0) return null;
+    const shared = (pick: (m: ArtworkMeta) => string | null) => {
+        const first = pick(items[0]);
+        return first && items.every((m) => pick(m) === first) ? first : null;
+    };
+    const medium = shared((m) => m.medium?.trim() || null);
+    const dimensions = shared(formatDimensions);
+    const parts = [medium, dimensions && `roughly ${dimensions}`].filter(Boolean);
+    return parts.length ? parts.join(' · ') : null;
+}
+
+/**
  * Alt text for the image itself. With no describable metadata this returns
  * exactly `formatTitle(slug)` — byte-identical to what every alt says today.
  *

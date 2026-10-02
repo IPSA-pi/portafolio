@@ -5,6 +5,7 @@ import { getSlugsFromSession, isDigitalSession } from '$lib/server/checkoutSlugs
 import { fulfillDigitalOrder } from '$lib/server/digitalOrders';
 import { releaseSessionReservations } from '$lib/server/reservations';
 import { formatTombstone } from '$lib/utils/artwork';
+import { shippingOptionForAmount, type ShippingOption } from '$lib/shipping';
 import { escapeHtml, signDownloads, buildDownloadSection, DOWNLOAD_URL_TTL_SECONDS, type EmailItem } from '$lib/server/digitalDelivery';
 import { env } from '$env/dynamic/private';
 import { error, json } from '@sveltejs/kit';
@@ -27,7 +28,7 @@ function toEmailItems(rows: any[], downloads?: Map<string, string>): EmailItem[]
 const mutedLine = (text: string) =>
     `<div style="font-size:13px;color:#999;">${escapeHtml(text)}</div>`;
 
-function buildCustomerEmail(customerName: string, items: EmailItem[]) {
+function buildCustomerEmail(customerName: string, items: EmailItem[], shipping: ShippingOption | null) {
     const multiple = items.length > 1;
     const downloadsHtml = buildDownloadSection(items);
     const drawingsHtml = multiple
@@ -61,7 +62,9 @@ function buildCustomerEmail(customerName: string, items: EmailItem[]) {
                   : ''}
           <p style="font-size:16px;color:#444;line-height:1.7;margin:0 0 16px;">
             I'll pack ${multiple ? 'them' : 'it'} carefully and ship ${multiple ? 'them' : 'it'} within 3–5 business days.
-            You'll receive a follow-up email with tracking information once ${multiple ? 'they ship' : 'it ships'}.
+            ${shipping?.id === 'standard'
+                ? `You'll receive a follow-up email once ${multiple ? 'they ship' : 'it ships'}. Standard international mail isn't tracked, so please allow a few weeks for delivery.`
+                : `You'll receive a follow-up email with tracking information once ${multiple ? 'they ship' : 'it ships'}.`}
           </p>
           ${downloadsHtml}
           <p style="font-size:16px;color:#444;line-height:1.7;margin:0 0 32px;">
@@ -80,7 +83,14 @@ function buildCustomerEmail(customerName: string, items: EmailItem[]) {
 </html>`;
 }
 
-function artistNotificationEmail(items: EmailItem[], customerName: string, customerEmail: string, address: any, amountTotal: number) {
+function artistNotificationEmail(items: EmailItem[], customerName: string, customerEmail: string, address: any, amountTotal: number, shippingCents: number | null, shipping: ShippingOption | null) {
+    const cad = (cents: number) => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(cents / 100);
+    // Which mail service the buyer paid for — the one thing the owner must
+    // not get wrong at the post office. An amount that matches no current
+    // option (prices edited since the session was created) still shows.
+    const formattedShipping = shipping
+        ? `${escapeHtml(shipping.label)} — ${shipping.amountCents === 0 ? 'free' : cad(shipping.amountCents)}`
+        : shippingCents != null ? cad(shippingCents) : 'Not recorded';
     const formattedAmount = new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(amountTotal / 100);
     const formattedAddress = escapeHtml(
         address
@@ -108,6 +118,10 @@ function artistNotificationEmail(items: EmailItem[], customerName: string, custo
             <tr>
               <td style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#999;padding-bottom:4px;">Amount</td>
               <td style="font-size:16px;color:#111;padding-bottom:16px;">${formattedAmount}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#999;padding-bottom:4px;">Shipping</td>
+              <td style="font-size:16px;color:#111;padding-bottom:16px;">${formattedShipping}</td>
             </tr>
             <tr>
               <td style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#999;padding-bottom:4px;">Buyer</td>
@@ -268,6 +282,10 @@ async function fulfillOrder(session: any) {
     const shippingAddress = session.collected_information?.shipping_details?.address
         ?? session.shipping_details?.address;
     const amountTotal   = session.amount_total;
+    // What the buyer paid for shipping, and which option that was (free in
+    // Canada; standard or registered abroad — see $lib/shipping).
+    const shippingCents: number | null = session.shipping_cost?.amount_total ?? null;
+    const shipping = shippingOptionForAmount(shippingCents);
 
     // Durable sale record, one row per drawing. Independent of the emails
     // below (which can fail to send) — an insert failure here must never
@@ -277,19 +295,35 @@ async function fulfillOrder(session: any) {
     //
     // amount_total is per-drawing (that row's price_cents), not the whole
     // session's total — writing the session total on every row would
-    // overcount revenue N times for an N-item cart. Free shipping and no
-    // discounts today, so per-item price is the honest allocation.
-    const { error: insertError } = await getSupabase()
+    // overcount revenue N times for an N-item cart. No discounts today, and
+    // the shipping fee (a per-order cost passed through to Canada Post) is
+    // deliberately left out, so per-item price is the honest allocation.
+    const orderRows = rows.map(({ slug, price_cents }) => ({
+        drawing_slug: slug,
+        stripe_session_id: session.id,
+        payment_intent: session.payment_intent ?? null,
+        amount_total: price_cents ?? null,
+        customer_name: customerName,
+        customer_email: customerEmail ?? null,
+        shipping_address: shippingAddress ?? null,
+    }));
+    // The shipping option goes on every row of the session (one package),
+    // like shipped_at — it's what /admin/sales shows the owner at the post
+    // office. These two columns are newer than the table
+    // (scripts/migrations/2026-10-02-orders-shipping-method.sql): if a DB
+    // doesn't have them yet, insert again without them rather than lose the
+    // whole order record over a display field.
+    let { error: insertError } = await getSupabase()
         .from('orders')
-        .insert(rows.map(({ slug, price_cents }) => ({
-            drawing_slug: slug,
-            stripe_session_id: session.id,
-            payment_intent: session.payment_intent ?? null,
-            amount_total: price_cents ?? null,
-            customer_name: customerName,
-            customer_email: customerEmail ?? null,
-            shipping_address: shippingAddress ?? null,
+        .insert(orderRows.map((r) => ({
+            ...r,
+            shipping_method: shipping?.id ?? null,
+            shipping_cents: shippingCents,
         })));
+    if (insertError && (insertError.code === 'PGRST204' || insertError.code === '42703')) {
+        console.error('orders.shipping_method / shipping_cents missing — run the 2026-10-02 migration. Inserting without them.');
+        ({ error: insertError } = await getSupabase().from('orders').insert(orderRows));
+    }
 
     // supabase-js does not throw on a DB/PostgREST error — it comes back on
     // the result object — so this must be checked explicitly or a failure
@@ -316,14 +350,14 @@ async function fulfillOrder(session: any) {
             from:    'Ian Sebelius <no-reply@iansebelius.com>',
             to:      customerEmail,
             subject: soldSlugs.length > 1 ? `Your original drawings (${soldSlugs.length})` : `Your original drawing — ${soldSlugs[0]}`,
-            html:    buildCustomerEmail(customerName, emailItems),
+            html:    buildCustomerEmail(customerName, emailItems, shipping),
         }) });
     }
     emailSends.push({ label: 'artist notification', send: getResend().emails.send({
         from:    'Store <no-reply@iansebelius.com>',
         to:      'sebeliusancira@gmail.com',
         subject: soldSlugs.length > 1 ? `Sold: ${soldSlugs.length} drawings` : `Sold: ${soldSlugs[0]}`,
-        html:    artistNotificationEmail(emailItems, customerName, customerEmail ?? 'unknown', shippingAddress, amountTotal),
+        html:    artistNotificationEmail(emailItems, customerName, customerEmail ?? 'unknown', shippingAddress, amountTotal, shippingCents, shipping),
     }) });
 
     const results = await Promise.allSettled(emailSends.map((e) => e.send));
