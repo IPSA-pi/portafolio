@@ -159,7 +159,8 @@
             <span class="font-mono text-title text-content">{formatPrice($cartTotal)}</span>
         </div>
         <p class="mt-4 font-body text-body text-content-dim">
-            Every drawing here is a one-of-a-kind original. Shipping is free within Canada.
+            Every drawing here is a one-of-a-kind original, and comes with a free
+            high-resolution digital copy. Shipping is free within Canada.
             Outside Canada? Email <a href={internationalMailto()} class="text-signal underline transition-colors hover:text-signal-strong">{INTERNATIONAL_SALES_EMAIL}</a>.
         </p>
 

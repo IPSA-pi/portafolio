@@ -15,6 +15,8 @@
 		"rename:apply": "node scripts/rename.js --apply",
 		"upload": "node --env-file=.env.local scripts/upload.js",
 		"upload:prod": "node --env-file=.env.local --env-file=.env.prod scripts/upload.js",
+		"upload-masters": "node --env-file=.env.local scripts/upload-masters.js",
+		"upload-masters:prod": "node --env-file=.env.local --env-file=.env.prod scripts/upload-masters.js",
 		"seed": "node --env-file=.env.local scripts/seed.js",
 		"seed:dry": "node --env-file=.env.local scripts/seed.js --dry-run",
 		"seed:prod": "node --env-file=.env.local --env-file=.env.prod scripts/seed.js",

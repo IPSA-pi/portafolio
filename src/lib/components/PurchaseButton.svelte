@@ -126,6 +126,7 @@
             </button>
             <p class="font-mono text-label uppercase text-white/60">Free shipping in Canada</p>
             <a href="{internationalMailto(slug)}" class="pointer-events-auto font-mono text-label text-white/60 underline underline-offset-2 hover:text-white">Outside Canada? Email me</a>
+            <p class="font-mono text-label uppercase text-white/45">Includes the digital file</p>
         {/if}
     </div>
 {/if}

@@ -17,6 +17,10 @@ CREATE TABLE drawings (
     medium           TEXT,                             -- e.g. Ballpoint pen on paper
     width_cm         NUMERIC,                          -- e.g. 7.6
     height_cm        NUMERIC,                          -- e.g. 12.7
+    -- Digital copy. digital_object_path points into the PRIVATE
+    -- `drawings-masters` bucket (never the public one); a row can deliver a
+    -- file iff it is non-null. Written by upload-masters/the owner, not by seed.
+    digital_object_path TEXT,                          -- e.g. 260619/260619_01.png
     sold             BOOLEAN     NOT NULL DEFAULT false,
     reserved         BOOLEAN     NOT NULL DEFAULT false,
     reserved_at      TIMESTAMPTZ,
@@ -227,6 +231,14 @@ ALTER TABLE drawings
     ADD COLUMN IF NOT EXISTS medium    TEXT,
     ADD COLUMN IF NOT EXISTS width_cm  NUMERIC,
     ADD COLUMN IF NOT EXISTS height_cm NUMERIC;
+*/
+
+-- Migration (DBs whose drawings table predates the digital copy, 2026-08-13):
+-- Also kept as a standalone file:
+-- scripts/migrations/2026-08-13-drawings-digital.sql
+/*
+ALTER TABLE drawings
+    ADD COLUMN IF NOT EXISTS digital_object_path TEXT;
 */
 
 -- Migration (DBs created before the redundant slug index was dropped,
