@@ -1,7 +1,7 @@
 <script lang="ts">
     // The licence text is shared with the purchase-confirmation email so the
     // page a buyer can read and the terms they were actually sent cannot drift.
-    import { DIGITAL_LICENSE, DIGITAL_FILE_DESCRIPTION } from '$lib/digitalLicense';
+    import { DIGITAL_LICENSE, DIGITAL_FILE_DESCRIPTION, DIGITAL_SELLER_NOTE } from '$lib/digitalLicense';
 </script>
 
 <svelte:head>
@@ -52,6 +52,9 @@
                 <p class="mt-3 font-body text-body text-content">
                     Every purchase of an original work also includes, at no additional cost, a high-resolution digital copy of that work. See section 5.
                 </p>
+                <p class="mt-3 font-body text-body text-content">
+                    Digital files can also be bought on their own, priced in CAD, by buyers in any country supported by Stripe's Managed Payments. Tax is added at checkout based on the buyer's location, and checkout may display the price in the buyer's local currency. Original works remain available to Canadian addresses only (section 3).
+                </p>
             </div>
 
             <div>
@@ -73,10 +76,13 @@
             <div>
                 <h2 class="text-title text-content">4. Refund and Return Policy</h2>
                 <p class="mt-3 font-body text-body text-content">
-                    <strong>All sales are final.</strong> Because each work is an original, one-of-a-kind piece, returns and exchanges are not accepted.
+                    <strong>All sales of original works are final.</strong> Because each work is an original, one-of-a-kind piece, returns and exchanges are not accepted.
                 </p>
                 <p class="mt-3 font-body text-body text-content">
-                    Digital copies are non-refundable for a different reason: they are delivered immediately on purchase and cannot be returned once downloaded.
+                    The free digital copy that comes with an original is non-refundable for a different reason: it is delivered immediately on purchase and cannot be returned once downloaded.
+                </p>
+                <p class="mt-3 font-body text-body text-content">
+                    Digital files bought on their own are delivered immediately and are non-refundable, except where required by law or where Stripe, which sells digital files as merchant of record (shown as "Sold through Link, LLC" on your receipt), issues a refund under its own policies.
                 </p>
                 <p class="mt-3 font-body text-body text-content">
                     The damage policy below applies to physical works only. If your order arrives visibly damaged due to shipping mishandling, please contact <a href="mailto:sebeliusancira@gmail.com" class="text-signal underline transition-colors hover:text-signal-strong">sebeliusancira@gmail.com</a> within <strong>48 hours of delivery</strong> with photographic documentation of the damage and original packaging. Damage claims submitted outside this window cannot be processed. Verified shipping damage will be resolved at the seller's discretion, which may include a partial refund or replacement arrangement.
@@ -92,7 +98,13 @@
                     A small number of works have no digital copy available. Where that is the case, no download link is included and the purchase price is unaffected.
                 </p>
                 <p class="mt-3 font-body text-body text-content">
+                    A digital file of a work can also be bought on its own, whether or not the original has sold. It is the same file, delivered immediately through a download page linked from the confirmation email. Personal printing is allowed.
+                </p>
+                <p class="mt-3 font-body text-body text-content">
                     Digital copies are licensed, not sold, on these terms: {DIGITAL_LICENSE}
+                </p>
+                <p class="mt-3 font-body text-body text-content">
+                    For commercial licensing, email <a href="mailto:sebeliusancira@gmail.com" class="text-signal underline transition-colors hover:text-signal-strong">sebeliusancira@gmail.com</a>.
                 </p>
             </div>
 
@@ -100,6 +112,9 @@
                 <h2 class="text-title text-content">6. Payment Processing</h2>
                 <p class="mt-3 font-body text-body text-content">
                     Payments are processed by Stripe, Inc. By completing a purchase, you also agree to <a href="https://stripe.com/legal" class="text-signal underline transition-colors hover:text-signal-strong" target="_blank" rel="noopener">Stripe's Terms of Service</a>. Payment card data never passes through or is stored on this site's servers.
+                </p>
+                <p class="mt-3 font-body text-body text-content">
+                    {DIGITAL_SELLER_NOTE} Those purchases are also subject to <a href="https://stripe.com/legal/managed-payments" class="text-signal underline transition-colors hover:text-signal-strong" target="_blank" rel="noopener">Stripe's Managed Payments terms</a>.
                 </p>
             </div>
 

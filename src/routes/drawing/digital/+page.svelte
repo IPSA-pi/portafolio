@@ -2,7 +2,7 @@
     import Seo from '$lib/components/Seo.svelte';
     import PageHeader from '$lib/components/PageHeader.svelte';
     import Notice from '$lib/components/Notice.svelte';
-    import { DIGITAL_LICENSE, DIGITAL_FILE_DESCRIPTION } from '$lib/digitalLicense';
+    import { DIGITAL_LICENSE, DIGITAL_FILE_DESCRIPTION, DIGITAL_SELLER_NOTE } from '$lib/digitalLicense';
 
     // Deliberately inert: no checkout-return handling, no cart writes, no
     // session-status call. A digital purchase reserved nothing and came from
@@ -69,6 +69,7 @@
 
     <h2 class="mt-10 font-mono text-label uppercase text-content-dim">Licence</h2>
     <p class="mt-3 font-body text-body text-content-dim">{DIGITAL_LICENSE}</p>
+    <p class="mt-3 font-body text-meta text-content-dim">{DIGITAL_SELLER_NOTE}</p>
 
     <p class="mt-10 font-body text-body text-content-dim">
         Something wrong with a file? Email

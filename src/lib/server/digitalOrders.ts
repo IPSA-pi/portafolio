@@ -4,7 +4,7 @@ import { getDigitalSlugsFromSession } from '$lib/server/checkoutSlugs';
 import { escapeHtml } from '$lib/server/digitalDelivery';
 import { formatTombstone } from '$lib/utils/artwork';
 import { formatPrice } from '$lib/utils/formatPrice';
-import { DIGITAL_LICENSE, DIGITAL_FILE_DESCRIPTION } from '$lib/digitalLicense';
+import { DIGITAL_LICENSE, DIGITAL_FILE_DESCRIPTION, DIGITAL_SELLER_NOTE } from '$lib/digitalLicense';
 import { SITE_URL } from '$lib/seo';
 import { error } from '@sveltejs/kit';
 
@@ -68,7 +68,7 @@ function buildDigitalCustomerEmail(customerName: string, items: DigitalItem[], d
             ${escapeHtml(DIGITAL_LICENSE)}
           </p>
           <p style="font-size:13px;color:#999;line-height:1.6;margin:0 0 32px;">
-            This email isn't a receipt. Your receipt is sent separately by Link (Stripe), which processes the payment.
+            ${escapeHtml(DIGITAL_SELLER_NOTE)} This email isn't a receipt; your receipt is sent separately by Link (Stripe).
           </p>
           <p style="font-size:16px;color:#444;line-height:1.7;margin:0 0 32px;">
             If you have any questions, reply to this email or reach me at
