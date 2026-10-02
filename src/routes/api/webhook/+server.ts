@@ -1,7 +1,8 @@
 import { getStripe } from '$lib/server/stripe';
 import { getSupabase } from '$lib/server/supabase';
 import { getResend } from '$lib/server/resend';
-import { getSlugsFromSession } from '$lib/server/checkoutSlugs';
+import { getSlugsFromSession, isDigitalSession } from '$lib/server/checkoutSlugs';
+import { fulfillDigitalOrder } from '$lib/server/digitalOrders';
 import { releaseSessionReservations } from '$lib/server/reservations';
 import { formatTombstone } from '$lib/utils/artwork';
 import { escapeHtml, signDownloads, buildDownloadSection, DOWNLOAD_URL_TTL_SECONDS, type EmailItem } from '$lib/server/digitalDelivery';
@@ -366,15 +367,17 @@ export const POST = async ({ request }) => {
         // async_payment_succeeded/failed events below are what actually settle
         // those. Only fulfill here once payment has actually cleared.
         if (session.payment_status === 'paid') {
-            await fulfillOrder(session);
+            await (isDigitalSession(session) ? fulfillDigitalOrder(session) : fulfillOrder(session));
         }
     }
 
     if (event.type === 'checkout.session.async_payment_succeeded') {
         const session = event.data.object as any;
-        await fulfillOrder(session);
+        await (isDigitalSession(session) ? fulfillDigitalOrder(session) : fulfillOrder(session));
     }
 
+    // The two release handlers below need no digital branch: a digital session
+    // carries no `slug`/`slugs` metadata, so releaseSessionReservations no-ops.
     if (event.type === 'checkout.session.async_payment_failed') {
         const session = event.data.object as any;
         await releaseSessionReservations(session);
