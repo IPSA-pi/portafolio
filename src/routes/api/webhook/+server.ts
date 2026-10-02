@@ -298,17 +298,32 @@ async function fulfillOrder(session: any) {
     // overcount revenue N times for an N-item cart. No discounts today, and
     // the shipping fee (a per-order cost passed through to Canada Post) is
     // deliberately left out, so per-item price is the honest allocation.
-    const { error: insertError } = await getSupabase()
+    const orderRows = rows.map(({ slug, price_cents }) => ({
+        drawing_slug: slug,
+        stripe_session_id: session.id,
+        payment_intent: session.payment_intent ?? null,
+        amount_total: price_cents ?? null,
+        customer_name: customerName,
+        customer_email: customerEmail ?? null,
+        shipping_address: shippingAddress ?? null,
+    }));
+    // The shipping option goes on every row of the session (one package),
+    // like shipped_at — it's what /admin/sales shows the owner at the post
+    // office. These two columns are newer than the table
+    // (scripts/migrations/2026-10-02-orders-shipping-method.sql): if a DB
+    // doesn't have them yet, insert again without them rather than lose the
+    // whole order record over a display field.
+    let { error: insertError } = await getSupabase()
         .from('orders')
-        .insert(rows.map(({ slug, price_cents }) => ({
-            drawing_slug: slug,
-            stripe_session_id: session.id,
-            payment_intent: session.payment_intent ?? null,
-            amount_total: price_cents ?? null,
-            customer_name: customerName,
-            customer_email: customerEmail ?? null,
-            shipping_address: shippingAddress ?? null,
+        .insert(orderRows.map((r) => ({
+            ...r,
+            shipping_method: shipping?.id ?? null,
+            shipping_cents: shippingCents,
         })));
+    if (insertError && (insertError.code === 'PGRST204' || insertError.code === '42703')) {
+        console.error('orders.shipping_method / shipping_cents missing — run the 2026-10-02 migration. Inserting without them.');
+        ({ error: insertError } = await getSupabase().from('orders').insert(orderRows));
+    }
 
     // supabase-js does not throw on a DB/PostgREST error — it comes back on
     // the result object — so this must be checked explicitly or a failure

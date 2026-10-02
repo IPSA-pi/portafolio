@@ -174,6 +174,12 @@ CREATE TABLE orders (
     -- session gets the same shipped_at/tracking_number.
     shipped_at         TIMESTAMPTZ,
     tracking_number    TEXT,
+    -- Which shipping option the buyer paid for: a ShippingOption id from
+    -- src/lib/shipping.ts ('free' | 'standard' | 'registered'); NULL = not
+    -- recorded (older orders, in-person, digital). shipping_cents is the fee
+    -- for the whole ORDER, repeated on every row of the session — never sum it.
+    shipping_method    TEXT,
+    shipping_cents     INT,
     -- In-person sales: payment_method records cash/etransfer for booth sales.
     -- NULL = card via Stripe. Paired with stripe_session_id prefixed 'manual_'
     -- for in-person orders; shipped_at is set immediately (handover time).
@@ -223,6 +229,15 @@ ALTER TABLE orders
 /*
 ALTER TABLE orders
     ADD COLUMN payment_method TEXT;
+*/
+
+-- Migration (DBs whose orders table predates the shipping method, 2026-10-02).
+-- Also kept as a standalone file:
+-- scripts/migrations/2026-10-02-orders-shipping-method.sql
+/*
+ALTER TABLE orders
+    ADD COLUMN IF NOT EXISTS shipping_method TEXT,
+    ADD COLUMN IF NOT EXISTS shipping_cents  INT;
 */
 
 -- Migration (DBs whose releases table predates Spotify enrichment, 2026-07-17):

@@ -194,6 +194,15 @@
                         {#if o.address && !o.digital}
                             <div class="mt-2 text-meta text-content-dim">{o.address}</div>
                         {/if}
+                        <!-- What the buyer paid to have it sent. Registered
+                             carries the signal colour: it's the one that
+                             changes what happens at the post office. Absent
+                             on orders from before the method was recorded. -->
+                        {#if o.shippingLabel && !o.digital && !o.manual}
+                            <div class="mt-2 font-mono text-label uppercase {o.shippingTracked ? 'text-signal' : 'text-content-dim'}">
+                                {o.shippingLabel}{o.shippingCents ? ` · ${formatPrice(o.shippingCents)}` : ''}
+                            </div>
+                        {/if}
                         {#if o.digital}
                             <!-- Delivered by email at fulfillment; nothing to ship. -->
                         {:else if o.shippedAt}

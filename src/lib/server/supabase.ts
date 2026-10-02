@@ -76,6 +76,12 @@ export type Order = {
     shipped_at: string | null;
     tracking_number: string | null;
     payment_method: string | null;
+    // The shipping option the buyer paid for (a ShippingOption id from
+    // $lib/shipping) and the fee for the whole order, repeated on every row
+    // of the session. Null when not recorded. Optional in the type as well:
+    // a DB that hasn't run the 2026-10-02 migration returns rows without them.
+    shipping_method?: string | null;
+    shipping_cents?: number | null;
     // 'digital' rows have null shipping_address/shipped_at; amount_total is
     // digital_price_cents, pre-tax. Defaults to 'original' in the DB.
     kind: 'original' | 'digital';
@@ -110,7 +116,8 @@ type Database = {
                 Row: Order;
                 // shipped_at/tracking_number/payment_method/kind stay optional on insert — the
                 // webhook writes order rows without them (unshipped, card payment, kind
-                // defaulting to 'original').
+                // defaulting to 'original'). shipping_method/shipping_cents are optional on
+                // the Order type itself.
                 Insert: Omit<Order, 'id' | 'created_at' | 'shipped_at' | 'tracking_number' | 'payment_method' | 'kind'> &
                     Partial<Pick<Order, 'id' | 'created_at' | 'shipped_at' | 'tracking_number' | 'payment_method' | 'kind'>>;
                 Update: Partial<Omit<Order, 'id'>>;

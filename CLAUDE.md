@@ -163,8 +163,13 @@ It's public (footer link + sitemap entry) — there's no draft gate and no
   pre-selects the picker — a hint, never a block. The webhook recovers the
   chosen option from `session.shipping_cost.amount_total`
   (`shippingOptionForAmount`) for the owner's email ("Shipping" row) and the
-  buyer's tracked/untracked sentence; **`orders` does not store it** (needs a
-  migration), so admin sales doesn't show the method. Copy that must change
+  buyer's tracked/untracked sentence, and stores it on every `orders` row of
+  the session as `shipping_method` (the option id) + `shipping_cents` (the fee
+  for the whole order — never sum it across rows). Those two columns come from
+  `scripts/migrations/2026-10-02-orders-shipping-method.sql`; until a DB has
+  them the webhook's insert retries without them (PGRST204), so the migration
+  can run before or after a deploy. Admin sales shows the method on each order
+  card (registered in the signal colour) and in the CSV. Copy that must change
   with the list or prices: `SHIPS_ABROAD_TO` (same file; `DrawingFacts.svelte`
   on the notebook and All Drawings pages — the viewer's offer rows carry no
   notes), `/terms` §3 (names the countries by hand; fees described, not

@@ -79,6 +79,11 @@ export function shippingOptionForAmount(amountCents: number | null | undefined):
     return [...DOMESTIC, ...INTERNATIONAL].find((o) => o.amountCents === amountCents) ?? null;
 }
 
+/** A stored `orders.shipping_method` back to its option; null if unknown. */
+export function shippingOptionById(id: string | null | undefined): ShippingOption | null {
+    return [...DOMESTIC, ...INTERNATIONAL].find((o) => o.id === id) ?? null;
+}
+
 // English country names from the runtime, so the list above is the only
 // thing to edit. Sorted by name, home country first.
 export function shippingCountryNames(): { code: ShippingCountry; name: string }[] {

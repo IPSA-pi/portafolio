@@ -1,5 +1,6 @@
 import { getSupabase } from '$lib/server/supabase';
 import { STALE_RESERVATION_MS } from '$lib/server/reservations';
+import { shippingOptionById } from '$lib/shipping';
 import type { PageServerLoad } from './$types';
 
 // Owner-only sales & inventory dashboard. Dynamic data — never prerender.
@@ -29,6 +30,14 @@ export type RecentOrder = {
     // taken from whichever row is seen first.
     shippedAt: string | null;
     trackingNumber: string | null;
+    // Which shipping option the buyer paid for, and the fee for the whole
+    // order. Same on every row of a session. Both null when not recorded:
+    // orders from before the columns existed, in-person sales, digital files.
+    // `shippingTracked` is the part the owner acts on — registered mail needs
+    // a tracking number from the counter.
+    shippingLabel: string | null;
+    shippingCents: number | null;
+    shippingTracked: boolean;
     // In-person (booth) sale — stripe_session_id is 'manual_<uuid>', not a
     // real Stripe session. customerName/customerEmail/address are always
     // null/empty for these (see /admin/drawings/sold).
@@ -100,6 +109,11 @@ export const load: PageServerLoad = async () => {
                     amount: 0,
                     shippedAt: o.shipped_at ?? null,
                     trackingNumber: o.tracking_number ?? null,
+                    // A method this code no longer knows (options renamed
+                    // since) still shows, as its raw id.
+                    shippingLabel: shippingOptionById(o.shipping_method)?.label ?? o.shipping_method ?? null,
+                    shippingCents: o.shipping_cents ?? null,
+                    shippingTracked: shippingOptionById(o.shipping_method)?.tracked ?? false,
                     manual: o.stripe_session_id.startsWith('manual_'),
                     paymentMethod: o.payment_method ?? null,
                     digital: o.kind === 'digital',
@@ -210,8 +224,10 @@ function buildOrdersCsv(orders: Array<{
     tracking_number?: string | null;
     payment_method?: string | null;
     kind?: string | null;
+    shipping_method?: string | null;
+    shipping_cents?: number | null;
 }>): string {
-    const header = ['date', 'session_id', 'slug', 'amount_cad', 'customer_name', 'customer_email', 'address', 'shipped_at', 'tracking_number', 'payment_method', 'kind'];
+    const header = ['date', 'session_id', 'slug', 'amount_cad', 'customer_name', 'customer_email', 'address', 'shipped_at', 'tracking_number', 'payment_method', 'kind', 'shipping_method', 'shipping_cad'];
     const rows = orders.map((o) => [
         o.created_at,
         o.stripe_session_id,
@@ -224,6 +240,9 @@ function buildOrdersCsv(orders: Array<{
         o.tracking_number ?? '',
         o.payment_method ?? '',
         o.kind ?? 'original',
+        o.shipping_method ?? '',
+        // Per order, repeated on each of its rows — don't total this column.
+        o.shipping_cents != null ? (o.shipping_cents / 100).toFixed(2) : '',
     ]);
     return [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n');
 }
