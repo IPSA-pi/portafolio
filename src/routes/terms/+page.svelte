@@ -60,10 +60,10 @@
             <div>
                 <h2 class="text-title text-content">3. Order Fulfillment and Shipping</h2>
                 <p class="mt-3 font-body text-body text-content">
-                    Orders are packed and shipped within <strong>3–5 business days</strong> of payment confirmation. A shipping confirmation email with tracking information will be sent to the email address provided at checkout once the order has been dispatched.
+                    Orders are packed and shipped within <strong>3–5 business days</strong> of payment confirmation. A shipping confirmation email will be sent to the email address provided at checkout once the order has been dispatched, with a tracking number where the chosen shipping service provides one.
                 </p>
                 <p class="mt-3 font-body text-body text-content">
-                    Online orders ship to Canadian addresses only. International purchases are arranged by email at <a href="mailto:iansebelius@gmail.com" class="text-signal underline transition-colors hover:text-signal-strong">iansebelius@gmail.com</a>.
+                    Shipping within Canada is free. Online orders also ship to the United States, Japan, the European Union, the United Kingdom, Switzerland, Norway, Iceland and Liechtenstein, and to Mexico, Argentina, Brazil, Chile, Colombia, Costa Rica, Ecuador, Panama, Peru and Uruguay, for a flat fee per order shown before payment: standard international mail, which is not tracked, or registered mail with a tracking number at a higher fee. Any import duties, taxes or customs fees charged by the destination country are the buyer's responsibility. Purchases from anywhere else are arranged by email at <a href="mailto:iansebelius@gmail.com" class="text-signal underline transition-colors hover:text-signal-strong">iansebelius@gmail.com</a>.
                 </p>
                 <p class="mt-3 font-body text-body text-content">
                     Delivery timeframes vary by destination and carrier. The seller is not liable for delays caused by postal carriers, customs processing, or circumstances outside its control. Risk of loss passes to the buyer upon handoff to the carrier.

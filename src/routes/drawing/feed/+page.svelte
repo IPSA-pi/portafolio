@@ -3,6 +3,7 @@
     import Gallery from '$lib/components/Gallery.svelte';
     import Seo from '$lib/components/Seo.svelte';
     import PageHeader from '$lib/components/PageHeader.svelte';
+    import DrawingFacts from '$lib/components/DrawingFacts.svelte';
     import { chronologyKey } from '$lib/utils/chronology';
     import { seededShuffle } from '$lib/utils/shuffle';
     import { viewerOpen } from '$lib/stores/viewer';
@@ -133,6 +134,12 @@
             Every page from every notebook, in one view. Sort it, shuffle it, or narrow
             it to what's still available.
         </PageHeader>
+
+        <!-- Describes what's on screen, like the bit-rule: filter down to a
+             set that doesn't share a size and that part drops out. -->
+        <div class="mb-6">
+            <DrawingFacts images={visible} />
+        </div>
 
         <!-- View toggle: Notebooks ⇄ All Drawings (this page) -->
         <div class="mt-2 mb-6 inline-flex border border-line/15">

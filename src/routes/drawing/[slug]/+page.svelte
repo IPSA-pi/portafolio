@@ -5,6 +5,7 @@
     import Gallery from "$lib/components/Gallery.svelte";
     import Seo from "$lib/components/Seo.svelte";
     import PageHeader from "$lib/components/PageHeader.svelte";
+    import DrawingFacts from "$lib/components/DrawingFacts.svelte";
     import Notice from "$lib/components/Notice.svelte";
     import { removeFromCart } from "$lib/stores/cart";
     import { handleCheckoutReturn, clearPendingCheckout } from "$lib/utils/checkoutReturn";
@@ -75,6 +76,8 @@
         Every page below is the original — one of one. Open any page to see it full
         size, with its price and availability.
     </PageHeader>
+
+    <DrawingFacts images={data.images} />
 
     <div class="mt-8">
         <Gallery images={data.images} notebookSlug={data.slug} />

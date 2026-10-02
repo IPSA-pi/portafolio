@@ -143,12 +143,32 @@ It's public (footer link + sitemap entry) — there's no draft gate and no
   time — so a stale/replayed session id can never release a *different*,
   newer buyer's live hold, and a paid session's reservation is never
   released by the cancel endpoint
-- **Shipping:** online checkout is **Canada-only** (`allowed_countries:
-  ['CA']`, owner decision 2026-09-14). Buyers elsewhere email
-  `INTERNATIONAL_SALES_EMAIL` from `src/lib/shipping.ts` (the one place the
-  address lives; `internationalMailto(slug?)` builds the link). Copy that must
-  change with the country list: Feed + PurchaseButton captions, the cart
-  sentence, `/terms` §3
+- **Shipping:** everything lives in `src/lib/shipping.ts`, shared by client
+  and server. Online checkout ships to `SHIPPING_COUNTRIES` — Canada, the US,
+  Japan, the EU 27 + UK/EFTA, and ten Latin American countries (owner decision
+  2026-10-02; Canada-only before that). **Canada is free; everywhere else is a
+  flat fee per order**: $10 standard (untracked) or $35 registered (tracking
+  number), set from Canada Post letter-post rates checked 2026-10-02 ($8.60
+  oversize ≤100 g international, $4.29 US, +$26.25 registered). The buyer
+  picks the **country before Stripe** (`ShipToPicker.svelte`: inline on
+  `/cart`, in a dialog on the viewer's Buy button; state in
+  `stores/shipTo.ts`, localStorage `shipto:v1`), because hosted Checkout can't
+  reprice shipping after an address is typed. `/api/checkout` requires
+  `country` (400 `reason: 'country'` before anything is reserved), locks the
+  session to it (`allowed_countries: [country]`) and attaches
+  `shippingOptionsFor(country)` as `shipping_options`; the buyer chooses
+  standard vs registered at Stripe. "Somewhere else" swaps the pay button for
+  `internationalMailto(slugs)` (prefilled with the drawings). `/api/geo`
+  (Cloudflare's country, `no-store`, never in cached page data) only
+  pre-selects the picker — a hint, never a block. The webhook recovers the
+  chosen option from `session.shipping_cost.amount_total`
+  (`shippingOptionForAmount`) for the owner's email ("Shipping" row) and the
+  buyer's tracked/untracked sentence; **`orders` does not store it** (needs a
+  migration), so admin sales doesn't show the method. Copy that must change
+  with the list or prices: `SHIPS_ABROAD_TO` (same file; `DrawingFacts.svelte`
+  on the notebook and All Drawings pages — the viewer's offer rows carry no
+  notes), `/terms` §3 (names the countries by hand; fees described, not
+  quoted), and the unused full variant of `PurchaseButton`
 - **Metadata contract — two disjoint key sets.** Physical sessions:
   `metadata.slugs` is the JSON-encoded array of every slug in the session
   (what a cart checkout actually needs); `metadata.slug` is kept as the first
@@ -261,7 +281,7 @@ digital_price_cents > 0`. Derived, never stored — do not add a boolean.
 `digitalListing(row)` in `src/lib/server/digital.ts` is the only place the rule
 lives, and it never returns the path. Listing is independent of `sold` /
 `reserved`: the file sells whether or not the original has. Gallery: the
-"Digital file · $X" button in `PurchaseButton` (an entry exists when the
+"Digital file" row in `PurchaseButton` (button "Get · $X"; an entry exists when the
 original is priced **or** the file is listed; cart, shipping captions and the
 Available/Sold filter key off the *original* being priced). The button never
 touches the cart or `setPendingCheckout` — **the cart skips digital**.

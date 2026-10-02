@@ -1,6 +1,7 @@
 import { getStripe } from '$lib/server/stripe';
 import { getSupabase } from '$lib/server/supabase';
 import { STALE_RESERVATION_MS } from '$lib/server/reservations';
+import { isShippingCountry, shippingOptionsFor } from '$lib/shipping';
 import { json } from '@sveltejs/kit';
 
 const MAX_ITEMS = 20;
@@ -33,6 +34,16 @@ export const POST = async ({ request, url }) => {
             return json({ error: `Provide between 1 and ${MAX_ITEMS} drawing slugs` }, { status: 400 });
         }
         const notebookSlug: string | undefined = body.notebookSlug;
+
+        // Where it ships — chosen in the ship-to selector before checkout.
+        // Checked before anything is reserved. The session below is locked to
+        // this one country, so the shipping price shown to the buyer is the
+        // price for the address Stripe will actually accept.
+        const country: unknown = body.country;
+        if (!isShippingCountry(country)) {
+            return json({ error: 'Choose where to ship the order.', reason: 'country' }, { status: 400 });
+        }
+        const shippingOptions = shippingOptionsFor(country);
 
         // A single drawing bought with its notebook context keeps the existing
         // per-notebook success/cancel URLs; everything else (multi-item carts,
@@ -121,13 +132,22 @@ export const POST = async ({ request, url }) => {
                     ...(notebookSlug ? { notebookSlug } : {}),
                 },
                 client_reference_id:  drawingSlugs[0],
+                // One country, not the whole list: hosted Checkout can't
+                // reprice shipping once an address is typed, so the country
+                // is fixed up front and the options below are the ones for
+                // it. The list and the prices live in $lib/shipping, beside
+                // the copy that quotes them.
                 shipping_address_collection: {
-                    // Canada only. Keep in sync with the copy that says so:
-                    // Feed.svelte + PurchaseButton.svelte captions, the cart
-                    // page sentence, and /terms §3 (all point international
-                    // buyers at $lib/shipping's email).
-                    allowed_countries: ['CA'],
+                    allowed_countries: [country],
                 },
+                // The buyer picks one at Checkout; Stripe preselects the first.
+                shipping_options: shippingOptions.map((o) => ({
+                    shipping_rate_data: {
+                        type: 'fixed_amount' as const,
+                        display_name: o.label,
+                        fixed_amount: { amount: o.amountCents, currency: 'cad' },
+                    },
+                })),
                 expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
             });
         } catch (stripeErr) {
