@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { internationalMailto } from '$lib/shipping';
     import { goto, replaceState, invalidateAll } from '$app/navigation';
     import { page } from '$app/stores';
     import { untrack } from 'svelte';
@@ -508,7 +509,8 @@
          collapsing to nothing. -->
     <div class="ml-auto flex-none flex flex-col items-end gap-1 sm:ml-0" style="min-width: 2.75rem;">
         {#if isPurchasable && !isAdmin}
-            <p class="pointer-events-none select-none font-mono text-label uppercase text-white/60">Free worldwide shipping</p>
+            <p class="pointer-events-none select-none font-mono text-label uppercase text-white/60">Free shipping in Canada</p>
+            <a href="{internationalMailto(currentImage?.slug)}" class="pointer-events-auto font-mono text-label text-white/60 underline underline-offset-2 hover:text-white">Outside Canada? Email me</a>
         {:else if isAdmin && currentProduct && !currentProduct.sold}
             <!-- Same state language as PurchaseButton's compact variant:
                  available carries phosphor, on-hold withholds it. Sold needs no
