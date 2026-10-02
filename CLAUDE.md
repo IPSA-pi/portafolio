@@ -381,7 +381,9 @@ Safety rules:
   passes only fill still-null availability columns.
 
 `scripts/sources/` contains scraper source modules — one file per source:
-`ra.js` (Resident Advisor GraphQL), `nodata.js` (nodata.tv RSS).
+`ra.js` (Resident Advisor GraphQL), `nodata.js` (nodata.tv RSS), `boomkat.js`
+(Boomkat RSS, electronic-genre allowlist — its HTML pages are
+challenge-protected and must not be scraped).
 
 A daily GitHub Actions workflow (`.github/workflows/scrape-music.yml`) runs
 `scrape` + `enrich` + `enrich:spotify` + `enrich:apple` at 13:00 UTC against

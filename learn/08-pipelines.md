@@ -66,7 +66,7 @@ merge the `sources` list and fill a missing `release_year`).
 
 ## One bad source shouldn't kill the run
 
-Each scrape source is a module (`scripts/sources/ra.js`, `nodata.js`) with the same interface,
+Each scrape source is a module (`scripts/sources/ra.js`, `nodata.js`, `boomkat.js`) with the same interface,
 and each is fetched inside its own `try/catch`:
 
 ```js

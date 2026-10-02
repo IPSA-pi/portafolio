@@ -365,7 +365,7 @@ Needs `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`. All slugs are format-validat
 
 ### `scrape-music.js` — pull new releases into the `releases` table
 
-Fetches releases from every source module in `scripts/sources/`, dedupes across sources on `dedupe_key` (`lower(artist)|lower(title)`), and inserts. Insert-only: conflicts on `dedupe_key` are ignored, so existing rows — including the owner's manually-set `status` — are never overwritten. Re-runs only add new releases, merge the `sources` array, and fill a missing `release_year` on existing rows.
+Fetches releases from every source module in `scripts/sources/` (nodata.tv, Resident Advisor, Boomkat), dedupes across sources on `dedupe_key` (`lower(artist)|lower(title)`), and inserts. Insert-only: conflicts on `dedupe_key` are ignored, so existing rows — including the owner's manually-set `status` — are never overwritten. Re-runs only add new releases, merge the `sources` array, and fill a missing `release_year` on existing rows.
 
 ```sh
 npm run scrape:dry   # fetch + preview only — needs no env vars at all
@@ -375,9 +375,11 @@ npm run scrape:prod  # prod — what the daily CI job effectively does
 
 Needs `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (not for `--dry-run`, which exits before connecting). A failing source is logged and skipped; the others still run — so one site being down doesn't kill the daily scrape.
 
+**Boomkat** is read from its RSS feed only (`/new-releases.rss`, 6 pages) — its HTML pages sit behind a bot challenge and must not be scraped. The feed is broad, so `scripts/sources/boomkat.js` keeps only the genres in its `GENRE_ALLOWLIST` constant (electronic-leaning; the owner's decision, edit the `Set` at the top of that file to change it). Anything else, or an item with no genre, is dropped, and one log line tallies the drops by genre — e.g. `boomkat.com: dropped 112 — Indie / Alternative 41, Jazz 11, (none) 3, …` — so a new feed genre shows up in the CI log instead of vanishing. Boomkat is listed last in `SOURCES`, so on a release also found on nodata/RA their richer metadata (catalogue number, year) wins the merge; Boomkat rows carry no `release_year` or `catalog_no`.
+
 ### `enrich-music.js` — Tidal availability pre-check
 
-Stage 2 of the music pipeline: searches Tidal for each unchecked release (`tidal_available IS NULL`) and writes `tidal_available` + `tidal_album_url` (`tidal_track_id` is reserved for a future playlist stage). Also re-checks releases marked unavailable within the last 45 days (by `released_at`, falling back to `created_at` when the source gave no date) — sources announce ahead of street dates, so early misses get another look; older misses stay settled, keeping re-runs cheap.
+Stage 2 of the music pipeline: searches Tidal for each unchecked release (`tidal_available IS NULL`) and writes `tidal_available` + `tidal_album_url` (`tidal_track_id` is reserved for a future playlist stage). Also re-checks releases marked unavailable within the last 45 days (by `released_at`, falling back to `created_at` when the source gave no date) — sources announce ahead of street dates, so early misses get another look; older misses stay settled, keeping re-runs cheap. Never-checked rows are always taken first (newest first); re-checks only fill whatever room is left under `--limit`, oldest-touched first (`scripts/enrich-rows.js`, shared by all three passes).
 
 ```sh
 npm run enrich                       # dev
@@ -419,7 +421,8 @@ One caveat worth knowing before trusting a ✗: the Search API covers the **iTun
 ### Supporting modules
 
 - `db-target.js` — prints the `Supabase target: <ref> [<label>]` line; imported by every script above.
-- `sources/` — one module per scrape source (`ra.js` — Resident Advisor GraphQL, `nodata.js` — nodata.tv RSS). Each exports `fetch()` returning normalized release objects; to add a source, write a module and list it in `SOURCES` in `scrape-music.js`.
+- `sources/` — one module per scrape source (`ra.js` — Resident Advisor GraphQL, `nodata.js` — nodata.tv RSS, `boomkat.js` — Boomkat RSS with a genre allowlist). `sources/rss.js` holds the RSS helpers (`clean`, `tag`, `tagAll`) shared by `nodata.js` and `boomkat.js`. Each exports `fetch()` returning normalized release objects; to add a source, write a module and list it in `SOURCES` in `scrape-music.js`.
+- `enrich-rows.js` — `loadRowsToCheck`, the row selection for the Tidal, Spotify and Apple passes: never-checked first, then re-checks.
 - `tidal-client.js` / `spotify-client.js` — minimal catalog-search clients: client-credentials auth with token caching, 429 retry, and conservative title matching.
 - `apple-client.js` — the same, over the public iTunes Search API: no auth, bounded 403/429 backoff.
 - `match.js` — the shared title/artist matching rules (Unicode + accent-folding normalization, whole-token containment, artist-joiner splitting), used by all three catalog clients. A candidate has to match the release title *and* be credited to the artist we're looking for; every rule in there fixes a specific false match seen in the wild.
@@ -479,7 +482,7 @@ scripts/                      # Data-pipeline scripts — see the section above
   enrich-music.js             # Tidal availability pre-check
   enrich-spotify.js           # Spotify availability pre-check
   db-target.js                # Prints "Supabase target: ref [LABEL]" at startup
-  sources/                    # Scraper source modules (ra.js, nodata.js)
+  sources/                    # Scraper source modules (ra.js, nodata.js, boomkat.js, rss.js)
   schema.sql                  # Supabase DDL: drawings, releases, orders + pg_cron sweep
 learn/                        # Learn-section chapters (one .md per chapter) — see LEARN.md
 ```
