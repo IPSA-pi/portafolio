@@ -12,7 +12,9 @@
 
     interface Props {
         images: ArtworkImage[];
-        products: Record<string, { priceId: string; price: number; sold: boolean; reserved: boolean }>;
+        // An entry exists when the original is priced OR its digital file is
+        // listed, so the original's half (priceId / price) can be null.
+        products: Record<string, { priceId: string | null; price: number | null; sold: boolean; reserved: boolean; digitalPrice: number | null }>;
         startIndex: number;
         notebookSlug: string;
         // 'notebook' = single-notebook viewer (per-image URL); 'all' = the random
@@ -65,19 +67,24 @@
 
     let currentImage = $derived(images[currentIndex]);
     let currentProduct = $derived(currentImage ? products[currentImage.slug] : undefined);
-    let isPurchasable = $derived(!!currentProduct && !currentProduct.sold && !currentProduct.reserved);
+    // Everything about the *original* — cart, Buy, shipping captions, the
+    // owner's booth controls — keys off this rather than off the entry
+    // existing: a digital-only entry has no original for sale.
+    let originalPrice = $derived(currentProduct?.priceId ? currentProduct.price : null);
+    let isPurchasable = $derived(!!currentProduct && originalPrice !== null && !currentProduct.sold && !currentProduct.reserved);
+    let digitalListed = $derived(currentProduct?.digitalPrice != null);
     let inCart = $derived(!!currentImage && $cartItems.some((i) => i.slug === currentImage.slug));
 
     let cartFullMessage = $state<string | null>(null);
     let cartFullTimeout: ReturnType<typeof setTimeout> | undefined;
 
     function toggleCart() {
-        if (!currentImage || !currentProduct) return;
+        if (!currentImage || originalPrice === null) return;
         if (inCart) {
             removeFromCart(currentImage.slug);
             return;
         }
-        const added = addToCart({ slug: currentImage.slug, notebook: currentImage.notebook ?? notebookSlug, price: currentProduct.price, image: currentImage.sm });
+        const added = addToCart({ slug: currentImage.slug, notebook: currentImage.notebook ?? notebookSlug, price: originalPrice, image: currentImage.sm });
         if (!added) {
             cartFullMessage = `Cart is full (${MAX_CART_ITEMS} max)`;
             clearTimeout(cartFullTimeout);
@@ -86,8 +93,9 @@
     }
 
     // Booth "mark sold" / undo — owner-only, in-person cash/e-transfer sales
-    // (see /admin/drawings/sold). Gated on currentProduct like PurchaseButton
-    // itself: only listed (priced) drawings have a products entry.
+    // (see /admin/drawings/sold). Gated on originalPrice: only drawings whose
+    // original is priced get the controls, as before digital-only entries
+    // existed.
     let isAdmin = $derived(Boolean($page.data.isAdmin));
     let ownerToast = $state<'none' | 'choose-method' | 'confirm-undo' | 'confirm-force'>('none');
     let ownerBusy = $state(false);
@@ -510,8 +518,17 @@
     <div class="ml-auto flex-none flex flex-col items-end gap-1 sm:ml-0" style="min-width: 2.75rem;">
         {#if isPurchasable && !isAdmin}
             <p class="pointer-events-none select-none font-mono text-label uppercase text-white/60">Free shipping in Canada</p>
-            <a href="{internationalMailto(currentImage?.slug)}" class="pointer-events-auto font-mono text-label text-white/60 underline underline-offset-2 hover:text-white">Outside Canada? Email me</a>
-        {:else if isAdmin && currentProduct && !currentProduct.sold}
+            <!-- Where the file is listed it's the first answer for a buyer
+                 abroad (it sells worldwide); the email route stays for the
+                 original itself. -->
+            {#if digitalListed}
+                <!-- w-0 + min-w-full below sm: wrap to the buttons' width
+                     rather than widen the bar past a portrait phone. -->
+                <p class="w-0 min-w-full text-right font-mono text-label leading-snug text-white/60 sm:w-auto sm:min-w-0 sm:max-w-[20rem]">Outside Canada? Get the digital file, or <a href="{internationalMailto(currentImage?.slug)}" class="pointer-events-auto underline underline-offset-2 hover:text-white">email me</a> for the original</p>
+            {:else}
+                <a href="{internationalMailto(currentImage?.slug)}" class="pointer-events-auto font-mono text-label text-white/60 underline underline-offset-2 hover:text-white">Outside Canada? Email me</a>
+            {/if}
+        {:else if isAdmin && currentProduct && originalPrice !== null && !currentProduct.sold}
             <!-- Same state language as PurchaseButton's compact variant:
                  available carries phosphor, on-hold withholds it. Sold needs no
                  label — the undo button below it already says "Sold". -->
@@ -520,38 +537,16 @@
                     class="select-none font-mono text-label uppercase text-white/70"
                     title="In someone's online checkout right now"
                 >On hold</p>
-            {:else if currentProduct.priceId}
-                <p class="pointer-events-none select-none font-mono text-label uppercase text-accent">{formatPrice(currentProduct.price)}</p>
+            {:else}
+                <p class="pointer-events-none select-none font-mono text-label uppercase text-accent">{formatPrice(originalPrice)}</p>
             {/if}
         {/if}
         <div class="flex items-center gap-2">
-            {#if isPurchasable && !isAdmin}
-                <!-- Icon-only: the words "Add to cart" plus "Buy · $XX" beside
-                     them overflowed a portrait phone, clipping the price. The
-                     sign carries the action (＋ add / − remove) and the accent
-                     colour carries the state (in cart), so the label lives in
-                     aria-label / title rather than on screen. -->
-                <button
-                    onclick={toggleCart}
-                    class="flex items-center gap-1 px-3 py-2 backdrop-blur-sm transition-all active:scale-95 {inCart
-                        ? 'border border-accent text-accent'
-                        : 'border border-white/20 text-white hover:border-white/50'}"
-                    aria-label={inCart ? 'Remove from cart' : 'Add to cart'}
-                    title={inCart ? 'Remove from cart' : 'Add to cart'}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
-                        {#if inCart}
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" />
-                        {:else}
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
-                        {/if}
-                    </svg>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.836l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 1.994-4.693 2.602-7.152.084-.34-.16-.68-.508-.68H5.106M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
-                    </svg>
-                </button>
-            {/if}
             {#if currentImage && currentProduct && !isAdmin}
+                <!-- The cart button rides in as `leading` so it stays beside
+                     Buy: PurchaseButton stacks the digital button under that
+                     pair. It belongs to the original, so it only renders when
+                     the original is purchasable. -->
                 <PurchaseButton
                     priceId={currentProduct.priceId}
                     price={currentProduct.price}
@@ -559,10 +554,40 @@
                     notebookSlug={currentImage.notebook ?? notebookSlug}
                     sold={currentProduct.sold}
                     reserved={currentProduct.reserved}
+                    digitalPrice={currentProduct.digitalPrice}
                     compact
-                />
+                >
+                    {#snippet leading()}
+                        {#if isPurchasable}
+                            <!-- Icon-only: the words "Add to cart" plus "Buy · $XX" beside
+                                 them overflowed a portrait phone, clipping the price. The
+                                 sign carries the action (＋ add / − remove) and the accent
+                                 colour carries the state (in cart), so the label lives in
+                                 aria-label / title rather than on screen. -->
+                            <button
+                                onclick={toggleCart}
+                                class="flex items-center gap-1 px-3 py-2 backdrop-blur-sm transition-all active:scale-95 {inCart
+                                    ? 'border border-accent text-accent'
+                                    : 'border border-white/20 text-white hover:border-white/50'}"
+                                aria-label={inCart ? 'Remove from cart' : 'Add to cart'}
+                                title={inCart ? 'Remove from cart' : 'Add to cart'}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                                    {#if inCart}
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" />
+                                    {:else}
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
+                                    {/if}
+                                </svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.836l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 1.994-4.693 2.602-7.152.084-.34-.16-.68-.508-.68H5.106M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+                                </svg>
+                            </button>
+                        {/if}
+                    {/snippet}
+                </PurchaseButton>
             {/if}
-            {#if isAdmin && currentImage && currentProduct}
+            {#if isAdmin && currentImage && currentProduct && originalPrice !== null}
                 {#if currentProduct.sold}
                     <button
                         onclick={() => (ownerToast = 'confirm-undo')}
