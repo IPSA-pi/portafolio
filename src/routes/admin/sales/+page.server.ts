@@ -79,7 +79,9 @@ export const load: PageServerLoad = async () => {
         }
 
         const orderCount = sessions.size;
-        const unitsSold = orders.length;
+        // The tile says "N drawings sold": a digital file is a row here but not
+        // a drawing sold, and the same file can sell any number of times.
+        const unitsSold = orders.filter((o) => o.kind !== 'digital').length;
         const avgOrderValue = orderCount > 0 ? Math.round(totalRevenue / orderCount) : 0;
 
         // ── Recent orders, grouped by session (one card = one checkout) ───

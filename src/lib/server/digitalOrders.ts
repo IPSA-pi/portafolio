@@ -200,6 +200,13 @@ export async function fulfillDigitalOrder(session: any) {
     // Here the orders row IS the record (and what the download page reads), and
     // nothing else has happened yet: no email has gone out. A 500 makes Stripe
     // retry, and the retry starts from a clean slate.
+    //
+    // Known gap: if the insert committed but its response was lost (a timeout
+    // comes back here as `insertError`), the retry finds the rows already
+    // there and returns below without mailing. Telling that apart from a real
+    // replay needs a delivery marker on the row; until one exists the buyer
+    // still has the success redirect and Link's receipt, and the order shows
+    // in /admin/sales.
     if (insertError) {
         console.error(`Error inserting digital order records for ${slugs.join(', ')}:`, insertError);
         throw error(500, 'Failed to record digital sale');
@@ -219,16 +226,24 @@ export async function fulfillDigitalOrder(session: any) {
     // From here on the sale is committed and a retry would be a silent replay,
     // so — as in the physical path — a failed send is logged for manual
     // follow-up, never thrown. Labelled so the log names which email was lost.
+    //
+    // getResend() itself throws when RESEND_API_KEY is unset. Called inside an
+    // async function so that becomes a rejected send — logged below with its
+    // label — rather than a 500 after the insert, which Stripe would retry
+    // into the "already fulfilled" branch above: no email and no log line.
+    type EmailPayload = Parameters<ReturnType<typeof getResend>['emails']['send']>[0];
+    const sendEmail = async (payload: EmailPayload) => getResend().emails.send(payload);
+
     const emailSends: { label: string; send: Promise<{ error: unknown }> }[] = [];
     if (customerEmail) {
-        emailSends.push({ label: 'digital customer confirmation', send: getResend().emails.send({
+        emailSends.push({ label: 'digital customer confirmation', send: sendEmail({
             from:    'Ian Sebelius <no-reply@iansebelius.com>',
             to:      customerEmail,
             subject: fulfilled.length > 1 ? `Your digital files (${fulfilled.length})` : `Your digital file — ${fulfilled[0].title}`,
             html:    buildDigitalCustomerEmail(customerName, fulfilled, downloadPageUrl(session)),
         }) });
     }
-    emailSends.push({ label: 'digital artist notification', send: getResend().emails.send({
+    emailSends.push({ label: 'digital artist notification', send: sendEmail({
         from:    'Store <no-reply@iansebelius.com>',
         to:      'sebeliusancira@gmail.com',
         subject: fulfilled.length > 1 ? `Sold: ${fulfilled.length} digital files` : `Sold: digital file ${fulfilledSlugs[0]}`,
