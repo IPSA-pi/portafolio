@@ -1,7 +1,15 @@
 <script lang="ts">
+    import { untrack } from 'svelte';
+    import { get } from 'svelte/store';
     import { SvelteSet } from 'svelte/reactivity';
     import Seo from '$lib/components/Seo.svelte';
     import type { Release, ReleaseStatus } from '$lib/server/supabase';
+    import {
+        RELEASE_SOURCES,
+        type ReleaseCursor,
+        type ReleaseFilters,
+        type ReleasePage
+    } from '$lib/newMusic';
     import {
         musicWorklist,
         setVisitorStatus,
@@ -22,6 +30,13 @@
     // Local mutable copy so status changes update the UI optimistically.
     // svelte-ignore state_referenced_locally
     let releases = $state<Release[]>(data.releases);
+    // svelte-ignore state_referenced_locally
+    let nextCursor = $state<ReleaseCursor | null>(data.nextCursor);
+    // svelte-ignore state_referenced_locally
+    let total = $state<number>(data.total ?? data.releases.length);
+    let loading = $state(false);
+    // The failed request's kind, so Retry repeats it (null = no error).
+    let loadError = $state<'append' | 'reload' | null>(null);
 
     let statusFilter = $state<string>('all');
     let sourceFilter = $state<'all' | string>('all');
@@ -60,7 +75,73 @@
         return $musicWorklist[id] ?? 'unheard';
     }
 
-    let sources = $derived([...new Set(releases.flatMap((r) => r.sources ?? [r.source]))].sort());
+    // Most rows aren't loaded, so the known sources come from the constant;
+    // loaded rows only add one it doesn't list yet.
+    let sources = $derived(
+        [...new Set([...RELEASE_SOURCES, ...releases.flatMap((r) => r.sources ?? [r.source])])].sort()
+    );
+
+    let filtersActive = $derived(
+        statusFilter !== 'all' || sourceFilter !== 'all' || availableOnly || spotifyOnly || appleOnly
+    );
+
+    // The list is paged on the server (POST /api/new-music), and filters run
+    // there too, so a filter finds old rows that were never paged in. The
+    // client-side `filtered` below still applies on top: it hides a row the
+    // moment its status changes away from the current filter, and it is the
+    // whole of a visitor's "unheard" filter (pages arrive unfiltered by it).
+    function requestBody(cursor: ReleaseCursor | null) {
+        const filters: ReleaseFilters = {};
+        if (isAdmin && statusFilter !== 'all') filters.status = statusFilter;
+        if (sourceFilter !== 'all') filters.source = sourceFilter;
+        if (availableOnly) filters.tidal = true;
+        if (spotifyOnly) filters.spotify = true;
+        if (appleOnly) filters.apple = true;
+        // A visitor's statuses exist only in this browser: send the ids.
+        const ids =
+            !isAdmin && statusFilter !== 'all' && statusFilter !== 'unheard'
+                ? Object.entries(get(musicWorklist))
+                      .filter(([, s]) => s === statusFilter)
+                      .map(([id]) => id)
+                : undefined;
+        return { filters, cursor, ids };
+    }
+
+    let requestSeq = 0;
+    async function fetchPage(append: boolean) {
+        const seq = ++requestSeq;
+        loading = true;
+        loadError = null;
+        try {
+            const res = await fetch('/api/new-music', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(requestBody(append ? nextCursor : null))
+            });
+            if (!res.ok) throw new Error(`status ${res.status}`);
+            const page: ReleasePage<Release> = await res.json();
+            if (seq !== requestSeq) return; // a newer filter change won
+            releases = append ? [...releases, ...page.releases] : page.releases;
+            nextCursor = page.nextCursor;
+            if (page.total !== null) total = page.total;
+        } catch {
+            if (seq === requestSeq) loadError = append ? 'append' : 'reload';
+        } finally {
+            if (seq === requestSeq) loading = false;
+        }
+    }
+
+    // Refetch page one on any filter change. The first run is the server-
+    // rendered page, which is already the unfiltered first page.
+    let firstRun = true;
+    $effect(() => {
+        void [statusFilter, sourceFilter, availableOnly, spotifyOnly, appleOnly];
+        if (firstRun) {
+            firstRun = false;
+            return;
+        }
+        untrack(() => fetchPage(false));
+    });
 
     let filtered = $derived(
         releases.filter((r) => {
@@ -193,7 +274,7 @@
             <div>
                 <h1 class="text-display text-content">New Music</h1>
                 <p class="mt-2 font-mono text-label uppercase text-content-dim">
-                    {filtered.length} of {releases.length} releases
+                    {filtered.length} of {total} releases
                 </p>
             </div>
 
@@ -297,7 +378,9 @@
         <!-- List -->
         {#if filtered.length === 0}
             <p class="py-16 text-center font-body text-body text-content-dim">
-                {#if releases.length === 0}
+                {#if loading}
+                    Loading…
+                {:else if releases.length === 0 && !filtersActive}
                     No releases. Run <code class="font-mono">npm run scrape</code> to populate.
                 {:else}
                     No releases match these filters.
@@ -449,6 +532,28 @@
                     </li>
                 {/each}
             </ul>
+        {/if}
+
+        {#if loadError}
+            <p class="mt-4 text-center font-mono text-label uppercase text-content-dim" aria-live="polite">
+                Couldn't load releases.
+                <button
+                    onclick={() => fetchPage(loadError === 'append')}
+                    class="underline underline-offset-2 transition-colors hover:text-signal"
+                >
+                    Retry
+                </button>
+            </p>
+        {:else if nextCursor}
+            <div class="mt-4 flex justify-center">
+                <button
+                    onclick={() => fetchPage(true)}
+                    disabled={loading}
+                    class="border border-line/15 px-4 py-2 font-mono text-label uppercase text-content transition-colors hover:border-signal hover:text-signal disabled:opacity-50"
+                >
+                    {loading ? 'Loading…' : 'Load more'}
+                </button>
+            </div>
         {/if}
     </div>
 </div>

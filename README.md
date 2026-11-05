@@ -450,6 +450,7 @@ src/
     video/                    # Video section
     api/
       checkout/               # Stripe checkout session creation (1–20 drawings)
+      new-music/              # POST: paged, filtered /new-music reads (public)
         cancel/               # Best-effort reservation release on back-out
         session-status/       # Public { paid, slugs } lookup for a session
         digital/              # Managed Payments session for the paid digital file
