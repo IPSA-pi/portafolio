@@ -88,6 +88,15 @@ The public read surface is separate:
   list and mark items "heard" (persisted in `localStorage`, per-browser). The
   owner additionally sees editing controls and the full list including
   `dismissed`/`unavailable` items, gated on `data.isAdmin` in the page.
+- **Paging:** the page server-renders the newest 200 rows; "Load more" and
+  every filter go through `POST /api/new-music`. Both use `queryReleases` in
+  `src/lib/server/releases.ts`, the one place the public visibility rule
+  (no `dismissed`/`unavailable` unless `locals.isAdmin`) lives. It uses keyset
+  paging on `created_at DESC, id DESC`, because a scrape batch shares one
+  `created_at`. Filters run on the server so they reach unloaded rows. A
+  visitor's status filter sends its localStorage ids, except "unheard", which
+  stays client-side over the loaded pages. The source dropdown comes from
+  `RELEASE_SOURCES` in `src/lib/newMusic.ts`: add a new scraper source there.
 
 ## Contact page — `/contact`
 
